@@ -1,6 +1,7 @@
 use std::io;
 
 pub struct IndentPrinter {
+    newline: bool,
     indent: String,
     content: String,
 }
@@ -8,24 +9,40 @@ pub struct IndentPrinter {
 impl IndentPrinter {
     pub fn new() -> IndentPrinter {
         IndentPrinter {
+            newline: false,
             indent: String::new(),
             content: String::new(),
         }
     }
 
     fn inc_indent(&mut self) {
-        self.indent += "  ";
+        self.indent += "    ";
     }
 
     fn dec_indent(&mut self) {
-        self.indent.pop();
-        self.indent.pop();
+        for _ in 0..4 {
+            self.indent.pop();
+        }
+    }
+
+    // automatic add a space
+    fn print(&mut self, s: &str) {
+        if self.newline { self.content += &self.indent; }
+        self.content += s;
+        self.content += " ";
+        self.newline = false;
     }
 
     fn println(&mut self, s: &str) {
-        self.content += &self.indent;
+        if self.newline { self.content += &self.indent; }
         self.content += s;
         self.content += "\n";
+        self.newline = true;
+    }
+
+    fn newline(&mut self) {
+        self.content += "\n";
+        self.newline = true;
     }
 
     pub fn flush<W: io::Write>(&mut self, writer: &mut W) {
@@ -39,44 +56,12 @@ pub struct Location(pub i32, pub i32);
 pub const NO_LOCATION: Location = Location(-1, -1);
 
 #[derive(Debug)]
-pub struct Tree {
-    pub loc: Location,
-    pub data: TreeData,
-}
-
-#[derive(Debug)]
-pub enum TreeData {
-    Program(Program),
-    ClassDef(ClassDef),
-    Identifier(String),
-    VarDef(VarDef),
-    Type(Type),
-    None,
-}
-
-impl Tree {
-    pub fn print_to(&self, printer: &mut IndentPrinter) {
-        match &self.data {
-            TreeData::Program(program) => program.print_to(printer),
-            _ => {}
-        };
-    }
-
-    pub fn accept<V: Visitor>(&self, visitor: &mut V) {
-        match &self.data {
-            TreeData::Program(program) => visitor.visit_program(program),
-            _ => {}
-        };
-    }
-}
-
-#[derive(Debug)]
 pub struct Program {
     pub classes: Vec<ClassDef>,
 }
 
 impl Program {
-    fn print_to(&self, printer: &mut IndentPrinter) {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
         printer.println("program");
         printer.inc_indent();
         for class in &self.classes { class.print_to(printer); }
@@ -89,24 +74,40 @@ pub struct ClassDef {
     pub loc: Location,
     pub name: String,
     pub parent: Option<String>,
-    pub fields: Vec<Tree>,
+    pub fields: Vec<FieldDef>,
     pub sealed: bool,
 }
 
 impl ClassDef {
-    fn accept<V: Visitor>(&self, visitor: &mut V) { visitor.visit_class_def(self); }
+    pub fn accept<V: Visitor>(&self, visitor: &mut V) { visitor.visit_class_def(self); }
 
-    fn print_to(&self, printer: &mut IndentPrinter) {
-        let mut description = "class ".to_string() + &self.name + " ";
-        if self.sealed { description += "sealed"; }
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.print("class");
+        printer.print(&self.name);
+        if self.sealed { printer.print("sealed"); }
         match &self.parent {
-            Some(name) => description += name,
-            None => description += "<empty>",
+            Some(name) => printer.print(&name),
+            None => printer.print("<empty>"),
         };
-        printer.println(&description);
+        printer.newline();
         printer.inc_indent();
         for field in &self.fields { field.print_to(printer); }
         printer.dec_indent();
+    }
+}
+
+#[derive(Debug)]
+pub enum FieldDef {
+    MethodDef(MethodDef),
+    VarDef(VarDef),
+}
+
+impl FieldDef {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        match &self {
+            FieldDef::MethodDef(method_def) => method_def.print_to(printer),
+            FieldDef::VarDef(var_def) => var_def.print_to(printer),
+        };
     }
 }
 
@@ -120,11 +121,39 @@ pub struct MethodDef {
     pub body: Block,
 }
 
+impl MethodDef {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        if self.static_ { printer.print("static"); }
+        printer.print("func");
+        printer.print(&self.name);
+        self.return_type.print_to(printer);
+        printer.newline();
+        printer.inc_indent();
+        printer.println("formals");
+        printer.inc_indent();
+        for parameter in &self.parameters {
+            parameter.print_to(printer);
+        }
+        printer.dec_indent();
+        self.body.print_to(printer);
+        printer.dec_indent();
+    }
+}
+
 #[derive(Debug)]
 pub struct VarDef {
     pub loc: Location,
     pub name: String,
     pub type_: Type,
+}
+
+impl VarDef {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.print("vardef");
+        printer.print(&self.name);
+        self.type_.print_to(printer);
+        printer.newline();
+    }
 }
 
 #[derive(Debug)]
@@ -138,10 +167,44 @@ pub enum Type {
     Array(Option<Box<Type>>),
 }
 
+impl Type {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        match &self {
+            Type::Var => printer.print("var"),
+            Type::Basic(name) => printer.print(&(name.to_string() + "type")),
+            Type::Class(name) => {
+                printer.print("classtype");
+                printer.print(name);
+            }
+            Type::Array(name) => {
+                printer.print("arrtype");
+                if let Some(name) = name { name.print_to(printer); }
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum Statement {
+    If(If),
+}
+
+impl Statement {
+    pub fn print_to(&self, _printer: &mut IndentPrinter) {}
+}
+
 #[derive(Debug)]
 pub struct Block {
     pub loc: Location,
-    pub statements: Vec<Tree>,
+    pub statements: Vec<Statement>,
+}
+
+impl Block {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        for statement in &self.statements {
+            statement.print_to(printer);
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -222,29 +285,4 @@ pub trait Visitor {
     fn visit_type_class(&mut self);
 
     fn visit_type_array(&mut self);
-}
-
-#[derive(Debug)]
-pub struct Sem {
-    pub loc: Location,
-    pub value: SemValue,
-}
-
-#[derive(Debug)]
-pub enum SemValue {
-    IntLiteral(i32),
-    BoolLiteral(bool),
-    StringLiteral(String),
-    Identifier(String),
-    ClassList(Vec<ClassDef>),
-    FieldList(Vec<Tree>),
-    VarDefList(Vec<VarDef>),
-    StatementList(Vec<Tree>),
-    Program(Program),
-    Statement(Tree),
-    Expr(Expr),
-    VarDef(VarDef),
-    Type(Type),
-    Sealed(bool),
-
 }

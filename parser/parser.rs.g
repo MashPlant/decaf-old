@@ -72,13 +72,6 @@ impl Parser {
     fn get_loc(&self) -> Location {
         Location(self.tokenizer.token_start_line, self.tokenizer.token_start_column)
     }
-
-    pub fn parse_program(&self, string: &'static str) -> Program {
-        match self.parse(string).value {
-            Program(program) => program,
-            _ => unreachable!(),
-        }
-    }
 }
 
 impl Token {
@@ -89,7 +82,7 @@ impl Token {
 
 macro_rules! get_move {
     ($r:expr, $ty:ident) => ({
-        if let TreeData::$ty(v) = mem::replace(&mut $r.data, TreeData::None) {
+        if let SemValue::$ty(v) = mem::replace(&mut $r.value, SemValue::None) {
             v
         } else {
             unreachable!()
@@ -98,50 +91,74 @@ macro_rules! get_move {
 }
 
 macro_rules! get_ref {
-    ($r:expr, $ty:ident) => (match &mut $r.data { TreeData::$ty(v) => v, _ => unreachable!() });
+    ($r:expr, $ty:ident) => (match &mut $r.value { SemValue::$ty(v) => v, _ => unreachable!() });
 }
 
 // Final result type returned from `parse` method call.
-pub type TResult = Tree;
+pub type TResult = Program;
+
+#[derive(Debug)]
+pub struct Sem {
+    pub loc: Location,
+    pub value: SemValue,
+}
+
+#[derive(Debug)]
+pub enum SemValue {
+    IntLiteral(i32),
+    BoolLiteral(bool),
+    StringLiteral(String),
+    Identifier(String),
+    ClassList(Vec<ClassDef>),
+    FieldList(Vec<FieldDef>),
+    VarDefList(Vec<VarDef>),
+    StatementList(Vec<Statement>),
+    ExprList(Vec<Expr>),
+    ClassDef(ClassDef),
+    VarDef(VarDef),
+    MethodDef(MethodDef),
+    Type(Type),
+    Statement(Statement),
+    Expr(Expr),
+    Sealed(bool),
+    None,
+}
 
 %}
 
 %%
+
 Program
-    : Program ClassDef {
-        |$1: Tree, $2: Tree| -> Tree;
+    : ClassList {
+        |$1: Sem| -> Program;
+        $$ = Program {
+            classes: get_move!($1, ClassList),
+        };
+    }
+    ;
+
+ClassList
+    : ClassList ClassDef {
+        |$1: Sem, $2: Sem| -> Sem;
         let mut ret = $1;
-        get_ref!(ret, Program).classes.push(get_move!($2, ClassDef));
+        get_ref!(ret, ClassList).push(get_move!($2, ClassDef));
         $$ = ret;
     }
     | ClassDef {
-        |$1: Tree| -> Tree;
-        $$ = Tree {
+        |$1: Sem| -> Sem;
+        $$ = Sem {
             loc: NO_LOCATION,
-            data: TreeData::Program(Program {
-                classes: vec![get_move!($1, ClassDef)],
-            })
+            value: SemValue::ClassList(vec![get_move!($1, ClassDef)]),
         }
     }
     ;
 
-/*
-ClassDef        :	CLASS IDENTIFIER ExtendsClause '{' FieldList '}'
-					{
-						$$.cdef = new Tree.ClassDef($2.ident, $3.ident, $5.flist, false, $1.loc);
-					}
-				| 	SEALED CLASS IDENTIFIER ExtendsClause '{' FieldList '}'
-                    {
-                    	$$.cdef = new Tree.ClassDef($3.ident, $4.ident, $6.flist, true, $1.loc);
-                    }
-                ;
-*/
 ClassDef
-    : MaybeSealed CLASS Identifier MaybeExtends '{' FieldList '}' {
-        |$1: Token, $2: Tree| -> Tree;
-        $$ = Tree {
+    : CLASS Identifier {
+        |$1: Token, $2: Sem| -> Sem;
+        $$ = Sem {
             loc: $1.get_loc(),
-            data: TreeData::ClassDef(ClassDef {
+            value: SemValue::ClassDef(ClassDef {
                 loc: $1.get_loc(),
                 name: get_move!($2, Identifier),
                 parent: None,
@@ -152,21 +169,19 @@ ClassDef
     }
     ;
 
-
-
 VariableDef
     : Variable ';' {
-        |$1: Tree| -> Tree;
+        |$1: Sem| -> Sem;
         $$ = $1;
     }
     ;
 
 Variable
     : Type Identifier {
-        |$1: Tree, $2: Tree| -> Tree;
-        $$ = Tree {
+        |$1: Sem, $2: Sem| -> Sem;
+        $$ = Sem {
             loc: $2.loc,
-            data: TreeData::VarDef(VarDef {
+            value: SemValue::VarDef(VarDef {
                 loc: $2.loc,
                 name: get_move!($2, Identifier),
                 type_: get_move!($1, Type),
@@ -177,56 +192,56 @@ Variable
                 
 Type
     : INT {
-        |$1: Token| -> Tree;
-        $$ = Tree {
+        |$1: Token| -> Sem;
+        $$ = Sem {
             loc: $1.get_loc(),
-            data: TreeData::Type(Type::Basic("int")),
+            value: SemValue::Type(Type::Basic("int")),
         };
     }
     | VOID {
-        |$1: Token| -> Tree;
-        $$ = Tree {
+        |$1: Token| -> Sem;
+        $$ = Sem {
             loc: $1.get_loc(),
-            data: TreeData::Type(Type::Basic("void")),
+            value: SemValue::Type(Type::Basic("void")),
         };
     }
     | BOOL {
-        |$1: Token| -> Tree;
-        $$ = Tree {
+        |$1: Token| -> Sem;
+        $$ = Sem {
             loc: $1.get_loc(),
-            data: TreeData::Type(Type::Basic("bool")),
+            value: SemValue::Type(Type::Basic("bool")),
         };
     }
     | STRING {
-        |$1: Token| -> Tree;
-        $$ = Tree {
+        |$1: Token| -> Sem;
+        $$ = Sem {
             loc: $1.get_loc(),
-            data: TreeData::Type(Type::Basic("string")),
+            value: SemValue::Type(Type::Basic("string")),
         };
     }
     | CLASS Identifier  {
-        |$1: Token, $2: Tree| -> Tree;
-        $$ = Tree {
+        |$1: Token, $2: Sem| -> Sem;
+        $$ = Sem {
             loc: $1.get_loc(),
-            data: TreeData::Type(Type::Class(get_move!($2, Identifier))),
+            value: SemValue::Type(Type::Class(get_move!($2, Identifier))),
         };
     }
     | Type '[' ']' {
-        |$1: Tree| -> Tree;
-        $$ = Tree {
+        |$1: Sem| -> Sem;
+        $$ = Sem {
             loc: $1.loc,
-            data: TreeData::Type(Type::Array(Some(Box::new(get_move!($1, Type))))),
+            value: SemValue::Type(Type::Array(Some(Box::new(get_move!($1, Type))))),
         };
     }
     ;
 
 Identifier
     : IDENTIFIER {
-        || -> Tree;
-        $$ = Tree {
+        || -> Sem;
+        $$ = Sem {
             loc: self.get_loc(),
             // yytext.to_string() return s the current name
-            data: TreeData::Identifier(yytext.to_string()),
+            value: SemValue::Identifier(yytext.to_string()),
         }
     }
     ;

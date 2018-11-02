@@ -15,7 +15,8 @@ use std::collections::HashMap;
 enum SV {
     Undefined,
     _0(Token),
-    _1(Tree)
+    _1(Sem),
+    _2(Program)
 }
 
 /**
@@ -112,20 +113,21 @@ macro_rules! pop {
  *
  * 0 - encoded non-terminal, 1 - length of RHS to pop from the stack
  */
-static PRODUCTIONS : [[i32; 2]; 13] = [
+static PRODUCTIONS : [[i32; 2]; 14] = [
     [-1, 1],
-    [0, 2],
     [0, 1],
     [1, 2],
+    [1, 1],
     [2, 2],
     [3, 2],
-    [4, 1],
-    [4, 1],
-    [4, 1],
-    [4, 1],
     [4, 2],
-    [4, 3],
-    [5, 1]
+    [5, 1],
+    [5, 1],
+    [5, 1],
+    [5, 1],
+    [5, 2],
+    [5, 3],
+    [6, 1]
 ];
 
 /**
@@ -154,7 +156,7 @@ lazy_static! {
      * Maps a string name of a token type to its encoded number (the first
      * token number starts after all numbers for non-terminal).
      */
-    static ref TOKENS_MAP: HashMap<&'static str, i32> = hashmap! { "CLASS" => 6, "INT" => 7, "VOID" => 8, "BOOL" => 9, "STRING" => 10, "IDENTIFIER" => 11, "';'" => 12, "'['" => 13, "']'" => 14, "$" => 15 };
+    static ref TOKENS_MAP: HashMap<&'static str, i32> = hashmap! { "CLASS" => 7, "INT" => 8, "VOID" => 9, "BOOL" => 10, "STRING" => 11, "IDENTIFIER" => 12, "';'" => 13, "'['" => 14, "']'" => 15, "$" => 16 };
 
     /**
      * Parsing table.
@@ -163,13 +165,14 @@ lazy_static! {
      * from an encoded symbol to table entry (TE).
      */
     static ref TABLE: Vec<HashMap<i32, TE>>= vec![
-    hashmap! { 0 => TE::Transit(1), 1 => TE::Transit(2), 6 => TE::Shift(3) },
-    hashmap! { 1 => TE::Transit(4), 6 => TE::Shift(3), 15 => TE::Accept },
-    hashmap! { 6 => TE::Reduce(2), 15 => TE::Reduce(2) },
-    hashmap! { 5 => TE::Transit(5), 11 => TE::Shift(6) },
-    hashmap! { 6 => TE::Reduce(1), 15 => TE::Reduce(1) },
-    hashmap! { 6 => TE::Reduce(3), 15 => TE::Reduce(3) },
-    hashmap! { 6 => TE::Reduce(12), 15 => TE::Reduce(12) }
+    hashmap! { 0 => TE::Transit(1), 1 => TE::Transit(2), 2 => TE::Transit(3), 7 => TE::Shift(4) },
+    hashmap! { 16 => TE::Accept },
+    hashmap! { 2 => TE::Transit(5), 7 => TE::Shift(4), 16 => TE::Reduce(1) },
+    hashmap! { 7 => TE::Reduce(3), 16 => TE::Reduce(3) },
+    hashmap! { 6 => TE::Transit(6), 12 => TE::Shift(7) },
+    hashmap! { 7 => TE::Reduce(2), 16 => TE::Reduce(2) },
+    hashmap! { 7 => TE::Reduce(4), 16 => TE::Reduce(4) },
+    hashmap! { 7 => TE::Reduce(13), 16 => TE::Reduce(13) }
 ];
 }
 
@@ -210,7 +213,7 @@ impl Token {
 
 macro_rules! get_move {
     ($r:expr, $ty:ident) => ({
-        if let TreeData::$ty(v) = mem::replace(&mut $r.data, TreeData::None) {
+        if let SemValue::$ty(v) = mem::replace(&mut $r.value, SemValue::None) {
             v
         } else {
             unreachable!()
@@ -219,11 +222,38 @@ macro_rules! get_move {
 }
 
 macro_rules! get_ref {
-    ($r:expr, $ty:ident) => (match &mut $r.data { TreeData::$ty(v) => v, _ => unreachable!() });
+    ($r:expr, $ty:ident) => (match &mut $r.value { SemValue::$ty(v) => v, _ => unreachable!() });
 }
 
 // Final result type returned from `parse` method call.
-pub type TResult = Tree;
+pub type TResult = Program;
+
+#[derive(Debug)]
+pub struct Sem {
+    pub loc: Location,
+    pub value: SemValue,
+}
+
+#[derive(Debug)]
+pub enum SemValue {
+    IntLiteral(i32),
+    BoolLiteral(bool),
+    StringLiteral(String),
+    Identifier(String),
+    ClassList(Vec<ClassDef>),
+    FieldList(Vec<FieldDef>),
+    VarDefList(Vec<VarDef>),
+    StatementList(Vec<Statement>),
+    ExprList(Vec<Expr>),
+    ClassDef(ClassDef),
+    VarDef(VarDef),
+    MethodDef(MethodDef),
+    Type(Type),
+    Statement(Statement),
+    Expr(Expr),
+    Sealed(bool),
+    None,
+}
 
 // ---  end of Module include ---------
 
@@ -803,7 +833,7 @@ pub struct Parser {
     /**
      * Semantic action handlers.
      */
-    handlers: [fn(&mut Parser) -> SV; 13],
+    handlers: [fn(&mut Parser) -> SV; 14],
 }
 
 impl Parser {
@@ -831,7 +861,8 @@ impl Parser {
     Parser::_handler9,
     Parser::_handler10,
     Parser::_handler11,
-    Parser::_handler12
+    Parser::_handler12,
+    Parser::_handler13
 ],
         }
     }
@@ -924,7 +955,7 @@ impl Parser {
                         self.unexpected_token(&token);
                     }
 
-                    let result = get_result!(parsed, _1);
+                    let result = get_result!(parsed, _2);
                     
                     return result;
                 },
@@ -962,36 +993,44 @@ __
 
 fn _handler1(&mut self) -> SV {
 // Semantic values prologue.
-let mut _2 = pop!(self.values_stack, _1);
 let mut _1 = pop!(self.values_stack, _1);
 
-let mut ret = _1;
-        get_ref!(ret, Program).classes.push(get_move!(_2, ClassDef));
-        let __ = ret;
-SV::_1(__)
+let __ = Program {
+            classes: get_move!(_1, ClassList),
+        };
+SV::_2(__)
 }
 
 fn _handler2(&mut self) -> SV {
 // Semantic values prologue.
+let mut _2 = pop!(self.values_stack, _1);
 let mut _1 = pop!(self.values_stack, _1);
 
-let __ = Tree {
-            loc: NO_LOCATION,
-            data: TreeData::Program(Program {
-                classes: vec![get_move!(_1, ClassDef)],
-            })
-        };
+let mut ret = _1;
+        get_ref!(ret, ClassList).push(get_move!(_2, ClassDef));
+        let __ = ret;
 SV::_1(__)
 }
 
 fn _handler3(&mut self) -> SV {
 // Semantic values prologue.
+let mut _1 = pop!(self.values_stack, _1);
+
+let __ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::ClassList(vec![get_move!(_1, ClassDef)]),
+        };
+SV::_1(__)
+}
+
+fn _handler4(&mut self) -> SV {
+// Semantic values prologue.
 let mut _2 = pop!(self.values_stack, _1);
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Tree {
+let __ = Sem {
             loc: _1.get_loc(),
-            data: TreeData::ClassDef(ClassDef {
+            value: SemValue::ClassDef(ClassDef {
                 loc: _1.get_loc(),
                 name: get_move!(_2, Identifier),
                 parent: None,
@@ -1002,7 +1041,7 @@ let __ = Tree {
 SV::_1(__)
 }
 
-fn _handler4(&mut self) -> SV {
+fn _handler5(&mut self) -> SV {
 // Semantic values prologue.
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _1);
@@ -1011,14 +1050,14 @@ let __ = _1;
 SV::_1(__)
 }
 
-fn _handler5(&mut self) -> SV {
+fn _handler6(&mut self) -> SV {
 // Semantic values prologue.
 let mut _2 = pop!(self.values_stack, _1);
 let mut _1 = pop!(self.values_stack, _1);
 
-let __ = Tree {
+let __ = Sem {
             loc: _2.loc,
-            data: TreeData::VarDef(VarDef {
+            value: SemValue::VarDef(VarDef {
                 loc: _2.loc,
                 name: get_move!(_2, Identifier),
                 type_: get_move!(_1, Type),
@@ -1027,24 +1066,13 @@ let __ = Tree {
 SV::_1(__)
 }
 
-fn _handler6(&mut self) -> SV {
-// Semantic values prologue.
-let mut _1 = pop!(self.values_stack, _0);
-
-let __ = Tree {
-            loc: _1.get_loc(),
-            data: TreeData::Type(Type::Basic("int")),
-        };
-SV::_1(__)
-}
-
 fn _handler7(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Tree {
+let __ = Sem {
             loc: _1.get_loc(),
-            data: TreeData::Type(Type::Basic("void")),
+            value: SemValue::Type(Type::Basic("int")),
         };
 SV::_1(__)
 }
@@ -1053,9 +1081,9 @@ fn _handler8(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Tree {
+let __ = Sem {
             loc: _1.get_loc(),
-            data: TreeData::Type(Type::Basic("bool")),
+            value: SemValue::Type(Type::Basic("void")),
         };
 SV::_1(__)
 }
@@ -1064,34 +1092,32 @@ fn _handler9(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Tree {
+let __ = Sem {
             loc: _1.get_loc(),
-            data: TreeData::Type(Type::Basic("string")),
+            value: SemValue::Type(Type::Basic("bool")),
         };
 SV::_1(__)
 }
 
 fn _handler10(&mut self) -> SV {
 // Semantic values prologue.
-let mut _2 = pop!(self.values_stack, _1);
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Tree {
+let __ = Sem {
             loc: _1.get_loc(),
-            data: TreeData::Type(Type::Class(get_move!(_2, Identifier))),
+            value: SemValue::Type(Type::Basic("string")),
         };
 SV::_1(__)
 }
 
 fn _handler11(&mut self) -> SV {
 // Semantic values prologue.
-self.values_stack.pop();
-self.values_stack.pop();
-let mut _1 = pop!(self.values_stack, _1);
+let mut _2 = pop!(self.values_stack, _1);
+let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Tree {
-            loc: _1.loc,
-            data: TreeData::Type(Type::Array(Some(Box::new(get_move!(_1, Type))))),
+let __ = Sem {
+            loc: _1.get_loc(),
+            value: SemValue::Type(Type::Class(get_move!(_2, Identifier))),
         };
 SV::_1(__)
 }
@@ -1099,11 +1125,24 @@ SV::_1(__)
 fn _handler12(&mut self) -> SV {
 // Semantic values prologue.
 self.values_stack.pop();
+self.values_stack.pop();
+let mut _1 = pop!(self.values_stack, _1);
 
-let __ = Tree {
+let __ = Sem {
+            loc: _1.loc,
+            value: SemValue::Type(Type::Array(Some(Box::new(get_move!(_1, Type))))),
+        };
+SV::_1(__)
+}
+
+fn _handler13(&mut self) -> SV {
+// Semantic values prologue.
+self.values_stack.pop();
+
+let __ = Sem {
             loc: self.get_loc(),
             // self.tokenizer.yytext.to_string() return s the current name
-            data: TreeData::Identifier(self.tokenizer.yytext.to_string()),
+            value: SemValue::Identifier(self.tokenizer.yytext.to_string()),
         };
 SV::_1(__)
 }
