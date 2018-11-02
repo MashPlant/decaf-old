@@ -42,12 +42,27 @@
 "%%"                return "REPEAT";
 "++"                return "CONCAT";
 "|||"               return "GUARD_SPLIT";
-"["                 return "COMP_LEFT";
-"]"                 return "COMP_RIGHT";
+
+// simple operators
 "+"                 return "+";
+"-"                 return "-";
 "*"                 return "*";
+"/"                 return "/";
+"%"                 return "%";
+"="                 return "=";
+"<"                 return "<";
+">"                 return ">";
+"."                 return ".";
+","                 return ",";
+";"                 return ";";
+"!"                 return "!";
 "("                 return "(";
 ")"                 return ")";
+"["                 return "[";
+"]"                 return "]";
+"{"                 return "{";
+"}"                 return "}";
+":"                 return ":";
 
 \s+                 return "";
 
@@ -59,7 +74,8 @@
 /lex
 
 %left + -
-%left * /
+%left * / %
+%nonassoc UMINUS '!'
 
 %{
 
@@ -253,7 +269,10 @@ StatementList
 Statement    
     : VarDef {
         |$1: Sem| -> Sem;
-        $$.Statement = $1.vdef;
+        $$ = Sem {
+            loc: $1.loc,
+            value: SemValue::Statement(Statement(get_move!($1, VarDef)));
+        };
     }
     | Simple ';' {
         |$1: Sem| -> Sem;
@@ -303,7 +322,101 @@ Statement
         };
     }
     ;
-                               
+
+Simple
+    : LValue '=' Expr {
+        $$.stmt = new Tree.Assign($1.lvalue, $3.expr, $2.loc);
+    }
+    | VAR Identifier '=' Expr {
+        $$.stmt = new Tree.VarAssign($2.ident, $4.expr, $3.loc);
+    }
+    | Expr {
+        $$.stmt = new Tree.Exec($1.expr, $1.loc);
+    }
+    | /* empty */ {
+        $$ = new SemValue();
+    }
+    ;
+
+Expr
+    : LValue {
+        |$1: Sem| -> Sem;
+        $$ = $1;
+    }
+    | Expr '+' Expr {
+        |$1: Sem, $2: Sem| -> Sem;
+        $$ = Sem {
+            loc: $2.loc,
+            value: SemValue::Expr(Expr::Binary(Binary {
+                loc: $2.loc,
+                opt: Operator::Add,
+                left: Box::new(get_move!($1, Expr)),
+                right: Box::new(get_move!($3, Expr)),
+            })),
+        }
+    }
+    | Expr '-' Expr {
+        |$1: Sem, $2: Sem| -> Sem;
+        $$ = Sem {
+            loc: $2.loc,
+            value: SemValue::Expr(Expr::Binary(Binary {
+                loc: $2.loc,
+                opt: Operator::Sub,
+                left: Box::new(get_move!($1, Expr)),
+                right: Box::new(get_move!($3, Expr)),
+            })),
+        }
+    }
+    | Expr '*' Expr {
+        |$1: Sem, $2: Sem| -> Sem;
+        $$ = Sem {
+            loc: $2.loc,
+            value: SemValue::Expr(Expr::Binary(Binary {
+                loc: $2.loc,
+                opt: Operator::Mul,
+                left: Box::new(get_move!($1, Expr)),
+                right: Box::new(get_move!($3, Expr)),
+            })),
+        }
+    }
+    | Expr '/' Expr {
+        |$1: Sem, $2: Sem| -> Sem;
+        $$ = Sem {
+            loc: $2.loc,
+            value: SemValue::Expr(Expr::Binary(Binary {
+                loc: $2.loc,
+                opt: Operator::Div,
+                left: Box::new(get_move!($1, Expr)),
+                right: Box::new(get_move!($3, Expr)),
+            })),
+        }
+    }
+    | Expr '%' Expr {
+        |$1: Sem, $2: Sem| -> Sem;
+        $$ = Sem {
+            loc: $2.loc,
+            value: SemValue::Expr(Expr::Binary(Binary {
+                loc: $2.loc,
+                opt: Operator::Mod,
+                left: Box::new(get_move!($1, Expr)),
+                right: Box::new(get_move!($3, Expr)),
+            })),
+        }
+    }
+    ;
+
+LValue
+    : MaybeReceiver Identifier {
+        $$.lvalue = new Tree.Ident($1.expr, $2.ident, $2.loc);
+        if ($1.loc == null) {
+            $$.loc = $2.loc;
+        }
+    }
+    | Expr '[' Expr ']' {
+        $$.lvalue = new Tree.Indexed($1.expr, $3.expr, $1.loc);
+    }
+    ;
+                                                             
 VarDef
     : Variable ';' {
         $$ = $1;
