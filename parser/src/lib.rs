@@ -22,7 +22,7 @@ enum SV {
 /**
  * Lex rules.
  */
-static LEX_RULES: [&'static str; 47] = [
+static LEX_RULES: [&'static str; 49] = [
     r"^void",
     r"^int",
     r"^bool",
@@ -67,6 +67,8 @@ static LEX_RULES: [&'static str; 47] = [
     r"^\s+",
     r"^\d+",
     r"^[A-Za-z][_0-9A-Za-z]*",
+    r"^\{",
+    r"^\}",
     r"^;",
     r"^\[",
     r"^\]"
@@ -113,21 +115,23 @@ macro_rules! pop {
  *
  * 0 - encoded non-terminal, 1 - length of RHS to pop from the stack
  */
-static PRODUCTIONS : [[i32; 2]; 14] = [
+static PRODUCTIONS : [[i32; 2]; 16] = [
     [-1, 1],
     [0, 1],
     [1, 2],
     [1, 1],
-    [2, 2],
+    [2, 5],
     [3, 2],
+    [3, 0],
     [4, 2],
-    [5, 1],
-    [5, 1],
-    [5, 1],
-    [5, 1],
     [5, 2],
-    [5, 3],
-    [6, 1]
+    [6, 1],
+    [6, 1],
+    [6, 1],
+    [6, 1],
+    [6, 2],
+    [6, 3],
+    [7, 1]
 ];
 
 /**
@@ -150,13 +154,13 @@ lazy_static! {
     /**
      * Lexical rules grouped by lexer state (by start condition).
      */
-    static ref LEX_RULES_BY_START_CONDITIONS: HashMap<&'static str, Vec<i32>> = hashmap! { "INITIAL" => vec! [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46 ] };
+    static ref LEX_RULES_BY_START_CONDITIONS: HashMap<&'static str, Vec<i32>> = hashmap! { "INITIAL" => vec! [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48 ] };
 
     /**
      * Maps a string name of a token type to its encoded number (the first
      * token number starts after all numbers for non-terminal).
      */
-    static ref TOKENS_MAP: HashMap<&'static str, i32> = hashmap! { "CLASS" => 7, "INT" => 8, "VOID" => 9, "BOOL" => 10, "STRING" => 11, "IDENTIFIER" => 12, "';'" => 13, "'['" => 14, "']'" => 15, "$" => 16 };
+    static ref TOKENS_MAP: HashMap<&'static str, i32> = hashmap! { "CLASS" => 8, "INT" => 9, "VOID" => 10, "BOOL" => 11, "STRING" => 12, "IDENTIFIER" => 13, "'{'" => 14, "'}'" => 15, "';'" => 16, "'['" => 17, "']'" => 18, "$" => 19 };
 
     /**
      * Parsing table.
@@ -165,14 +169,30 @@ lazy_static! {
      * from an encoded symbol to table entry (TE).
      */
     static ref TABLE: Vec<HashMap<i32, TE>>= vec![
-    hashmap! { 0 => TE::Transit(1), 1 => TE::Transit(2), 2 => TE::Transit(3), 7 => TE::Shift(4) },
-    hashmap! { 16 => TE::Accept },
-    hashmap! { 2 => TE::Transit(5), 7 => TE::Shift(4), 16 => TE::Reduce(1) },
-    hashmap! { 7 => TE::Reduce(3), 16 => TE::Reduce(3) },
-    hashmap! { 6 => TE::Transit(6), 12 => TE::Shift(7) },
-    hashmap! { 7 => TE::Reduce(2), 16 => TE::Reduce(2) },
-    hashmap! { 7 => TE::Reduce(4), 16 => TE::Reduce(4) },
-    hashmap! { 7 => TE::Reduce(13), 16 => TE::Reduce(13) }
+    hashmap! { 0 => TE::Transit(1), 1 => TE::Transit(2), 2 => TE::Transit(3), 8 => TE::Shift(4) },
+    hashmap! { 19 => TE::Accept },
+    hashmap! { 2 => TE::Transit(5), 8 => TE::Shift(4), 19 => TE::Reduce(1) },
+    hashmap! { 8 => TE::Reduce(3), 19 => TE::Reduce(3) },
+    hashmap! { 7 => TE::Transit(6), 13 => TE::Shift(7) },
+    hashmap! { 8 => TE::Reduce(2), 19 => TE::Reduce(2) },
+    hashmap! { 14 => TE::Shift(8) },
+    hashmap! { 13 => TE::Reduce(15), 14 => TE::Reduce(15), 16 => TE::Reduce(15), 17 => TE::Reduce(15) },
+    hashmap! { 3 => TE::Transit(9), 8 => TE::Reduce(6), 9 => TE::Reduce(6), 10 => TE::Reduce(6), 11 => TE::Reduce(6), 12 => TE::Reduce(6), 15 => TE::Reduce(6) },
+    hashmap! { 4 => TE::Transit(11), 5 => TE::Transit(12), 6 => TE::Transit(13), 8 => TE::Shift(18), 9 => TE::Shift(14), 10 => TE::Shift(15), 11 => TE::Shift(16), 12 => TE::Shift(17), 15 => TE::Shift(10) },
+    hashmap! { 8 => TE::Reduce(4), 19 => TE::Reduce(4) },
+    hashmap! { 8 => TE::Reduce(5), 9 => TE::Reduce(5), 10 => TE::Reduce(5), 11 => TE::Reduce(5), 12 => TE::Reduce(5), 15 => TE::Reduce(5) },
+    hashmap! { 16 => TE::Shift(19) },
+    hashmap! { 7 => TE::Transit(20), 13 => TE::Shift(7), 17 => TE::Shift(21) },
+    hashmap! { 13 => TE::Reduce(9), 17 => TE::Reduce(9) },
+    hashmap! { 13 => TE::Reduce(10), 17 => TE::Reduce(10) },
+    hashmap! { 13 => TE::Reduce(11), 17 => TE::Reduce(11) },
+    hashmap! { 13 => TE::Reduce(12), 17 => TE::Reduce(12) },
+    hashmap! { 7 => TE::Transit(23), 13 => TE::Shift(7) },
+    hashmap! { 8 => TE::Reduce(7), 9 => TE::Reduce(7), 10 => TE::Reduce(7), 11 => TE::Reduce(7), 12 => TE::Reduce(7), 15 => TE::Reduce(7) },
+    hashmap! { 16 => TE::Reduce(8) },
+    hashmap! { 18 => TE::Shift(22) },
+    hashmap! { 13 => TE::Reduce(14), 17 => TE::Reduce(14) },
+    hashmap! { 13 => TE::Reduce(13), 17 => TE::Reduce(13) }
 ];
 }
 
@@ -324,7 +344,7 @@ struct Tokenizer {
     yytext: &'static str,
     yyleng: usize,
 
-    handlers: [fn(&mut Tokenizer) -> &'static str; 47],
+    handlers: [fn(&mut Tokenizer) -> &'static str; 49],
 }
 
 impl Tokenizer {
@@ -403,7 +423,9 @@ impl Tokenizer {
     Tokenizer::_lex_rule43,
     Tokenizer::_lex_rule44,
     Tokenizer::_lex_rule45,
-    Tokenizer::_lex_rule46
+    Tokenizer::_lex_rule46,
+    Tokenizer::_lex_rule47,
+    Tokenizer::_lex_rule48
 ],
         };
 
@@ -796,14 +818,22 @@ return "IDENTIFIER";
 }
 
 fn _lex_rule44(&mut self) -> &'static str {
-return "';'";
+return "'{'";
 }
 
 fn _lex_rule45(&mut self) -> &'static str {
-return "'['";
+return "'}'";
 }
 
 fn _lex_rule46(&mut self) -> &'static str {
+return "';'";
+}
+
+fn _lex_rule47(&mut self) -> &'static str {
+return "'['";
+}
+
+fn _lex_rule48(&mut self) -> &'static str {
 return "']'";
 }
 }
@@ -833,7 +863,7 @@ pub struct Parser {
     /**
      * Semantic action handlers.
      */
-    handlers: [fn(&mut Parser) -> SV; 14],
+    handlers: [fn(&mut Parser) -> SV; 16],
 }
 
 impl Parser {
@@ -862,7 +892,9 @@ impl Parser {
     Parser::_handler10,
     Parser::_handler11,
     Parser::_handler12,
-    Parser::_handler13
+    Parser::_handler13,
+    Parser::_handler14,
+    Parser::_handler15
 ],
         }
     }
@@ -1025,6 +1057,9 @@ SV::_1(__)
 
 fn _handler4(&mut self) -> SV {
 // Semantic values prologue.
+self.values_stack.pop();
+let mut _4 = pop!(self.values_stack, _1);
+self.values_stack.pop();
 let mut _2 = pop!(self.values_stack, _1);
 let mut _1 = pop!(self.values_stack, _0);
 
@@ -1034,7 +1069,7 @@ let __ = Sem {
                 loc: _1.get_loc(),
                 name: get_move!(_2, Identifier),
                 parent: None,
-                fields: Vec::new(),
+                fields: get_move!(_4, FieldList),
                 sealed: false,
             })
         };
@@ -1043,6 +1078,28 @@ SV::_1(__)
 
 fn _handler5(&mut self) -> SV {
 // Semantic values prologue.
+let mut _2 = pop!(self.values_stack, _1);
+let mut _1 = pop!(self.values_stack, _1);
+
+let mut ret = _1;
+        get_ref!(ret, FieldList).push(FieldDef::VarDef(get_move!(_2, VarDef)));
+        let __ = ret;
+SV::_1(__)
+}
+
+fn _handler6(&mut self) -> SV {
+// Semantic values prologue.
+
+
+let __ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::FieldList(Vec::new())
+        };
+SV::_1(__)
+}
+
+fn _handler7(&mut self) -> SV {
+// Semantic values prologue.
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _1);
 
@@ -1050,7 +1107,7 @@ let __ = _1;
 SV::_1(__)
 }
 
-fn _handler6(&mut self) -> SV {
+fn _handler8(&mut self) -> SV {
 // Semantic values prologue.
 let mut _2 = pop!(self.values_stack, _1);
 let mut _1 = pop!(self.values_stack, _1);
@@ -1066,7 +1123,7 @@ let __ = Sem {
 SV::_1(__)
 }
 
-fn _handler7(&mut self) -> SV {
+fn _handler9(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _0);
 
@@ -1077,7 +1134,7 @@ let __ = Sem {
 SV::_1(__)
 }
 
-fn _handler8(&mut self) -> SV {
+fn _handler10(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _0);
 
@@ -1088,7 +1145,7 @@ let __ = Sem {
 SV::_1(__)
 }
 
-fn _handler9(&mut self) -> SV {
+fn _handler11(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _0);
 
@@ -1099,7 +1156,7 @@ let __ = Sem {
 SV::_1(__)
 }
 
-fn _handler10(&mut self) -> SV {
+fn _handler12(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _0);
 
@@ -1110,7 +1167,7 @@ let __ = Sem {
 SV::_1(__)
 }
 
-fn _handler11(&mut self) -> SV {
+fn _handler13(&mut self) -> SV {
 // Semantic values prologue.
 let mut _2 = pop!(self.values_stack, _1);
 let mut _1 = pop!(self.values_stack, _0);
@@ -1122,7 +1179,7 @@ let __ = Sem {
 SV::_1(__)
 }
 
-fn _handler12(&mut self) -> SV {
+fn _handler14(&mut self) -> SV {
 // Semantic values prologue.
 self.values_stack.pop();
 self.values_stack.pop();
@@ -1135,7 +1192,7 @@ let __ = Sem {
 SV::_1(__)
 }
 
-fn _handler13(&mut self) -> SV {
+fn _handler15(&mut self) -> SV {
 // Semantic values prologue.
 self.values_stack.pop();
 

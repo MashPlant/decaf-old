@@ -1,0 +1,6 @@
+class Main {
+    int a;
+}
+class another {
+    int a;
+}

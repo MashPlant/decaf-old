@@ -154,22 +154,38 @@ ClassList
     ;
 
 ClassDef
-    : CLASS Identifier {
-        |$1: Token, $2: Sem| -> Sem;
+    : CLASS Identifier '{' FieldList '}' {
+        |$1: Token, $2: Sem, $4: Sem| -> Sem;
         $$ = Sem {
             loc: $1.get_loc(),
             value: SemValue::ClassDef(ClassDef {
                 loc: $1.get_loc(),
                 name: get_move!($2, Identifier),
                 parent: None,
-                fields: Vec::new(),
+                fields: get_move!($4, FieldList),
                 sealed: false,
             })
         }
     }
     ;
 
-VariableDef
+FieldList
+    : FieldList VarDef {
+        |$1: Sem, $2: Sem| -> Sem;
+        let mut ret = $1;
+        get_ref!(ret, FieldList).push(FieldDef::VarDef(get_move!($2, VarDef)));
+        $$ = ret;
+    }
+    | /* empty */ {
+        || -> Sem;
+        $$ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::FieldList(Vec::new())
+        };
+    }
+    ;
+                
+VarDef
     : Variable ';' {
         |$1: Sem| -> Sem;
         $$ = $1;

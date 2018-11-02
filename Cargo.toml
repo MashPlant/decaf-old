@@ -5,3 +5,4 @@ authors = ["MashPlant <740678788@qq.com>"]
 
 [dependencies]
 parser = { path = "parser" }
+lazy_static = "0.2.8"
