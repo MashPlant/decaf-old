@@ -255,7 +255,7 @@ Statement
         |$1: Sem| -> Sem;
         $$.Statement = $1.vdef;
     }
-    | SimpleStatement ';' {
+    | Simple ';' {
         |$1: Sem| -> Sem;
         $$ = $1;
     }

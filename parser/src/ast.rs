@@ -187,7 +187,7 @@ impl Type {
 #[derive(Debug)]
 pub enum Statement {
     VarDef(VarDef),
-    SimpleStatement(SimpleStatement),
+    Simple(Simple),
     If(If),
     While(While),
     For(For),
@@ -198,6 +198,14 @@ pub enum Statement {
     Foreach(Foreach),
     Guarded(Guarded),
     Block(Block),
+}
+
+#[derive(Debug)]
+pub enum Simple {
+    Assign(Assign),
+    VarAssign(VarAssign),
+    Expr(Expr),
+    Skip(Skip),
 }
 
 impl Statement {
@@ -221,13 +229,144 @@ impl Block {
 #[derive(Debug)]
 pub struct If {
     pub loc: Location,
-    pub true_branch: Option<Block>,
-    pub false_branch: Option<Block>,
+    pub cond: Expr,
+    pub on_true: Option<Block>,
+    pub on_false: Option<Block>,
 }
 
 #[derive(Debug)]
-pub struct Expr {
+pub struct While {
     pub loc: Location,
+    pub cond: Expr,
+    pub body: Block,
+}
+
+#[derive(Debug)]
+pub struct For {
+    pub loc: Location,
+    pub init: Simple,
+    pub cond: Expr,
+    pub update: Simple,
+}
+
+#[derive(Debug)]
+pub struct Return {
+    pub loc: Location,
+    pub expr: Expr,
+}
+
+#[derive(Debug)]
+pub struct Print {
+    pub loc: Location,
+    pub print: Vec<Expr>,
+}
+
+#[derive(Debug)]
+pub struct Break {
+    pub loc: Location,
+}
+
+#[derive(Debug)]
+pub struct ObjectCopy {
+    pub loc: Location,
+    pub dst: String,
+    pub src: Expr,
+}
+
+#[derive(Debug)]
+pub struct Foreach {
+    pub loc: Location,
+    pub type_: Type,
+    pub name: String,
+    pub array: Expr,
+    pub cond: Expr,
+    pub body: Block,
+}
+
+#[derive(Debug)]
+pub struct Guarded {
+    pub guarded: Vec<(Expr, Block)>,
+}
+
+#[derive(Debug)]
+pub struct Assign {
+    pub loc: Location,
+    pub dst: LValue,
+    pub src: Expr,
+}
+
+#[derive(Debug)]
+pub struct VarAssign {
+    pub loc: Location,
+    pub name: String,
+    pub src: Expr,
+}
+
+#[derive(Debug)]
+pub struct Skip {
+    pub loc: Location,
+}
+
+#[derive(Debug)]
+enum Operator {
+    Pos,
+    Neg,
+    Not,
+    Or,
+    And,
+    Eq,
+    Ne,
+    Le,
+    Ge,
+    Lt,
+    Gt,
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+}
+
+#[derive(Debug)]
+pub enum Expr {
+    LValue(LValue),
+    Unary(Unary),
+    Binary(Binary),
+}
+
+#[derive(Debug)]
+pub struct Unary {
+    pub loc: Location,
+    pub opt: Operator,
+    pub opr: Box<Expr>,
+}
+
+#[derive(Debug)]
+pub struct Binary {
+    pub loc: Location,
+    pub opt: Operator,
+    pub left: Box<Expr>,
+    pub right: Box<Expr>,
+}
+
+#[derive(Debug)]
+pub enum LValue {
+    Indexed(Indexed),
+    Identifier(Identifier),
+}
+
+#[derive(Debug)]
+pub struct Indexed {
+    pub loc: Location,
+    pub array: Box<Expr>,
+    pub index: Box<Expr>,
+}
+
+#[derive(Debug)]
+pub struct Identifier {
+    pub loc: Location,
+    pub owner: Option<Box<Expr>>,
+    pub name: String,
 }
 
 pub trait Visitor {
