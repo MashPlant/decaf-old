@@ -119,8 +119,10 @@ pub enum SemValue {
     MethodDef(MethodDef),
     Type(Type),
     Statement(Statement),
+    Block(Block),
     Expr(Expr),
     Sealed(bool),
+    Static(bool),
     None,
 }
 
@@ -184,10 +186,126 @@ FieldList
         };
     }
     ;
-                
+
+MethodDef
+    : MaybeStatic Type Identifier '(' Formals ')' Block {
+        |$1:Sem, $2: Sem, $3: Sem, $5: Sem, $7: Sem| -> Sem;
+        $$ = Sem {
+            loc: $3.loc,
+            value: SemValue::MethodDef(MethodDef {
+                loc: $3.loc,
+                name: get_move!($3, Identifier),
+                return_type: get_move!($2, Type),
+                parameters: get_move!($5, VarDefList),
+                static_: get_move!($1, Static),
+                body: get_move!($7, Block),
+            })
+        };
+    }
+    ;
+
+MaybeStatic
+    : STATIC {
+        || -> Sem;
+        $$ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::Static(true),
+        };
+    }
+    | /* empty */ {
+        || -> Sem;
+        $$ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::Static(false),
+        };
+    }
+    ;
+
+Block
+    : '{' StatementList '}' {
+        |$1: Token, $2: Sem| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Block(Block {
+                loc: $1.get_loc(),
+                statements: get_move!($2, StatementList),
+            });
+        };
+    }
+    ;
+
+StatementList
+    : StatementList Statement {
+        |$1: Sem, $2: Sem| -> Sem;
+        let mut ret = $1;
+        get_ref!(ret, StatementList).push(get_move!($2, Statement));
+        $$ = ret;
+    }
+    | /* empty */ {
+        || -> Sem;
+        $$ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::StatementList(Vec::new()),
+        };
+    }
+    ;
+
+Statement    
+    : VarDef {
+        |$1: Sem| -> Sem;
+        $$.Statement = $1.vdef;
+    }
+    | SimpleStatement ';' {
+        |$1: Sem| -> Sem;
+        $$ = $1;
+    }
+    | If {
+        |$1: Sem| -> Sem;
+        $$ = $1;
+    }
+    | While {
+        |$1: Sem| -> Sem;
+        $$ = $1;
+    }
+    | For {
+        |$1: Sem| -> Sem;
+        $$ = $1;
+    }
+    | Return ';' {
+        |$1: Sem| -> Sem;
+        $$ = $1;
+    }
+    | Print ';' {
+        |$1: Sem| -> Sem;
+        $$ = $1;
+    }
+    | Break ';' {
+        |$1: Sem| -> Sem;
+        $$ = $1;
+    }
+    | ObjectCopy ';' {
+        |$1: Sem| -> Sem;
+        $$ = $1;
+    }
+    | Foreach {
+        |$1: Sem| -> Sem;
+        $$ = $1;
+    }
+    | Guarded {
+        |$1: Sem| -> Sem;
+        $$ = $1;
+    }
+    | Block {
+        |$1: Sem| -> Sem;
+        $$ = Sem {
+            loc: $1.loc,
+            value: SemValue::Statement(Statement(get_move!($1, Block)));
+        };
+    }
+    ;
+                               
 VarDef
     : Variable ';' {
-        |$1: Sem| -> Sem;
         $$ = $1;
     }
     ;

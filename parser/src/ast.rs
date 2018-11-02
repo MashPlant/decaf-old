@@ -186,7 +186,18 @@ impl Type {
 
 #[derive(Debug)]
 pub enum Statement {
+    VarDef(VarDef),
+    SimpleStatement(SimpleStatement),
     If(If),
+    While(While),
+    For(For),
+    Return(Return),
+    Print(Print),
+    Break(Break),
+    ObjectCopy(ObjectCopy),
+    Foreach(Foreach),
+    Guarded(Guarded),
+    Block(Block),
 }
 
 impl Statement {
