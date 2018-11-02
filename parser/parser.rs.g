@@ -137,6 +137,7 @@ pub enum SemValue {
     Statement(Statement),
     Block(Block),
     Expr(Expr),
+    LValue(LValue),
     Sealed(bool),
     Static(bool),
     None,
@@ -323,18 +324,156 @@ Statement
     }
     ;
 
+While
+    : WHILE '(' Expr ')' Statement {
+        |$1: Token, $3: Sem, $5: Sem| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            cond: get_move!($3, Expr);
+            body: get_move!($5, Statement);
+        };
+    }
+    ;
+
+For
+    : FOR '(' SimpleStatement ';' Expr ';'SimpleStatement ')' Statement {
+        $$.stmt = new Tree.ForLoop($3.stmt, $5.expr, $7.stmt, $9.stmt, $1.loc);
+    }
+    ;
+
+Break
+    : BREAK {
+        $$.stmt = new Tree.Break($1.loc);
+    }
+    ;
+
+If       
+    : IF '(' Expr ')' Statement MaybeElse {
+        $$.stmt = new Tree.If($3.expr, $5.stmt, $6.stmt, $1.loc);
+    }
+    ;
+                
+MaybeElse 
+    : ELSE Statement {
+        |$1: Token, $2: Sem| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: get_move!($2, Statement),
+        };
+    }
+    | /* empty */ %prec EMPTY {
+        || -> Sem;
+        $$ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::None,
+        };
+    }
+    ;
+
+ObjectCopy
+    : SCOPY '(' IDENTIFIER ',' Expr ')' {
+        $$.stmt = new Tree.Scopy($3.ident, $5.expr, $1.loc);
+    }
+    ;
+
+Foreach
+    : FOREACH '(' BoundVariable IN Expr ')' Statement {
+        $$.stmt = new Tree.Foreach($3.type, $3.ident, $5.expr, $7.stmt, $1.loc);
+    }
+    | FOREACH '(' BoundVariable IN Expr WHILE Expr ')' Statement {
+        $$.stmt = new Tree.Foreach($3.type, $3.ident, $5.expr, $7.expr, $9.stmt, $1.loc);
+    }
+    ;
+
+BoundVariable
+    : VAR IDENTIFIER {
+        $$.type = new TypeVar($1.loc);
+        $$.ident = $2.ident;
+    }
+    | Type IDENTIFIER {
+        $$.type = $1.type;
+        $$.ident = $2.ident;
+    }
+    ;
+
+Guarded
+    : IF '{' GuardedBranches '}' {
+        $$.stmt = new Tree.Guarded($3.elist, $3.slist, $1.loc);
+    }
+    | IF '{' '}' {
+        $$.stmt = new Tree.Guarded(new ArrayList<Expr>(),
+        new ArrayList<Tree>(), $1.loc);
+    }
+    ;
+
+GuardedBranches
+    : GuardedBranches GUARD_SPLIT Expr ':' Statement {
+        $$.elist = $1.elist;
+        $$.slist = $1.slist;
+        $$.elist.add($3.expr);
+        $$.slist.add($5.stmt);
+    }
+    | Expr ':' Statement {
+        $$.elist = new ArrayList<Tree.Expr>();
+        $$.slist = new ArrayList<Tree>();
+        $$.elist.add($1.expr);
+        $$.slist.add($3.stmt);
+    }
+    ;
+
+Return
+    : RETURN Expr {
+        $$.stmt = new Tree.Return($2.expr, $1.loc);
+    }
+    | RETURN {
+        $$.stmt = new Tree.Return(null, $1.loc);
+    }
+    ;
+
+Print
+    : PRINT '(' ExprList ')' {
+        $$.stmt = new Print($3.elist, $1.loc);
+    }
+    ;
+                
 Simple
     : LValue '=' Expr {
-        $$.stmt = new Tree.Assign($1.lvalue, $3.expr, $2.loc);
+        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        $$ = Sem {
+            loc: $2.get_loc(),
+            value: SemValue::Statement(Statement::Simple(Simple::Assign {
+                loc: $2.get_loc(),
+                dst: get_move!($1, LValue),
+                src: get_move!($3, Expr),
+            }));
+        };
     }
     | VAR Identifier '=' Expr {
-        $$.stmt = new Tree.VarAssign($2.ident, $4.expr, $3.loc);
+        |$2: Sem, $3: Token, $4: Sem| -> Sem;
+        $$ = Sem {
+            loc: $3.get_loc(),
+            value: SemValue::Statement(Statement::Simple(Simple::VarAssign {
+                loc: $3.get_loc(),
+                name: get_move!($2, Identifier),
+                src: get_move!($4, Expr),
+            }));
+        };
     }
     | Expr {
-        $$.stmt = new Tree.Exec($1.expr, $1.loc);
+        |$1: Sem| -> Sem;
+        $$ = Sem {
+            loc: $1.loc,
+            value: SemValue::Statement(Statement::Simple(get_move!($1, Expr)));
+        };
     }
     | /* empty */ {
-        $$ = new SemValue();
+        || -> Sem;
+        $$ = Sem {
+            loc: self.get_loc(),
+            value: SemValue::Statement(Statement::Simple(Simple::Skip(Skip {
+                loc: self.get_loc(),
+            })));
+        };
     }
     ;
 
@@ -407,13 +546,43 @@ Expr
 
 LValue
     : MaybeReceiver Identifier {
-        $$.lvalue = new Tree.Ident($1.expr, $2.ident, $2.loc);
-        if ($1.loc == null) {
-            $$.loc = $2.loc;
-        }
+        |$1: Sem, $2: Sem| -> Sem;
+        $$ = Sem {
+            loc: $2.loc,
+            value: SemValue::LValue(LValue::Indexed(Indexed {
+                loc: $2.loc,
+                owner: match $1.value {
+                           SemValue::Expr(expr) => {Some(Box::new(expr))}
+                           SemValue::None => {None}
+                           _ => unreachable!(),
+                       }
+                name: get_move!($2, Identifier),
+            }));
+        };
     }
     | Expr '[' Expr ']' {
-        $$.lvalue = new Tree.Indexed($1.expr, $3.expr, $1.loc);
+        |$1: Sem, $3: Sem| -> Sem;
+        $$ = Sem {
+            loc: $1.loc,
+            value: SemValue::LValue(LValue::Indexed(Indexed {
+                loc: $1.loc,
+                array: get_move!($1, Expr),
+                index: get_move!($3, Expr),
+            }))
+        }
+    }
+    ;
+
+MaybeReceiver
+    : Expr '.' {
+        |$1: Sem| -> Sem;
+        $$ = $1;
+    }
+    | /* empty */ {
+        $$ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::None,
+        };
     }
     ;
                                                              

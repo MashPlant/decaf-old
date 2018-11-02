@@ -230,15 +230,15 @@ impl Block {
 pub struct If {
     pub loc: Location,
     pub cond: Expr,
-    pub on_true: Option<Block>,
-    pub on_false: Option<Block>,
+    pub on_true: Option<Statement>,
+    pub on_false: Option<Statement>,
 }
 
 #[derive(Debug)]
 pub struct While {
     pub loc: Location,
     pub cond: Expr,
-    pub body: Block,
+    pub body: Statement,
 }
 
 #[derive(Debug)]
