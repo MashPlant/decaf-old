@@ -230,15 +230,15 @@ impl Block {
 pub struct If {
     pub loc: Location,
     pub cond: Expr,
-    pub on_true: Option<Statement>,
-    pub on_false: Option<Statement>,
+    pub on_true: Box<Statement>,
+    pub on_false: Option<Box<Statement>>,
 }
 
 #[derive(Debug)]
 pub struct While {
     pub loc: Location,
     pub cond: Expr,
-    pub body: Statement,
+    pub body: Box<Statement>,
 }
 
 #[derive(Debug)]
@@ -247,12 +247,13 @@ pub struct For {
     pub init: Simple,
     pub cond: Expr,
     pub update: Simple,
+    pub body: Statement,
 }
 
 #[derive(Debug)]
 pub struct Return {
     pub loc: Location,
-    pub expr: Expr,
+    pub expr: Option<Expr>,
 }
 
 #[derive(Debug)]
@@ -279,8 +280,8 @@ pub struct Foreach {
     pub type_: Type,
     pub name: String,
     pub array: Expr,
-    pub cond: Expr,
-    pub body: Block,
+    pub cond: Option<Expr>,
+    pub body: Box<Statement>,
 }
 
 #[derive(Debug)]

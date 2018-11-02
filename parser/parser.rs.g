@@ -68,7 +68,7 @@
 
 \d+                 return "NUMBER";
 
-[A-Za-z][_0-9A-Za-z]* return "IDENTIFIER";
+[A-Za-z][_0-9A-Za-z]* return "Identifier";
 
 
 /lex
@@ -130,6 +130,7 @@ pub enum SemValue {
     VarDefList(Vec<VarDef>),
     StatementList(Vec<Statement>),
     ExprList(Vec<Expr>),
+    GuardedList(Vec<Expr, Statement>),
     ClassDef(ClassDef),
     VarDef(VarDef),
     MethodDef(MethodDef),
@@ -205,7 +206,7 @@ FieldList
     ;
 
 MethodDef
-    : MaybeStatic Type Identifier '(' Formals ')' Block {
+    : MaybeStatic Type Identifier '(' VariableListOrEmpty ')' Block {
         |$1:Sem, $2: Sem, $3: Sem, $5: Sem, $7: Sem| -> Sem;
         $$ = Sem {
             loc: $3.loc,
@@ -217,6 +218,36 @@ MethodDef
                 static_: get_move!($1, Static),
                 body: get_move!($7, Block),
             })
+        };
+    }
+    ;
+
+VariableListOrEmpty
+    : VariableList {
+        |$1: Sem| -> Sem;
+        $$ = $1;
+    }
+    | /* empty */ {
+        || -> Sem;
+        $$ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::VarDefList(Vec::new()),
+        };
+    }
+    ;
+
+VariableList
+    : VariableList ',' Variable {
+        |$1: Sem, $3: Sem| -> Sem;
+        let mut ret = $1;
+        get_ref!(ret, VarDefList).push(get_move!($3, VarDef));
+        $$ = ret;
+    }
+    | Variable {
+        |$1: Sem| -> Sem;
+        $$ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::VarDefList(vec!(get_move!($1, VarDef))),
         };
     }
     ;
@@ -329,27 +360,59 @@ While
         |$1: Token, $3: Sem, $5: Sem| -> Sem;
         $$ = Sem {
             loc: $1.get_loc(),
-            cond: get_move!($3, Expr);
-            body: get_move!($5, Statement);
+            value: SemValue::Statement(Statement::While(While {
+                loc: $1.get_loc(),
+                cond: get_move!($3, Expr),
+                body: get_move!($5, Statement),
+            })),
         };
     }
     ;
 
 For
-    : FOR '(' SimpleStatement ';' Expr ';'SimpleStatement ')' Statement {
-        $$.stmt = new Tree.ForLoop($3.stmt, $5.expr, $7.stmt, $9.stmt, $1.loc);
+    : FOR '(' SimpleStatement ';' Expr ';' SimpleStatement ')' Statement {
+        |$1: Token, $3: Sem, $5: Sem, $7: Sem, $9: Sem| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Statement(Statement::For(For {
+                loc: $1.get_loc(),
+                init: get_move!($3, Statement),
+                cond: get_move!($5, Expr),
+                update: get_move!($7, Statement),
+                body: get_move!($9, Statement),
+            })),
+        };
     }
     ;
 
 Break
     : BREAK {
-        $$.stmt = new Tree.Break($1.loc);
+        |$1: Token| -> Sem;
+        $$ = Sem {
+            $1.get_loc(),
+            value: SemValue::Statement(Statement::Simple(Simple::Break(Break {
+                loc: $1.get_loc(),
+            })));
+        };
     }
     ;
 
 If       
     : IF '(' Expr ')' Statement MaybeElse {
-        $$.stmt = new Tree.If($3.expr, $5.stmt, $6.stmt, $1.loc);
+        |$1: Token, $3: Sem, $5: Sem, $6: Sem| -> Sem;
+        $$ = Sem {
+            loc: $1.loc,
+            value: SemValue::Statement(Statement::If(If {
+                loc: $1.loc,
+                cond: get_move!($3, Expr),
+                on_true: Box::new(get_move!($5, Statement)),
+                on_false: match $1.value {
+                    SemValue::Statement(statement) => {Some(Box::new(statement))}
+                    SemValue::None => {None}
+                    _ => unreachable!(),
+                },
+            }));
+        }
     }
     ;
                 
@@ -371,71 +434,165 @@ MaybeElse
     ;
 
 ObjectCopy
-    : SCOPY '(' IDENTIFIER ',' Expr ')' {
-        $$.stmt = new Tree.Scopy($3.ident, $5.expr, $1.loc);
+    : SCOPY '(' Identifier ',' Expr ')' {
+        |$1: Token, $3: Sem, $5: Sem| -> Sem;
+        $$ = Sem {
+            loc: $1.loc,
+            value: SemValue::Statement(Statement::ObjectCopy(ObjectCopy {
+                loc: $1.loc,
+                dst: get_move!($3, Identifier),
+                src: get_move!($5, Expr),
+            }));
+        }
     }
     ;
 
 Foreach
-    : FOREACH '(' BoundVariable IN Expr ')' Statement {
-        $$.stmt = new Tree.Foreach($3.type, $3.ident, $5.expr, $7.stmt, $1.loc);
+    : FOREACH '(' TypeOrVar Identifier IN Expr MaybeForeachCond ')' Statement {
+        |$1: Token, $3: Sem, $4: Sem, $6: Sem, $7: Sem, $9: Sem| -> Sem;
+        value: SemValue::Statement(Statement::Foreach(Foreach {
+            loc: $1.loc,
+            type_: get_move!($3, Type),
+            name: get_move!($4, Identifier),
+            array: get_move!($6, Expr),
+            cond: match $7.value {
+                SemValue::Expr(expr) => Some(expr),
+                SemValue::None => None,
+                _ => unreachable!(),
+            },
+            body: Box::new(get_move!($9, Statement)),
+        }));
+    ;
+
+TypeOrVar:
+    : VAR {
+        |$1: Token| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Type(Type::Var),
+        };
     }
-    | FOREACH '(' BoundVariable IN Expr WHILE Expr ')' Statement {
-        $$.stmt = new Tree.Foreach($3.type, $3.ident, $5.expr, $7.expr, $9.stmt, $1.loc);
+    | Type {
+        |$1: Sem| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Type(get_move!($1, Type)),
+        };
     }
     ;
 
-BoundVariable
-    : VAR IDENTIFIER {
-        $$.type = new TypeVar($1.loc);
-        $$.ident = $2.ident;
+MaybeForeachCond
+    : WHILE Expr {
+        |$1: Token, $2: Sem| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Expr(get_move!($1, Expr)),
+        };
     }
-    | Type IDENTIFIER {
-        $$.type = $1.type;
-        $$.ident = $2.ident;
+    | /* empty */ {
+        || -> Sem;
+        $$ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::None,
+        };
     }
     ;
 
 Guarded
-    : IF '{' GuardedBranches '}' {
-        $$.stmt = new Tree.Guarded($3.elist, $3.slist, $1.loc);
-    }
-    | IF '{' '}' {
-        $$.stmt = new Tree.Guarded(new ArrayList<Expr>(),
-        new ArrayList<Tree>(), $1.loc);
+    : IF '{' GuardedBranchesOrEmpty '}' {
+        |$1: Token, $3: Sem|-> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Statement(Statement::Guarded(Guarded {
+                loc: $1.get_loc(),
+                guarded: get_move!($3, GuardedList),
+            }))
+        };
     }
     ;
 
+GuardedBranchesOrEmpty
+    :  GuardedBranches {
+        |$1: Sem| -> Sem;
+        $$ = $1;
+    }
+    | /* empty */ {
+        || -> Sem;
+        $$ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::GuardedList(Vec::new()),
+        };
+    }
+    ;
 GuardedBranches
     : GuardedBranches GUARD_SPLIT Expr ':' Statement {
-        $$.elist = $1.elist;
-        $$.slist = $1.slist;
-        $$.elist.add($3.expr);
-        $$.slist.add($5.stmt);
+        |$1: Sem, $3: Sem, $5: Sem| -> Sem;
+        let mut ret = $1;
+        get_ref!(ret, GuardedList).push((get_move!($3, Expr), get_move!($5, Statement)));
+        $$ = ret;
     }
     | Expr ':' Statement {
-        $$.elist = new ArrayList<Tree.Expr>();
-        $$.slist = new ArrayList<Tree>();
-        $$.elist.add($1.expr);
-        $$.slist.add($3.stmt);
+        |$1: Sem, $3: Sem| -> Sem;
+        $$ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::GuardedList(vec![(get_move!($1, Expr), get_move!($3, Statement))]),
+        };
     }
     ;
 
 Return
     : RETURN Expr {
-        $$.stmt = new Tree.Return($2.expr, $1.loc);
+        |$1: Token, $2: Sem| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Statement(Statement::Return(Return {
+                loc: $1.get_loc(),
+                expr: Some(get_move!($2, Expr)),
+            }))
+        };
     }
     | RETURN {
-        $$.stmt = new Tree.Return(null, $1.loc);
+        |$1: Token| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Statement(Statement::Return(Return {
+                loc: $1.get_loc(),
+                expr: None,
+            }))
+        };
     }
     ;
 
+
 Print
     : PRINT '(' ExprList ')' {
-        $$.stmt = new Print($3.elist, $1.loc);
+        |$1: Token, $3: Sem| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Statement(Statement::Print(Print {
+                loc: $1.get_loc(),
+                print: get_move!($3, ExprList),
+            }))
+        };
     }
     ;
-                
+    
+ExprList
+    : ExprList ',' Expr {
+        |$1: Sem, $3: Sem| -> Sem;
+        let mut ret = $1;
+        get_ref!(ret, ExprList).push(get_move!($3, Expr));
+        $$ = ret;
+    }
+    | Expr {
+        |$1: Sem| -> Sem;
+        $$ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::ExprList(vec!(get_move!($1, Expr))),
+        };
+    }
+    ;
+                                
 Simple
     : LValue '=' Expr {
         |$1: Sem, $2: Token, $3: Sem| -> Sem;
@@ -552,10 +709,10 @@ LValue
             value: SemValue::LValue(LValue::Indexed(Indexed {
                 loc: $2.loc,
                 owner: match $1.value {
-                           SemValue::Expr(expr) => {Some(Box::new(expr))}
-                           SemValue::None => {None}
-                           _ => unreachable!(),
-                       }
+                    SemValue::Expr(expr) => {Some(Box::new(expr))}
+                    SemValue::None => {None}
+                    _ => unreachable!(),
+                }
                 name: get_move!($2, Identifier),
             }));
         };
@@ -653,9 +810,9 @@ Type
 
 Identifier
     : IDENTIFIER {
-        || -> Sem;
+        |$1: Token| -> Sem;
         $$ = Sem {
-            loc: self.get_loc(),
+            loc: $1.get_loc(),
             // yytext.to_string() return s the current name
             value: SemValue::Identifier(yytext.to_string()),
         }
