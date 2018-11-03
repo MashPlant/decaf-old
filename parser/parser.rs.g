@@ -11,6 +11,8 @@
 "string"            return "STRING";    
 "new"               return "NEW";
 "null"              return "NULL";
+"true"              return "TRUE";
+"false"             return "FALSE";
 "class"             return "CLASS";
 "extends"           return "EXTENDS";
 "this"              return "THIS";
@@ -23,7 +25,7 @@
 "Print"             return "PRINT";
 "ReadInteger"       return "READ_INTEGER";
 "ReadLine"          return "READ_LINE";
-"static"            return "STATIC";    
+"static"            return "STATIC";
 "instanceof"        return "INSTANCEOF";
 "scopy"             return "SCOPY";
 "sealed"            return "SEALED";
@@ -65,12 +67,18 @@
 
 \s+                 return "";
 
-\d+                 return "NUMBER";
+\d+                 return "INT_CONST";
 
 [A-Za-z][_0-9A-Za-z]* return "IDENTIFIER";
 
 /lex
 
+%left OR
+%left AND
+%nonassoc EQUAL NOT_EQUAL
+%nonassoc LESS_EQUAL GREATER_EQUAL '<' '>'
+%right CONCAT
+%left REPEAT
 %left  '+' '-'
 %left  '*' '%'
 %nonassoc UMINUS '!'
@@ -123,6 +131,17 @@ fn gen_binary(mut left: Sem, opt: Token, mut right: Sem, kind: Operator) -> Sem 
     }
 }
 
+fn gen_unary(opt: Token, mut opr: Sem, kind: Operator) -> Sem {
+    Sem {
+        loc: opt.get_loc(),
+        value: SemValue::Expr(Expr::Unary(Unary {
+            loc: opt.get_loc(),
+            opt: kind,
+            opr: Box::new(get_move!(opr, Expr)),
+        })),
+    }
+}
+
 // Final result type returned from `parse` method call.
 pub type TResult = Program;
 
@@ -134,9 +153,6 @@ pub struct Sem {
 
 #[derive(Debug)]
 pub enum SemValue {
-    IntLiteral(i32),
-    BoolLiteral(bool),
-    StringLiteral(String),
     Identifier(String),
     ClassList(Vec<ClassDef>),
     FieldList(Vec<FieldDef>),
@@ -152,8 +168,8 @@ pub enum SemValue {
     Block(Block),
     Expr(Expr),
     LValue(LValue),
+    Const(Const),
     Sealed(bool),
-    Static(bool),
     None,
 }
 
@@ -353,7 +369,7 @@ StatementList
     }
     ;
 
-Statement    
+Statement
     : VarDef {
         |$1: Sem| -> Sem;
         $$ = Sem {
@@ -458,7 +474,7 @@ Break
     }
     ;
 
-If       
+If
     : IF '(' Expr ')' Statement MaybeElse {
         |$1: Token, $3: Sem, $5: Sem, $6: Sem| -> Sem;
         $$ = Sem {
@@ -476,8 +492,8 @@ If
         }
     }
     ;
-                
-MaybeElse 
+
+MaybeElse
     : ELSE Statement {
         |$1: Token, $2: Sem| -> Sem;
         $$ = Sem {
@@ -642,7 +658,7 @@ Print
         };
     }
     ;
-    
+
 ExprList
     : ExprList ',' Expr {
         |$1: Sem, $3: Sem| -> Sem;
@@ -658,7 +674,7 @@ ExprList
         };
     }
     ;
-                                
+
 Simple
     : LValue '=' Expr {
         |$1: Sem, $2: Token, $3: Sem| -> Sem;
@@ -708,6 +724,17 @@ Expr
             value: SemValue::Expr(Expr::LValue(get_move!($1, LValue))),
         }
     }
+    | Call {
+        |$1: Sem| -> Sem;
+        $$ = $1;
+    }
+    | Const {
+        |$1: Sem| -> Sem;
+        $$ = Sem {
+            loc: $1.loc,
+            value: SemValue::Expr(Expr::Const(get_move!($1, Const))),
+        }
+    }
     | Expr '+' Expr {
         |$1: Sem, $2: Token, $3: Sem| -> Sem;
         $$ = gen_binary($1, $2, $3, Operator::Add);
@@ -723,6 +750,178 @@ Expr
     | Expr '%' Expr {
         |$1: Sem, $2: Token, $3: Sem| -> Sem;
         $$ = gen_binary($1, $2, $3, Operator::Mod);
+    }
+    | Expr EQUAL Expr {
+        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        $$ = gen_binary($1, $2, $3, Operator::Eq);
+    }
+    | Expr NOT_EQUAL Expr {
+        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        $$ = gen_binary($1, $2, $3, Operator::Ne);
+    }
+    | Expr '<' Expr {
+        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        $$ = gen_binary($1, $2, $3, Operator::Lt);
+    }
+    | Expr '>' Expr {
+        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        $$ = gen_binary($1, $2, $3, Operator::Gt);
+    }
+    | Expr LESS_EQUAL Expr {
+        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        $$ = gen_binary($1, $2, $3, Operator::Le);
+    }
+    | Expr GREATER_EQUAL Expr {
+        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        $$ = gen_binary($1, $2, $3, Operator::Ge);
+    }
+    | Expr AND Expr {
+        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        $$ = gen_binary($1, $2, $3, Operator::And);
+    }
+    | Expr OR Expr {
+        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        $$ = gen_binary($1, $2, $3, Operator::Or);
+    }
+    | Expr REPEAT Expr {
+        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        $$ = gen_binary($1, $2, $3, Operator::Repeat);
+    }
+    | Expr CONCAT Expr {
+        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        $$ = gen_binary($1, $2, $3, Operator::Concat);
+    }
+    | Expr '[' Expr ':' Expr ']' {
+        |$1: Sem, $2: Token, $3: Sem, $5: Sem| -> Sem;
+        $$ = Sem {
+            loc: $2.get_loc(),
+            value: SemValue::Expr(Expr::Range(Range {
+                loc: $2.get_loc(),
+                array: Box::new(get_move!($1, Expr)),
+                lower: Box::new(get_move!($3, Expr)),
+                upper: Box::new(get_move!($5, Expr)),
+            }))
+        };
+    }
+    | Expr '[' Expr ']' DEFAULT Expr {
+        |$1: Sem, $2: Token, $3: Sem, $6: Sem| -> Sem;
+        $$ = Sem {
+            loc: $2.get_loc(),
+            value: SemValue::Expr(Expr::Default(Default {
+                loc: $2.get_loc(),
+                array: Box::new(get_move!($1, Expr)),
+                index: Box::new(get_move!($3, Expr)),
+                default: Box::new(get_move!($6, Expr)),
+            }))
+        };
+    }
+    | '[' Expr FOR Identifier IN Expr ']' {
+        |$1: Token, $2: Sem, $4: Sem, $6: Sem| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Expr(Expr::Comprehension(Comprehension {
+                loc: $1.get_loc(),
+                expr: Box::new(get_move!($2, Expr)),
+                name: get_move!($4, Identifier),
+                array: Box::new(get_move!($6, Expr)),
+                cond: None,
+            })),
+        };
+    }
+    | '[' Expr FOR Identifier IN Expr IF Expr ']' {
+        |$1: Token, $2: Sem, $4: Sem, $6: Sem, $8: Sem| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Expr(Expr::Comprehension(Comprehension {
+                loc: $1.get_loc(),
+                expr: Box::new(get_move!($2, Expr)),
+                name: get_move!($4, Identifier),
+                array: Box::new(get_move!($6, Expr)),
+                cond: Some(Box::new(get_move!($8, Expr))),
+            })),
+        };
+    }
+    | '(' Expr ')' {
+        |$2: Sem| -> Sem;
+        $$ = $2;
+    }
+    | '-' Expr %prec UMINUS {
+        |$1: Token, $2: Sem| -> Sem;
+        $$ = gen_unary($1, $2, Operator::Neg);
+    }
+    | '!' Expr {
+        |$1: Token, $2: Sem| -> Sem;
+        $$ = gen_unary($1, $2, Operator::Not);
+    }
+    | READ_INTEGER '(' ')' {
+        |$1: Token| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Expr(Expr::ReadInt(ReadInt {
+                loc: $1.get_loc(),
+            }))
+        };
+    }
+    | READ_LINE '(' ')' {
+        |$1: Token| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Expr(Expr::ReadLine(ReadLine {
+                loc: $1.get_loc(),
+            }))
+        };
+    }
+    | THIS {
+        |$1: Token| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Expr(Expr::This(This {
+                loc: $1.get_loc(),
+            }))
+        };
+    }
+    | NEW Identifier '(' ')' {
+        |$1: Token, $2: Sem| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Expr(Expr::NewClass(NewClass {
+                loc: $1.get_loc(),
+                name: get_move!($2, Identifier),
+            }))
+        };
+    }
+    | NEW Type '[' Expr ']' {
+        |$1: Token, $2: Sem, $4: Sem| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Expr(Expr::NewArray(NewArray {
+                loc: $1.get_loc(),
+                type_: get_move!($2, Type),
+                len: Box::new(get_move!($4, Expr)),
+            }))
+        };
+    }
+    | INSTANCEOF '(' Expr ',' Identifier ')' {
+        |$1: Token, $3: Sem, $5: Sem| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Expr(Expr::TypeTest(TypeTest {
+                loc: $1.get_loc(),
+                expr: Box::new(get_move!($3, Expr)),
+                name: get_move!($5, Identifier),
+            }))
+        };
+    }
+    | '(' CLASS Identifier ')' Expr {
+        |$3: Sem, $5: Sem| -> Sem;
+        $$ = Sem {
+            loc: $3.loc,
+            value: SemValue::Expr(Expr::TypeCast(TypeCast {
+                loc: $3.loc,
+                name: get_move!($3, Identifier),
+                expr: Box::new(get_move!($5, Expr)),
+            }))
+        };
     }
     ;
 
@@ -768,7 +967,122 @@ MaybeReceiver
         };
     }
     ;
-                                                             
+
+Call
+    : Receiver Identifier '(' ExprListOrEmpty ')' {
+        |$1: Sem, $2: Sem, $4: Sem| -> Sem;
+        $$ = Sem {
+            loc: $2.loc,
+            value: SemValue::Expr(Expr::Call(Call {
+                loc: $2.loc,
+                receiver: Some(Box::new(get_move!($1, Expr))),
+                name: get_move!($2, Identifier),
+                arguments: get_move!($4, ExprList),
+            })),
+        }
+    }
+    ;
+                
+Const        
+    : INT_CONST {
+        |$1: Token| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Const(Const::IntConst(IntConst {
+                loc: $1.get_loc(),
+                value: yytext.parse::<i32>().unwrap(),
+            })),
+        };
+    }
+    | TRUE {
+        |$1: Token| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Const(Const::BoolConst(BoolConst {
+                loc: $1.get_loc(),
+                value: true,
+            })),
+        };
+    }
+    | FALSE {
+        |$1: Token| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Const(Const::BoolConst(BoolConst {
+                loc: $1.get_loc(),
+                value: false,
+            })),
+        };
+    }
+    | ArrayConst {
+        |$1: Sem| -> Sem;
+        $$ = $1;
+    }
+    | NULL {
+        |$1: Token| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Const(Const::Null(Null {
+                loc: $1.get_loc(),
+            })),
+        };
+    }
+    ;
+
+ArrayConst
+    : '[' ConstList ']' {
+        |$2: Sem| -> Sem;
+        $$ = $2;
+    }
+    | '[' ']' {
+        || -> Sem;
+        $$ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::Const(Const::ArrayConst(ArrayConst {
+                loc: NO_LOCATION,
+                value: Vec::new(),
+            })),
+        };
+    }
+    ;
+
+ConstList
+    : ConstList ',' Const {
+        |$1: Sem, $3: Sem| -> Sem;
+        let mut ret = $1;
+        match get_ref!(ret, Const) {
+            Const::ArrayConst(array_const) => array_const.value.push(get_move!($3, Const)),
+            _ => unreachable!(),
+        };
+        $$ = ret;
+    }
+    | Const {
+        |$1: Sem| -> Sem;
+        $$ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::Const(Const::ArrayConst(ArrayConst {
+                loc: NO_LOCATION,
+                value: vec![get_move!($1, Const)],
+            })),
+        };
+    }
+    ;
+
+
+ExprListOrEmpty
+    : ExprList {
+        |$1: Sem| -> Sem;
+        $$ = $1;
+    }
+    | /* empty */ {
+        || -> Sem;
+        $$ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::ExprList(Vec::new()),
+        };
+    }
+    ;
+
 VarDef
     : Variable ';' {
         $$ = $1;

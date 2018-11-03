@@ -50,7 +50,7 @@ impl IndentPrinter {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Location(pub i32, pub i32);
 
 pub const NO_LOCATION: Location = Location(-1, -1);
@@ -202,19 +202,20 @@ pub enum Statement {
 
 impl Statement {
     pub fn print_to(&self, printer: &mut IndentPrinter) {
+        use Statement::*;
         match &self {
-            Statement::VarDef(var_def) => var_def.print_to(printer),
-            Statement::Simple(simple) => simple.print_to(printer),
-            Statement::If(if_) => if_.print_to(printer),
-            Statement::While(while_) => while_.print_to(printer),
-            Statement::For(for_) => for_.print_to(printer),
-            Statement::Return(return_) => return_.print_to(printer),
-            Statement::Print(print) => print.print_to(printer),
-            Statement::Break(break_) => break_.print_to(printer),
-            Statement::ObjectCopy(object_copy) => object_copy.print_to(printer),
-            Statement::Foreach(foreach) => foreach.print_to(printer),
-            Statement::Guarded(guarded) => guarded.print_to(printer),
-            Statement::Block(block) => block.print_to(printer),
+            VarDef(var_def) => var_def.print_to(printer),
+            Simple(simple) => simple.print_to(printer),
+            If(if_) => if_.print_to(printer),
+            While(while_) => while_.print_to(printer),
+            For(for_) => for_.print_to(printer),
+            Return(return_) => return_.print_to(printer),
+            Print(print) => print.print_to(printer),
+            Break(break_) => break_.print_to(printer),
+            ObjectCopy(object_copy) => object_copy.print_to(printer),
+            Foreach(foreach) => foreach.print_to(printer),
+            Guarded(guarded) => guarded.print_to(printer),
+            Block(block) => block.print_to(printer),
         };
     }
 }
@@ -498,17 +499,206 @@ pub enum Operator {
 #[derive(Debug)]
 pub enum Expr {
     LValue(LValue),
+    Const(Const),
+    Call(Call),
     Unary(Unary),
     Binary(Binary),
+    This(This),
+    ReadInt(ReadInt),
+    ReadLine(ReadLine),
+    NewClass(NewClass),
+    NewArray(NewArray),
+    TypeTest(TypeTest),
+    TypeCast(TypeCast),
+    Range(Range),
+    Default(Default),
+    Comprehension(Comprehension),
 }
 
 impl Expr {
     pub fn print_to(&self, printer: &mut IndentPrinter) {
+        use Expr::*;
         match &self {
-            Expr::LValue(lvalue) => lvalue.print_to(printer),
-            Expr::Unary(unary) => unary.print_to(printer),
-            Expr::Binary(binary) => binary.print_to(printer),
+            LValue(lvalue) => lvalue.print_to(printer),
+            Const(const_) => const_.print_to(printer),
+            Call(call) => call.print_to(printer),
+            Unary(unary) => unary.print_to(printer),
+            Binary(binary) => binary.print_to(printer),
+            This(this) => this.print_to(printer),
+            ReadInt(read_int) => read_int.print_to(printer),
+            ReadLine(read_line) => read_line.print_to(printer),
+            NewClass(new_class) => new_class.print_to(printer),
+            NewArray(new_array) => new_array.print_to(printer),
+            TypeTest(type_test) => type_test.print_to(printer),
+            TypeCast(type_cast) => type_cast.print_to(printer),
+            Range(range) => range.print_to(printer),
+            Default(default) => default.print_to(printer),
+            Comprehension(comprehension) => comprehension.print_to(printer),
         }
+    }
+}
+
+#[derive(Debug)]
+pub enum LValue {
+    Indexed(Indexed),
+    Identifier(Identifier),
+}
+
+impl LValue {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        match &self {
+            LValue::Indexed(indexed) => indexed.print_to(printer),
+            LValue::Identifier(identifier) => identifier.print_to(printer),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Indexed {
+    pub loc: Location,
+    pub array: Box<Expr>,
+    pub index: Box<Expr>,
+}
+
+impl Indexed {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("arrref");
+        printer.inc_indent();
+        self.array.print_to(printer);
+        self.index.print_to(printer);
+        printer.dec_indent();
+    }
+}
+
+#[derive(Debug)]
+pub struct Identifier {
+    pub loc: Location,
+    pub owner: Option<Box<Expr>>,
+    pub name: String,
+}
+
+impl Identifier {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.print("varref");
+        printer.println(&self.name);
+        if let Some(owner) = &self.owner {
+            printer.inc_indent();
+            owner.print_to(printer);
+            printer.dec_indent();
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum Const {
+    IntConst(IntConst),
+    BoolConst(BoolConst),
+    StringConst(StringConst),
+    ArrayConst(ArrayConst),
+    Null(Null),
+}
+
+impl Const {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        use Const::*;
+        match &self {
+            IntConst(int_const) => int_const.print_to(printer),
+            BoolConst(bool_const) => bool_const.print_to(printer),
+            StringConst(string_const) => string_const.print_to(printer),
+            ArrayConst(array_const) => array_const.print_to(printer),
+            Null(null) => null.print_to(printer),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct IntConst {
+    pub loc: Location,
+    pub value: i32,
+}
+
+impl IntConst {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.print("intconst");
+        printer.println(&self.value.to_string());
+    }
+}
+
+#[derive(Debug)]
+pub struct BoolConst {
+    pub loc: Location,
+    pub value: bool,
+}
+
+impl BoolConst {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.print("boolconst");
+        printer.println(&self.value.to_string());
+    }
+}
+
+#[derive(Debug)]
+pub struct StringConst {
+    pub loc: Location,
+    pub value: String,
+}
+
+impl StringConst {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.print("stringconst");
+        printer.println(&self.value);
+    }
+}
+
+#[derive(Debug)]
+pub struct ArrayConst {
+    pub loc: Location,
+    pub value: Vec<Const>,
+}
+
+impl ArrayConst {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("array const");
+        printer.inc_indent();
+        if self.value.is_empty() {
+            printer.println("<empty>");
+        } else {
+            for const_ in &self.value { const_.print_to(printer); }
+        }
+        printer.dec_indent();
+    }
+}
+
+#[derive(Debug)]
+pub struct Null {
+    pub loc: Location,
+}
+
+impl Null {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("null");
+    }
+}
+
+#[derive(Debug)]
+pub struct Call {
+    pub loc: Location,
+    pub receiver: Option<Box<Expr>>,
+    pub name: String,
+    pub arguments: Vec<Expr>,
+}
+
+impl Call {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.print("call");
+        printer.println(&self.name);
+        printer.inc_indent();
+        match &self.receiver {
+            Some(receiver) => receiver.print_to(printer),
+            None => printer.println("<empty>"),
+        };
+        for expr in &self.arguments { expr.print_to(printer); }
+        printer.dec_indent();
     }
 }
 
@@ -572,54 +762,110 @@ impl Binary {
 }
 
 #[derive(Debug)]
-pub enum LValue {
-    Indexed(Indexed),
-    Identifier(Identifier),
+pub struct This {
+    pub loc: Location,
 }
 
-impl LValue {
-    pub fn print_to(&self, printer: &mut IndentPrinter) {
-        match &self {
-            LValue::Indexed(indexed) => indexed.print_to(printer),
-            LValue::Identifier(identifier) => identifier.print_to(printer),
-        }
-    }
+impl This {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {}
 }
 
 #[derive(Debug)]
-pub struct Indexed {
+pub struct ReadInt {
     pub loc: Location,
-    pub array: Box<Expr>,
-    pub index: Box<Expr>,
 }
 
-impl Indexed {
-    pub fn print_to(&self, printer: &mut IndentPrinter) {
-        printer.println("arrref");
-        printer.inc_indent();
-        self.array.print_to(printer);
-        self.index.print_to(printer);
-        printer.dec_indent();
-    }
+impl ReadInt {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {}
 }
 
 #[derive(Debug)]
-pub struct Identifier {
+pub struct ReadLine {
     pub loc: Location,
-    pub owner: Option<Box<Expr>>,
+}
+
+impl ReadLine {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {}
+}
+
+#[derive(Debug)]
+pub struct NewClass {
+    pub loc: Location,
     pub name: String,
 }
 
-impl Identifier {
-    pub fn print_to(&self, printer: &mut IndentPrinter) {
-        printer.print("varref");
-        printer.println(&self.name);
-        if let Some(owner) = &self.owner {
-            printer.inc_indent();
-            owner.print_to(printer);
-            printer.dec_indent();
-        }
-    }
+impl NewClass {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {}
+}
+
+#[derive(Debug)]
+pub struct NewArray {
+    pub loc: Location,
+    pub type_: Type,
+    pub len: Box<Expr>,
+}
+
+impl NewArray {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {}
+}
+
+#[derive(Debug)]
+pub struct TypeTest {
+    pub loc: Location,
+    pub expr: Box<Expr>,
+    pub name: String,
+}
+
+impl TypeTest {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {}
+}
+
+#[derive(Debug)]
+pub struct TypeCast {
+    pub loc: Location,
+    pub name: String,
+    pub expr: Box<Expr>,
+}
+
+impl TypeCast {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {}
+}
+
+#[derive(Debug)]
+pub struct Range {
+    pub loc: Location,
+    pub array: Box<Expr>,
+    pub lower: Box<Expr>,
+    pub upper: Box<Expr>,
+}
+
+impl Range {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {}
+}
+
+#[derive(Debug)]
+pub struct Default {
+    pub loc: Location,
+    pub array: Box<Expr>,
+    pub index: Box<Expr>,
+    pub default: Box<Expr>,
+}
+
+impl Default {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {}
+}
+
+#[derive(Debug)]
+pub struct Comprehension {
+    pub loc: Location,
+    pub expr: Box<Expr>,
+    pub name: String,
+    pub array: Box<Expr>,
+    pub cond: Option<Box<Expr>>,
+}
+
+impl Comprehension {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {}
 }
 
 pub trait Visitor {
