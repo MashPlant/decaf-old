@@ -247,7 +247,7 @@ pub struct For {
     pub init: Simple,
     pub cond: Expr,
     pub update: Simple,
-    pub body: Statement,
+    pub body: Box<Statement>,
 }
 
 #[derive(Debug)]
@@ -286,7 +286,8 @@ pub struct Foreach {
 
 #[derive(Debug)]
 pub struct Guarded {
-    pub guarded: Vec<(Expr, Block)>,
+    pub loc: Location,
+    pub guarded: Vec<(Expr, Statement)>,
 }
 
 #[derive(Debug)]
@@ -309,7 +310,7 @@ pub struct Skip {
 }
 
 #[derive(Debug)]
-enum Operator {
+pub enum Operator {
     Pos,
     Neg,
     Not,

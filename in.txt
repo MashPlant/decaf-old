@@ -1,6 +1,7 @@
 class Main {
-    int a;
-}
-class another {
-    int a;
+    int x;
+    int y;
+    void foo() {
+        int a;
+    }
 }
