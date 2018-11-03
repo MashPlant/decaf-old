@@ -49,6 +49,7 @@
 "+"                 return "'+'";
 "-"                 return "'-'";
 "*"                 return "'*'";
+"/"                 return "'/'";
 "%"                 return "'%'";
 "="                 return "'='";
 "<"                 return "'<'";
@@ -65,6 +66,8 @@
 "}"                 return "'}'";
 ":"                 return "':'";
 
+\"[^\"]*\"  return "STRING_CONST";
+
 \s+                 return "";
 
 \d+                 return "INT_CONST";
@@ -80,7 +83,7 @@
 %right CONCAT
 %left REPEAT
 %left  '+' '-'
-%left  '*' '%'
+%left  '*' '/' '%'
 %nonassoc UMINUS '!'
 %nonassoc '[' '.' DEFAULT
 %nonassoc ')' EMPTY
@@ -747,6 +750,10 @@ Expr
         |$1: Sem, $2: Token, $3: Sem| -> Sem;
         $$ = gen_binary($1, $2, $3, Operator::Mul);
     }
+    | Expr '/' Expr {
+        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        $$ = gen_binary($1, $2, $3, Operator::Div);
+    }
     | Expr '%' Expr {
         |$1: Sem, $2: Token, $3: Sem| -> Sem;
         $$ = gen_binary($1, $2, $3, Operator::Mod);
@@ -1015,6 +1022,16 @@ Const
             value: SemValue::Const(Const::BoolConst(BoolConst {
                 loc: $1.get_loc(),
                 value: false,
+            })),
+        };
+    }
+    | STRING_CONST {
+        |$1: Token| -> Sem;
+        $$ = Sem {
+            loc: $1.get_loc(),
+            value: SemValue::Const(Const::StringConst(StringConst {
+                loc: $1.get_loc(),
+                value: (&yytext[1..yytext.len() - 1]).to_string(),
             })),
         };
     }
