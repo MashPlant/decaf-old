@@ -4,4 +4,19 @@ class Main {
     void foo() {
         int a;
     }
+    static void bar() {
+        if (a) {
+
+        } else {
+
+        }
+    }
+}
+
+class Main2 extends Main {
+
+}
+
+sealed class Main3 extends Main {
+
 }

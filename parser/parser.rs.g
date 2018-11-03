@@ -187,18 +187,56 @@ ClassList
     ;
 
 ClassDef
-    : CLASS Identifier '{' FieldList '}' {
-        |$1: Token, $2: Sem, $4: Sem| -> Sem;
+    : MaybeSealed CLASS Identifier MaybeExtends  '{' FieldList '}' {
+        |$1: Sem, $2: Token, $3: Sem, $4: Sem, $6: Sem| -> Sem;
         $$ = Sem {
-            loc: $1.get_loc(),
+            loc: $2.get_loc(),
             value: SemValue::ClassDef(ClassDef {
-                loc: $1.get_loc(),
-                name: get_move!($2, Identifier),
-                parent: None,
-                fields: get_move!($4, FieldList),
-                sealed: false,
+                loc: $2.get_loc(),
+                name: get_move!($3, Identifier),
+                parent: match $4.value {
+                    SemValue::Identifier(name) => Some(name),
+                    SemValue::None => None,
+                    _ => unreachable!(),
+                },
+                fields: get_move!($6, FieldList),
+                sealed: get_move!($1, Sealed),
             })
         }
+    }
+    ;
+
+MaybeSealed
+    : SEALED {
+        || -> Sem;
+        $$ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::Sealed(true),
+        };
+    }
+    | /* empty */ {
+        || -> Sem;
+        $$ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::Sealed(false),
+        };
+    }
+    ;
+
+MaybeExtends
+    : EXTENDS Identifier {
+        |$2: Sem| -> Sem;
+        $$ = Sem {
+            loc: $2.loc,
+            value: SemValue::Identifier(get_move!($2, Identifier)),
+        };
+    }
+    | /* empty */ {
+        || -> Sem;
+        $$ = Sem {
+            loc: NO_LOCATION,
+            value: SemValue::None,
+        };
     }
     ;
 
@@ -226,7 +264,7 @@ FieldList
 
 MethodDef
     : STATIC Type Identifier '(' VariableListOrEmpty ')' Block {
-        |$1:Sem, $2: Sem, $3: Sem, $5: Sem, $7: Sem| -> Sem;
+        |$1:Token, $2: Sem, $3: Sem, $5: Sem, $7: Sem| -> Sem;
         $$ = Sem {
             loc: $3.loc,
             value: SemValue::MethodDef(MethodDef {
@@ -487,7 +525,6 @@ Foreach
                 body: Box::new(get_move!($9, Statement)),
             })),
         }
-
     }
     ;
 
@@ -551,6 +588,7 @@ GuardedBranchesOrEmpty
         };
     }
     ;
+
 GuardedBranches
     : GuardedBranches GUARD_SPLIT Expr ':' Statement {
         |$1: Sem, $3: Sem, $5: Sem| -> Sem;
@@ -664,7 +702,10 @@ Simple
 Expr
     : LValue {
         |$1: Sem| -> Sem;
-        $$ = $1;
+        $$ = Sem {
+            loc: $1.loc,
+            value: SemValue::Expr(Expr::LValue(get_move!($1, LValue))),
+        }
     }
     | Expr '+' Expr {
         |$1: Sem, $2: Token, $3: Sem| -> Sem;

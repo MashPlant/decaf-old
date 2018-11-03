@@ -193,17 +193,3 @@ Expr
                 value: SemValue::None,
             };
         }
-
-
-    | Expr '+' Expr {
-        |$1: Sem, $2: Token, $3: Sem| -> Sem;
-        $$ = Sem {
-            loc: $2.get_loc(),
-            value: SemValue::Expr(Expr::Binary(Binary {
-                loc: $2.get_loc(),
-                opt: Operator::Add,
-                left: Box::new(get_move!($1, Expr)),
-                right: Box::new(get_move!($3, Expr)),
-            })),
-        }
-    }
