@@ -262,6 +262,7 @@ FieldList
     }
     ;
 
+// I don't know why use 'MaybeStatic -> eps | STATIC' will cause shift-reduce conflict
 MethodDef
     : STATIC Type Identifier '(' VariableListOrEmpty ')' Block {
         |$1:Token, $2: Sem, $3: Sem, $5: Sem, $7: Sem| -> Sem;
@@ -424,7 +425,7 @@ While
     ;
 
 For
-    : FOR '(' SimpleStatement ';' Expr ';' SimpleStatement ')' Statement {
+    : FOR '(' Simple ';' Expr ';' Simple ')' Statement {
         |$1: Token, $3: Sem, $5: Sem, $7: Sem, $9: Sem| -> Sem;
         $$ = Sem {
             loc: $1.get_loc(),

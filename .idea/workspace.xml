@@ -10,8 +10,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a14d057e-f809-45be-92a2-14edbc6949ba" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/in.txt" beforeDir="false" afterPath="$PROJECT_DIR$/in.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/parser/parser.rs.g" beforeDir="false" afterPath="$PROJECT_DIR$/parser/parser.rs.g" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/parser/src/ast.rs" beforeDir="false" afterPath="$PROJECT_DIR$/parser/src/ast.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/parser/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/parser/src/lib.rs" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -40,12 +42,12 @@
           <entry key="lock" value="1" />
           <entry key="rs" value="23" />
           <entry key="toml" value="6" />
-          <entry key="txt" value="10" />
+          <entry key="txt" value="11" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.open">
         <counts>
-          <entry key="PLAIN_TEXT" value="17" />
+          <entry key="PLAIN_TEXT" value="18" />
           <entry key="Rust" value="23" />
           <entry key="TOML file" value="5" />
         </counts>
@@ -54,17 +56,17 @@
         <counts>
           <entry key="GDB" value="7" />
           <entry key="bnf" value="3" />
-          <entry key="g" value="10391" />
-          <entry key="rs" value="7709" />
+          <entry key="g" value="10553" />
+          <entry key="rs" value="9494" />
           <entry key="toml" value="14" />
-          <entry key="txt" value="262" />
+          <entry key="txt" value="320" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.edit">
         <counts>
           <entry key="GDBCommands" value="7" />
-          <entry key="PLAIN_TEXT" value="10670" />
-          <entry key="Rust" value="7709" />
+          <entry key="PLAIN_TEXT" value="10890" />
+          <entry key="Rust" value="9494" />
         </counts>
       </usages-collector>
     </session>
@@ -74,8 +76,12 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/parser/src/ast.rs">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="474">
-              <caret line="75" column="14" selection-start-line="75" selection-start-column="8" selection-end-line="75" selection-end-column="14" />
+            <state relative-caret-position="530">
+              <caret line="312" column="17" selection-start-line="312" selection-start-column="17" selection-end-line="312" selection-end-column="17" />
+              <folding>
+                <element signature="e#9066#9067#0" expanded="true" />
+                <element signature="e#9106#9107#0" expanded="true" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -83,26 +89,8 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/parser/parser.rs.g">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="598">
-              <caret line="202" column="45" selection-start-line="202" selection-start-column="45" selection-end-line="202" selection-end-column="45" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/in.txt">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="592">
-              <caret line="16" lean-forward="true" selection-start-line="16" selection-end-line="16" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/parser/src/lib.rs">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="567">
-              <caret line="1472" column="20" selection-start-line="1472" selection-start-column="20" selection-end-line="1472" selection-end-column="20" />
+            <state relative-caret-position="966">
+              <caret line="726" column="5" selection-start-line="726" selection-start-column="5" selection-end-line="726" selection-end-column="5" />
             </state>
           </provider>
         </entry>
@@ -110,8 +98,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/parser/tmp.txt">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="2014">
-              <caret line="208" column="5" selection-start-line="208" selection-start-column="5" selection-end-line="208" selection-end-column="5" />
+            <state relative-caret-position="-1945">
+              <caret line="107" column="4" lean-forward="true" selection-start-line="107" selection-start-column="4" selection-end-line="186" selection-end-column="5" />
             </state>
           </provider>
         </entry>
@@ -154,12 +142,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>SemValue::Expr(get_move!($1, Expr))</find>
-      <find>get_move!($3, GuardedList)</find>
-      <find>Return</find>
-      <find>value: SemValue::Statement(Statement::Simple(Simple::Assign {</find>
-      <find>value: SemValue::Statement(Statement::Simple(get_move!</find>
-      <find>get_move!($3, Expr))</find>
       <find>array: get_move!($1, Expr)</find>
       <find>value: SemValue::None,</find>
       <find>gen_binary</find>
@@ -184,6 +166,12 @@
       <find>Expr</find>
       <find>LValue</find>
       <find>parent</find>
+      <find>Type</find>
+      <find>ELSE</find>
+      <find>incIndent</find>
+      <find>printTo</find>
+      <find>SimpleStatement</find>
+      <find>Simple</find>
     </findStrings>
     <replaceStrings>
       <replace>&quot;;</replace>
@@ -201,6 +189,8 @@
       <replace>Identifier</replace>
       <replace>RIGHT_PAR</replace>
       <replace>'}'</replace>
+      <replace>inc_indent</replace>
+      <replace>print_to</replace>
     </replaceStrings>
   </component>
   <component name="Git.Settings">
@@ -215,9 +205,9 @@
         <option value="$PROJECT_DIR$/Cargo.toml" />
         <option value="$PROJECT_DIR$/src/main.rs" />
         <option value="$PROJECT_DIR$/calc.bnf" />
+        <option value="$PROJECT_DIR$/parser/src/lib.rs" />
         <option value="$PROJECT_DIR$/parser/tmp.txt" />
         <option value="$PROJECT_DIR$/parser/src/ast.rs" />
-        <option value="$PROJECT_DIR$/parser/src/lib.rs" />
         <option value="$PROJECT_DIR$/in.txt" />
         <option value="$PROJECT_DIR$/parser/parser.rs.g" />
       </list>
@@ -230,10 +220,10 @@
     <sorting>DEFINITION_ORDER</sorting>
   </component>
   <component name="ProjectFrameBounds" extendedState="6">
-    <option name="x" value="665" />
-    <option name="y" value="75" />
-    <option name="width" value="1801" />
-    <option name="height" value="1664" />
+    <option name="x" value="1083" />
+    <option name="y" value="163" />
+    <option name="width" value="1791" />
+    <option name="height" value="1748" />
   </component>
   <component name="ProjectView">
     <navigator proportions="" version="1">
@@ -275,6 +265,7 @@
     <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
     <property name="nodejs_npm_path_reset_for_default_project" value="true" />
     <property name="org.rust.cargo.project.model.PROJECT_DISCOVERY" value="true" />
+    <property name="settings.editor.selected.configurable" value="preferences.sourceCode.CSS" />
   </component>
   <component name="RunDashboard">
     <option name="ruleStates">
@@ -324,12 +315,12 @@
       <workItem from="1541147089279" duration="1732000" />
       <workItem from="1541157873993" duration="9345000" />
       <workItem from="1541172318880" duration="2864000" />
-      <workItem from="1541197541851" duration="11494000" />
+      <workItem from="1541197541851" duration="16210000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="49761000" />
+    <option name="totallyTimeSpent" value="54477000" />
   </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
@@ -344,12 +335,12 @@
     <frame x="0" y="-44" width="2736" height="1868" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.29028615" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.12236446" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" weight="0.32951653" />
-      <window_info anchor="bottom" id="Run" order="2" sideWeight="0.4996235" weight="0.3600509" />
+      <window_info anchor="bottom" id="Run" order="2" sideWeight="0.4996235" weight="0.5305343" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.38040712" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
@@ -357,7 +348,7 @@
       <window_info anchor="bottom" id="Database Changes" order="7" show_stripe_button="false" />
       <window_info anchor="bottom" id="Version Control" order="8" />
       <window_info anchor="bottom" id="Event Log" order="9" sideWeight="0.5003765" side_tool="true" weight="0.32951653" />
-      <window_info anchor="bottom" id="Terminal" order="10" weight="0.53880405" />
+      <window_info anchor="bottom" id="Terminal" order="10" weight="0.326972" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
@@ -467,38 +458,194 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/parser/src/lib.rs">
+    <entry file="file://$PROJECT_DIR$/in.txt">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="567">
-          <caret line="1472" column="20" selection-start-line="1472" selection-start-column="20" selection-end-line="1472" selection-end-column="20" />
+        <state relative-caret-position="666">
+          <caret line="18" column="26" lean-forward="true" selection-start-line="18" selection-start-column="26" selection-end-line="18" selection-end-column="26" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/parser/tmp.txt">
+    <entry file="file://$PROJECT_DIR$/parser/src/lib.rs">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2014">
-          <caret line="208" column="5" selection-start-line="208" selection-start-column="5" selection-end-line="208" selection-end-column="5" />
+        <state relative-caret-position="4507">
+          <caret line="1415" lean-forward="true" selection-start-line="1415" selection-end-line="1415" />
+          <folding>
+            <element signature="e#35631#35632#0" expanded="true" />
+            <element signature="e#35690#35691#0" expanded="true" />
+            <element signature="e#46071#46072#0" expanded="true" />
+            <element signature="e#46125#46126#0" expanded="true" />
+            <element signature="e#46222#46223#0" expanded="true" />
+            <element signature="e#46276#46277#0" expanded="true" />
+            <element signature="e#47204#47205#0" expanded="true" />
+            <element signature="e#47221#47222#0" expanded="true" />
+            <element signature="e#47265#47266#0" expanded="true" />
+            <element signature="e#47281#47282#0" expanded="true" />
+            <element signature="e#47325#47326#0" expanded="true" />
+            <element signature="e#47342#47343#0" expanded="true" />
+            <element signature="e#47386#47387#0" expanded="true" />
+            <element signature="e#47405#47406#0" expanded="true" />
+            <element signature="e#47449#47450#0" expanded="true" />
+            <element signature="e#47465#47466#0" expanded="true" />
+            <element signature="e#47509#47510#0" expanded="true" />
+            <element signature="e#47526#47527#0" expanded="true" />
+            <element signature="e#47570#47571#0" expanded="true" />
+            <element signature="e#47588#47589#0" expanded="true" />
+            <element signature="e#47632#47633#0" expanded="true" />
+            <element signature="e#47652#47653#0" expanded="true" />
+            <element signature="e#47696#47697#0" expanded="true" />
+            <element signature="e#47713#47714#0" expanded="true" />
+            <element signature="e#47757#47758#0" expanded="true" />
+            <element signature="e#47775#47776#0" expanded="true" />
+            <element signature="e#47820#47821#0" expanded="true" />
+            <element signature="e#47836#47837#0" expanded="true" />
+            <element signature="e#47881#47882#0" expanded="true" />
+            <element signature="e#47896#47897#0" expanded="true" />
+            <element signature="e#47941#47942#0" expanded="true" />
+            <element signature="e#47958#47959#0" expanded="true" />
+            <element signature="e#48003#48004#0" expanded="true" />
+            <element signature="e#48022#48023#0" expanded="true" />
+            <element signature="e#48067#48068#0" expanded="true" />
+            <element signature="e#48085#48086#0" expanded="true" />
+            <element signature="e#48130#48131#0" expanded="true" />
+            <element signature="e#48148#48149#0" expanded="true" />
+            <element signature="e#48193#48194#0" expanded="true" />
+            <element signature="e#48218#48219#0" expanded="true" />
+            <element signature="e#48263#48264#0" expanded="true" />
+            <element signature="e#48285#48286#0" expanded="true" />
+            <element signature="e#48330#48331#0" expanded="true" />
+            <element signature="e#48349#48350#0" expanded="true" />
+            <element signature="e#48394#48395#0" expanded="true" />
+            <element signature="e#48417#48418#0" expanded="true" />
+            <element signature="e#48462#48463#0" expanded="true" />
+            <element signature="e#48480#48481#0" expanded="true" />
+            <element signature="e#48525#48526#0" expanded="true" />
+            <element signature="e#48544#48545#0" expanded="true" />
+            <element signature="e#48589#48590#0" expanded="true" />
+            <element signature="e#48605#48606#0" expanded="true" />
+            <element signature="e#48650#48651#0" expanded="true" />
+            <element signature="e#48670#48671#0" expanded="true" />
+            <element signature="e#48715#48716#0" expanded="true" />
+            <element signature="e#48730#48731#0" expanded="true" />
+            <element signature="e#48775#48776#0" expanded="true" />
+            <element signature="e#48795#48796#0" expanded="true" />
+            <element signature="e#48840#48841#0" expanded="true" />
+            <element signature="e#48863#48864#0" expanded="true" />
+            <element signature="e#48908#48909#0" expanded="true" />
+            <element signature="e#48934#48935#0" expanded="true" />
+            <element signature="e#48979#48980#0" expanded="true" />
+            <element signature="e#48997#48998#0" expanded="true" />
+            <element signature="e#49042#49043#0" expanded="true" />
+            <element signature="e#49064#49065#0" expanded="true" />
+            <element signature="e#49109#49110#0" expanded="true" />
+            <element signature="e#49125#49126#0" expanded="true" />
+            <element signature="e#49170#49171#0" expanded="true" />
+            <element signature="e#49185#49186#0" expanded="true" />
+            <element signature="e#49230#49231#0" expanded="true" />
+            <element signature="e#49249#49250#0" expanded="true" />
+            <element signature="e#49294#49295#0" expanded="true" />
+            <element signature="e#49313#49314#0" expanded="true" />
+            <element signature="e#49358#49359#0" expanded="true" />
+            <element signature="e#49382#49383#0" expanded="true" />
+            <element signature="e#49427#49428#0" expanded="true" />
+            <element signature="e#49443#49444#0" expanded="true" />
+            <element signature="e#49488#49489#0" expanded="true" />
+            <element signature="e#49504#49505#0" expanded="true" />
+            <element signature="e#49549#49550#0" expanded="true" />
+            <element signature="e#49565#49566#0" expanded="true" />
+            <element signature="e#49610#49611#0" expanded="true" />
+            <element signature="e#49626#49627#0" expanded="true" />
+            <element signature="e#49671#49672#0" expanded="true" />
+            <element signature="e#49687#49688#0" expanded="true" />
+            <element signature="e#49732#49733#0" expanded="true" />
+            <element signature="e#49748#49749#0" expanded="true" />
+            <element signature="e#49793#49794#0" expanded="true" />
+            <element signature="e#49809#49810#0" expanded="true" />
+            <element signature="e#49854#49855#0" expanded="true" />
+            <element signature="e#49870#49871#0" expanded="true" />
+            <element signature="e#49915#49916#0" expanded="true" />
+            <element signature="e#49931#49932#0" expanded="true" />
+            <element signature="e#49976#49977#0" expanded="true" />
+            <element signature="e#49992#49993#0" expanded="true" />
+            <element signature="e#50037#50038#0" expanded="true" />
+            <element signature="e#50053#50054#0" expanded="true" />
+            <element signature="e#50098#50099#0" expanded="true" />
+            <element signature="e#50114#50115#0" expanded="true" />
+            <element signature="e#50159#50160#0" expanded="true" />
+            <element signature="e#50175#50176#0" expanded="true" />
+            <element signature="e#50220#50221#0" expanded="true" />
+            <element signature="e#50236#50237#0" expanded="true" />
+            <element signature="e#50281#50282#0" expanded="true" />
+            <element signature="e#50297#50298#0" expanded="true" />
+            <element signature="e#50342#50343#0" expanded="true" />
+            <element signature="e#50358#50359#0" expanded="true" />
+            <element signature="e#50403#50404#0" expanded="true" />
+            <element signature="e#50419#50420#0" expanded="true" />
+            <element signature="e#50464#50465#0" expanded="true" />
+            <element signature="e#50480#50481#0" expanded="true" />
+            <element signature="e#50525#50526#0" expanded="true" />
+            <element signature="e#50538#50539#0" expanded="true" />
+            <element signature="e#50583#50584#0" expanded="true" />
+            <element signature="e#50602#50603#0" expanded="true" />
+            <element signature="e#50647#50648#0" expanded="true" />
+            <element signature="e#50670#50671#0" expanded="true" />
+            <element signature="e#50715#50716#0" expanded="true" />
+            <element signature="e#50731#50732#0" expanded="true" />
+            <element signature="e#50776#50777#0" expanded="true" />
+            <element signature="e#50792#50793#0" expanded="true" />
+            <element signature="e#50837#50838#0" expanded="true" />
+            <element signature="e#50853#50854#0" expanded="true" />
+            <element signature="e#50898#50899#0" expanded="true" />
+            <element signature="e#50914#50915#0" expanded="true" />
+            <element signature="e#50959#50960#0" expanded="true" />
+            <element signature="e#50975#50976#0" expanded="true" />
+            <element signature="e#51020#51021#0" expanded="true" />
+            <element signature="e#51036#51037#0" expanded="true" />
+            <element signature="e#51081#51082#0" expanded="true" />
+            <element signature="e#51097#51098#0" expanded="true" />
+            <element signature="e#51142#51143#0" expanded="true" />
+            <element signature="e#51158#51159#0" expanded="true" />
+            <element signature="e#51203#51204#0" expanded="true" />
+            <element signature="e#51219#51220#0" expanded="true" />
+            <element signature="e#51264#51265#0" expanded="true" />
+            <element signature="e#51280#51281#0" expanded="true" />
+            <element signature="e#51325#51326#0" expanded="true" />
+            <element signature="e#51341#51342#0" expanded="true" />
+            <element signature="e#51386#51387#0" expanded="true" />
+            <element signature="e#51402#51403#0" expanded="true" />
+            <element signature="e#51447#51448#0" expanded="true" />
+            <element signature="e#51463#51464#0" expanded="true" />
+            <element signature="e#51508#51509#0" expanded="true" />
+            <element signature="e#51524#51525#0" expanded="true" />
+            <element signature="e#51569#51570#0" expanded="true" />
+            <element signature="e#51585#51586#0" expanded="true" />
+            <element signature="e#57767#57768#0" expanded="true" />
+            <element signature="e#57825#57826#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/parser/src/ast.rs">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="474">
-          <caret line="75" column="14" selection-start-line="75" selection-start-column="8" selection-end-line="75" selection-end-column="14" />
+        <state relative-caret-position="530">
+          <caret line="312" column="17" selection-start-line="312" selection-start-column="17" selection-end-line="312" selection-end-column="17" />
+          <folding>
+            <element signature="e#9066#9067#0" expanded="true" />
+            <element signature="e#9106#9107#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/in.txt">
+    <entry file="file://$PROJECT_DIR$/parser/tmp.txt">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="592">
-          <caret line="16" lean-forward="true" selection-start-line="16" selection-end-line="16" />
+        <state relative-caret-position="-1945">
+          <caret line="107" column="4" lean-forward="true" selection-start-line="107" selection-start-column="4" selection-end-line="186" selection-end-column="5" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/parser/parser.rs.g">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="598">
-          <caret line="202" column="45" selection-start-line="202" selection-start-column="45" selection-end-line="202" selection-end-column="45" />
+        <state relative-caret-position="966">
+          <caret line="726" column="5" selection-start-line="726" selection-start-column="5" selection-end-line="726" selection-end-column="5" />
         </state>
       </provider>
     </entry>

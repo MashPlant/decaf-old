@@ -82,9 +82,9 @@ impl ClassDef {
     pub fn accept<V: Visitor>(&self, visitor: &mut V) { visitor.visit_class_def(self); }
 
     pub fn print_to(&self, printer: &mut IndentPrinter) {
+        if self.sealed { printer.print("sealed"); }
         printer.print("class");
         printer.print(&self.name);
-        if self.sealed { printer.print("sealed"); }
         match &self.parent {
             Some(name) => printer.print(&name),
             None => printer.print("<empty>"),
@@ -107,7 +107,7 @@ impl FieldDef {
         match &self {
             FieldDef::MethodDef(method_def) => method_def.print_to(printer),
             FieldDef::VarDef(var_def) => var_def.print_to(printer),
-        };
+        }
     }
 }
 
@@ -200,6 +200,25 @@ pub enum Statement {
     Block(Block),
 }
 
+impl Statement {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        match &self {
+            Statement::VarDef(var_def) => var_def.print_to(printer),
+            Statement::Simple(simple) => simple.print_to(printer),
+            Statement::If(if_) => if_.print_to(printer),
+            Statement::While(while_) => while_.print_to(printer),
+            Statement::For(for_) => for_.print_to(printer),
+            Statement::Return(return_) => return_.print_to(printer),
+            Statement::Print(print) => print.print_to(printer),
+            Statement::Break(break_) => break_.print_to(printer),
+            Statement::ObjectCopy(object_copy) => object_copy.print_to(printer),
+            Statement::Foreach(foreach) => foreach.print_to(printer),
+            Statement::Guarded(guarded) => guarded.print_to(printer),
+            Statement::Block(block) => block.print_to(printer),
+        };
+    }
+}
+
 #[derive(Debug)]
 pub enum Simple {
     Assign(Assign),
@@ -208,8 +227,15 @@ pub enum Simple {
     Skip(Skip),
 }
 
-impl Statement {
-    pub fn print_to(&self, _printer: &mut IndentPrinter) {}
+impl Simple {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        match &self {
+            Simple::Assign(assign) => assign.print_to(printer),
+            Simple::VarAssign(var_assign) => var_assign.print_to(printer),
+            Simple::Expr(expr) => expr.print_to(printer),
+            Simple::Skip(skip) => skip.print_to(printer),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -234,6 +260,22 @@ pub struct If {
     pub on_false: Option<Box<Statement>>,
 }
 
+impl If {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("if");
+        printer.inc_indent();
+        self.cond.print_to(printer);
+        self.on_true.print_to(printer);
+        printer.dec_indent();
+        if let Some(on_false) = &self.on_false {
+            printer.println("else");
+            printer.inc_indent();
+            on_false.print_to(printer);
+            printer.dec_indent();
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct While {
     pub loc: Location,
@@ -241,13 +283,36 @@ pub struct While {
     pub body: Box<Statement>,
 }
 
+impl While {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("while");
+        printer.inc_indent();
+        self.cond.print_to(printer);
+        self.body.print_to(printer);
+        printer.dec_indent();
+    }
+}
+
 #[derive(Debug)]
 pub struct For {
     pub loc: Location,
+    // Skip for no init or update
     pub init: Simple,
     pub cond: Expr,
     pub update: Simple,
     pub body: Box<Statement>,
+}
+
+impl For {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("for");
+        printer.inc_indent();
+        self.init.print_to(printer);
+        self.cond.print_to(printer);
+        self.update.print_to(printer);
+        self.body.print_to(printer);
+        printer.dec_indent();
+    }
 }
 
 #[derive(Debug)]
@@ -256,10 +321,30 @@ pub struct Return {
     pub expr: Option<Expr>,
 }
 
+impl Return {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("return");
+        if let Some(expr) = &self.expr {
+            printer.inc_indent();
+            expr.print_to(printer);
+            printer.dec_indent();
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Print {
     pub loc: Location,
     pub print: Vec<Expr>,
+}
+
+impl Print {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("print");
+        printer.inc_indent();
+        for expr in &self.print { expr.print_to(printer) }
+        printer.dec_indent();
+    }
 }
 
 #[derive(Debug)]
@@ -267,11 +352,27 @@ pub struct Break {
     pub loc: Location,
 }
 
+impl Break {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("break");
+    }
+}
+
 #[derive(Debug)]
 pub struct ObjectCopy {
     pub loc: Location,
     pub dst: String,
     pub src: Expr,
+}
+
+impl ObjectCopy {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("scopy");
+        printer.inc_indent();
+        printer.println(&self.dst);
+        self.src.print_to(printer);
+        printer.dec_indent();
+    }
 }
 
 #[derive(Debug)]
@@ -284,10 +385,47 @@ pub struct Foreach {
     pub body: Box<Statement>,
 }
 
+impl Foreach {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("foreach");
+        printer.inc_indent();
+        printer.print("varbind");
+        printer.print(&self.name);
+        self.type_.print_to(printer);
+        printer.newline();
+        self.array.print_to(printer);
+        match &self.cond {
+            Some(cond) => cond.print_to(printer),
+            None => printer.println("boolconst true"),
+        }
+        self.body.print_to(printer);
+        printer.dec_indent();
+    }
+}
+
 #[derive(Debug)]
 pub struct Guarded {
     pub loc: Location,
     pub guarded: Vec<(Expr, Statement)>,
+}
+
+impl Guarded {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("guarded");
+        printer.inc_indent();
+        if self.guarded.is_empty() {
+            printer.println("<empty>");
+        } else {
+            for (e, s) in &self.guarded {
+                printer.println("guard");
+                printer.inc_indent();
+                e.print_to(printer);
+                s.print_to(printer);
+                printer.dec_indent();
+            }
+        }
+        printer.dec_indent();
+    }
 }
 
 #[derive(Debug)]
@@ -297,6 +435,16 @@ pub struct Assign {
     pub src: Expr,
 }
 
+impl Assign {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("assign");
+        printer.inc_indent();
+        self.dst.print_to(printer);
+        self.src.print_to(printer);
+        printer.dec_indent();
+    }
+}
+
 #[derive(Debug)]
 pub struct VarAssign {
     pub loc: Location,
@@ -304,29 +452,47 @@ pub struct VarAssign {
     pub src: Expr,
 }
 
+impl VarAssign {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("assign");
+        printer.inc_indent();
+        printer.print("var");
+        printer.println(&self.name);
+        self.src.print_to(printer);
+        printer.dec_indent();
+    }
+}
+
 #[derive(Debug)]
 pub struct Skip {
     pub loc: Location,
 }
 
+impl Skip {
+    pub fn print_to(&self, _printer: &mut IndentPrinter) {
+        // no op
+    }
+}
+
 #[derive(Debug)]
 pub enum Operator {
-    Pos,
     Neg,
     Not,
-    Or,
-    And,
-    Eq,
-    Ne,
-    Le,
-    Ge,
-    Lt,
-    Gt,
     Add,
     Sub,
     Mul,
     Div,
     Mod,
+    And,
+    Or,
+    Eq,
+    Ne,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+    Repeat,
+    Concat,
 }
 
 #[derive(Debug)]
@@ -336,11 +502,36 @@ pub enum Expr {
     Binary(Binary),
 }
 
+impl Expr {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        match &self {
+            Expr::LValue(lvalue) => lvalue.print_to(printer),
+            Expr::Unary(unary) => unary.print_to(printer),
+            Expr::Binary(binary) => binary.print_to(printer),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Unary {
     pub loc: Location,
     pub opt: Operator,
     pub opr: Box<Expr>,
+}
+
+impl Unary {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        use Operator::*;
+        let opname = match self.opt {
+            Neg => "neg",
+            Not => "not",
+            _ => unreachable!(),
+        };
+        printer.println(opname);
+        printer.inc_indent();
+        self.opr.print_to(printer);
+        printer.dec_indent();
+    }
 }
 
 #[derive(Debug)]
@@ -351,10 +542,48 @@ pub struct Binary {
     pub right: Box<Expr>,
 }
 
+impl Binary {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        use Operator::*;
+        let opname = match self.opt {
+            Add => "add",
+            Sub => "sub",
+            Mul => "mul",
+            Div => "div",
+            Mod => "mod",
+            And => "and",
+            Or => "or",
+            Eq => "equ",
+            Ne => "neq",
+            Lt => "les",
+            Le => "leq",
+            Gt => "gtr",
+            Ge => "geq",
+            Repeat => "array repeat",
+            Concat => "array concat",
+            _ => unreachable!(),
+        };
+        printer.println(opname);
+        printer.inc_indent();
+        self.left.print_to(printer);
+        self.right.print_to(printer);
+        printer.dec_indent();
+    }
+}
+
 #[derive(Debug)]
 pub enum LValue {
     Indexed(Indexed),
     Identifier(Identifier),
+}
+
+impl LValue {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        match &self {
+            LValue::Indexed(indexed) => indexed.print_to(printer),
+            LValue::Identifier(identifier) => identifier.print_to(printer),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -364,11 +593,33 @@ pub struct Indexed {
     pub index: Box<Expr>,
 }
 
+impl Indexed {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("arrref");
+        printer.inc_indent();
+        self.array.print_to(printer);
+        self.index.print_to(printer);
+        printer.dec_indent();
+    }
+}
+
 #[derive(Debug)]
 pub struct Identifier {
     pub loc: Location,
     pub owner: Option<Box<Expr>>,
     pub name: String,
+}
+
+impl Identifier {
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.print("varref");
+        printer.println(&self.name);
+        if let Some(owner) = &self.owner {
+            printer.inc_indent();
+            owner.print_to(printer);
+            printer.dec_indent();
+        }
+    }
 }
 
 pub trait Visitor {
