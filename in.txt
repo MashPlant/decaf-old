@@ -1,25 +1,23 @@
 class Main {
-    int x;
-    int y;
-    void foo() {
-        int a;
-    }
-    static void bar() {
-        if (a) {
-
-        } else {
-
-        }
-        if (b) {
-
+    static string[] bar(int opt) {
+        if {
+            opt == 1:
+                return [1];
+        ||| opt == 2: {
+                var arr1 = [2];
+                var arr2 = [3];
+                return arr1 %% 2 ++ arr2;
+            }
         }
     }
-}
 
-class Main2 extends Main {
+    static void main() {
+        foreach (var s in bar(2)) {
+            Print(s);
+        }
 
-}
-
-sealed class Main3 extends Main {
-
+        foreach (var s in bar(1)) {
+            Print(s);
+        }
+    }
 }

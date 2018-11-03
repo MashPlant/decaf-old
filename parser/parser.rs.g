@@ -17,6 +17,7 @@
 "extends"           return "EXTENDS";
 "this"              return "THIS";
 "while"             return "WHILE";
+"foreach"           return "FOREACH";
 "for"               return "FOR";
 "if"                return "IF";        
 "else"              return "ELSE";
@@ -32,9 +33,9 @@
 "var"               return "VAR";
 "default"           return "DEFAULT";
 "in"                return "IN";
-"foreach"           return "FOREACH";
 
 // operators
+"|||"               return "GUARD_SPLIT";
 "<="                return "LESS_EQUAL";
 ">="                return "GREATER_EQUAL";
 "=="                return "EQUAL";
@@ -43,7 +44,6 @@
 "||"                return "OR";
 "%%"                return "REPEAT";
 "++"                return "CONCAT";
-"|||"               return "GUARD_SPLIT";
 
 // simple operators
 "+"                 return "'+'";
@@ -969,13 +969,17 @@ MaybeReceiver
     ;
 
 Call
-    : Receiver Identifier '(' ExprListOrEmpty ')' {
+    : MaybeReceiver Identifier '(' ExprListOrEmpty ')' {
         |$1: Sem, $2: Sem, $4: Sem| -> Sem;
         $$ = Sem {
             loc: $2.loc,
             value: SemValue::Expr(Expr::Call(Call {
                 loc: $2.loc,
-                receiver: Some(Box::new(get_move!($1, Expr))),
+                receiver: match $1.value {
+                    SemValue::Expr(expr) => Some(Box::new(expr)),
+                    SemValue::None => None,
+                    _ => unreachable!(),
+                },
                 name: get_move!($2, Identifier),
                 arguments: get_move!($4, ExprList),
             })),

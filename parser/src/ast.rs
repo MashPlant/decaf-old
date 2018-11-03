@@ -767,7 +767,9 @@ pub struct This {
 }
 
 impl This {
-    pub fn print_to(&self, printer: &mut IndentPrinter) {}
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("this");
+    }
 }
 
 #[derive(Debug)]
@@ -776,7 +778,9 @@ pub struct ReadInt {
 }
 
 impl ReadInt {
-    pub fn print_to(&self, printer: &mut IndentPrinter) {}
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("readint");
+    }
 }
 
 #[derive(Debug)]
@@ -785,7 +789,9 @@ pub struct ReadLine {
 }
 
 impl ReadLine {
-    pub fn print_to(&self, printer: &mut IndentPrinter) {}
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("readline");
+    }
 }
 
 #[derive(Debug)]
@@ -795,7 +801,10 @@ pub struct NewClass {
 }
 
 impl NewClass {
-    pub fn print_to(&self, printer: &mut IndentPrinter) {}
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.print("newobj");
+        printer.println(&self.name);
+    }
 }
 
 #[derive(Debug)]
@@ -806,7 +815,14 @@ pub struct NewArray {
 }
 
 impl NewArray {
-    pub fn print_to(&self, printer: &mut IndentPrinter) {}
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.print("newarray");
+        self.type_.print_to(printer);
+        printer.newline();
+        printer.inc_indent();
+        self.len.print_to(printer);
+        printer.dec_indent();
+    }
 }
 
 #[derive(Debug)]
@@ -817,7 +833,13 @@ pub struct TypeTest {
 }
 
 impl TypeTest {
-    pub fn print_to(&self, printer: &mut IndentPrinter) {}
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("instanceof");
+        printer.inc_indent();
+        self.expr.print_to(printer);
+        printer.println(&self.name);
+        printer.dec_indent();
+    }
 }
 
 #[derive(Debug)]
@@ -828,7 +850,13 @@ pub struct TypeCast {
 }
 
 impl TypeCast {
-    pub fn print_to(&self, printer: &mut IndentPrinter) {}
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("classcast");
+        printer.inc_indent();
+        printer.println(&self.name);
+        self.expr.print_to(printer);
+        printer.dec_indent();
+    }
 }
 
 #[derive(Debug)]
@@ -840,7 +868,17 @@ pub struct Range {
 }
 
 impl Range {
-    pub fn print_to(&self, printer: &mut IndentPrinter) {}
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("arrref");
+        printer.inc_indent();
+        self.array.print_to(printer);
+        printer.println("range");
+        printer.inc_indent();
+        self.lower.print_to(printer);
+        self.upper.print_to(printer);
+        printer.dec_indent();
+        printer.dec_indent();
+    }
 }
 
 #[derive(Debug)]
@@ -852,7 +890,17 @@ pub struct Default {
 }
 
 impl Default {
-    pub fn print_to(&self, printer: &mut IndentPrinter) {}
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("arrref");
+        printer.inc_indent();
+        self.array.print_to(printer);
+        self.index.print_to(printer);
+        printer.println("default");
+        printer.inc_indent();
+        self.default.print_to(printer);
+        printer.dec_indent();
+        printer.dec_indent();
+    }
 }
 
 #[derive(Debug)]
@@ -865,7 +913,19 @@ pub struct Comprehension {
 }
 
 impl Comprehension {
-    pub fn print_to(&self, printer: &mut IndentPrinter) {}
+    pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("array comp");
+        printer.inc_indent();
+        printer.print("varbind");
+        printer.println(&self.name);
+        self.array.print_to(printer);
+        match &self.cond {
+            Some(cond) => cond.print_to(printer),
+            None => printer.println("boolconst true"),
+        };
+        self.expr.print_to(printer);
+        printer.dec_indent();
+    }
 }
 
 pub trait Visitor {
