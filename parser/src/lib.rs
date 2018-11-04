@@ -293,6 +293,7 @@ lazy_static! {
      */
     static ref TOKENS_MAP: HashMap<&'static str, i32> = hashmap! { "CLASS" => 40, "SEALED" => 41, "EXTENDS" => 42, "STATIC" => 43, "WHILE" => 44, "FOR" => 45, "BREAK" => 46, "IF" => 47, "ELSE" => 48, "SCOPY" => 49, "FOREACH" => 50, "IN" => 51, "VAR" => 52, "GUARD_SPLIT" => 53, "RETURN" => 54, "PRINT" => 55, "EQUAL" => 56, "NOT_EQUAL" => 57, "LESS_EQUAL" => 58, "GREATER_EQUAL" => 59, "AND" => 60, "OR" => 61, "REPEAT" => 62, "CONCAT" => 63, "DEFAULT" => 64, "READ_INTEGER" => 65, "READ_LINE" => 66, "THIS" => 67, "NEW" => 68, "INSTANCEOF" => 69, "INT_CONST" => 70, "TRUE" => 71, "FALSE" => 72, "STRING_CONST" => 73, "NULL" => 74, "INT" => 75, "VOID" => 76, "BOOL" => 77, "STRING" => 78, "IDENTIFIER" => 79, "'{'" => 80, "'}'" => 81, "'('" => 82, "')'" => 83, "','" => 84, "';'" => 85, "':'" => 86, "'='" => 87, "'+'" => 88, "'-'" => 89, "'*'" => 90, "'/'" => 91, "'%'" => 92, "'<'" => 93, "'>'" => 94, "'['" => 95, "']'" => 96, "'!'" => 97, "'.'" => 98, "$" => 99 };
 
+    static ref REGEX_RULES: Vec<Regex> = LEX_RULES.iter().map(|rule| Regex::new(rule).unwrap()).collect();
     /**
      * Parsing table.
      *
@@ -876,9 +877,7 @@ impl Tokenizer {
             .unwrap();
 
         for i in 0..lex_rules_for_state.len() {
-            let lex_rule = LEX_RULES[i];
-
-            if let Some(matched) = self._match(str_slice, &Regex::new(lex_rule).unwrap()) {
+            if let Some(matched) = self._match(str_slice, &REGEX_RULES[i]) {
 
                 // Manual handling of EOF token (the end of string). Return it
                 // as `EOF` symbol.
