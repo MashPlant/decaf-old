@@ -164,7 +164,7 @@ pub enum Type {
     // user defined class
     Class(String),
     // type [][]...
-    Array(Option<Box<Type>>),
+    Array(Box<Type>),
 }
 
 impl Type {
@@ -178,7 +178,7 @@ impl Type {
             }
             Type::Array(name) => {
                 printer.print("arrtype");
-                if let Some(name) = name { name.print_to(printer); }
+                name.print_to(printer);
             }
         }
     }
@@ -534,6 +534,27 @@ impl Expr {
             Range(range) => range.print_to(printer),
             Default(default) => default.print_to(printer),
             Comprehension(comprehension) => comprehension.print_to(printer),
+        };
+    }
+
+    pub fn get_loc(&self) -> Location {
+        use Expr::*;
+        match &self {
+            LValue(lvalue) => lvalue.get_loc(),
+            Const(const_) => const_.get_loc(),
+            Call(call) => call.loc,
+            Unary(unary) => unary.loc,
+            Binary(binary) => binary.loc,
+            This(this) => this.loc,
+            ReadInt(read_int) => read_int.loc,
+            ReadLine(read_line) => read_line.loc,
+            NewClass(new_class) => new_class.loc,
+            NewArray(new_array) => new_array.loc,
+            TypeTest(type_test) => type_test.loc,
+            TypeCast(type_cast) => type_cast.loc,
+            Range(range) => range.loc,
+            Default(default) => default.loc,
+            Comprehension(comprehension) => comprehension.loc,
         }
     }
 }
@@ -549,6 +570,13 @@ impl LValue {
         match &self {
             LValue::Indexed(indexed) => indexed.print_to(printer),
             LValue::Identifier(identifier) => identifier.print_to(printer),
+        }
+    }
+
+    pub fn get_loc(&self) -> Location {
+        match &self {
+            LValue::Indexed(indexed) => indexed.loc,
+            LValue::Identifier(identifier) => identifier.loc,
         }
     }
 }
@@ -607,6 +635,17 @@ impl Const {
             StringConst(string_const) => string_const.print_to(printer),
             ArrayConst(array_const) => array_const.print_to(printer),
             Null(null) => null.print_to(printer),
+        }
+    }
+
+    pub fn get_loc(&self) -> Location {
+        use Const::*;
+        match &self {
+            IntConst(int_const) => int_const.loc,
+            BoolConst(bool_const) => bool_const.loc,
+            StringConst(string_const) => string_const.loc,
+            ArrayConst(array_const) => array_const.loc,
+            Null(null) => null.loc,
         }
     }
 }

@@ -1,4 +1,4 @@
-// syntax-cli -g parser/parser.rs.g -m lalr1 -o parser/src/lib.rs
+// syntax-cli -g parser/parser.rs.g -m lalr1 -o parser/src/lib.rs --validate
 
 %lex
 
@@ -94,7 +94,6 @@
 pub mod ast;
 
 use ast::*;
-use std::mem;
 
 impl Parser {
     fn get_loc(&self) -> Location {
@@ -106,75 +105,41 @@ impl Token {
     fn get_loc(&self) -> Location {
         Location(self.start_line, self.start_column)
     }
-}
 
-macro_rules! get_move {
-    ($r:expr, $ty:ident) => ({
-        if let SemValue::$ty(v) = mem::replace(&mut $r.value, SemValue::None) {
-            v
-        } else {
-            unreachable!()
-        }
-    });
-}
-
-macro_rules! get_ref {
-    ($r:expr, $ty:ident) => (match &mut $r.value { SemValue::$ty(v) => v, _ => unreachable!() });
-}
-
-fn gen_binary(mut left: Sem, opt: Token, mut right: Sem, kind: Operator) -> Sem {
-    Sem {
-        loc: opt.get_loc(),
-        value: SemValue::Expr(Expr::Binary(Binary {
-            loc: opt.get_loc(),
-            opt: kind,
-            left: Box::new(get_move!(left, Expr)),
-            right: Box::new(get_move!(right, Expr)),
-        })),
+    fn get_id(&self) -> String {
+        self.value.to_string()
     }
 }
 
-fn gen_unary(opt: Token, mut opr: Sem, kind: Operator) -> Sem {
-    Sem {
+fn gen_binary(left: Expr, opt: Token, right: Expr, kind: Operator) -> Expr {
+    Expr::Binary(Binary {
         loc: opt.get_loc(),
-        value: SemValue::Expr(Expr::Unary(Unary {
-            loc: opt.get_loc(),
-            opt: kind,
-            opr: Box::new(get_move!(opr, Expr)),
-        })),
-    }
+        opt: kind,
+        left: Box::new(left),
+        right: Box::new(right),
+    })
+}
+
+fn gen_unary(opt: Token, opr: Expr, kind: Operator) -> Expr {
+    Expr::Unary(Unary {
+        loc: opt.get_loc(),
+        opt: kind,
+        opr: Box::new(opr),
+    })
 }
 
 // Final result type returned from `parse` method call.
 pub type TResult = Program;
 
-#[derive(Debug)]
-pub struct Sem {
-    pub loc: Location,
-    pub value: SemValue,
-}
-
-#[derive(Debug)]
-pub enum SemValue {
-    Identifier(String),
-    ClassList(Vec<ClassDef>),
-    FieldList(Vec<FieldDef>),
-    VarDefList(Vec<VarDef>),
-    StatementList(Vec<Statement>),
-    ExprList(Vec<Expr>),
-    GuardedList(Vec<(Expr, Statement)>),
-    ClassDef(ClassDef),
-    VarDef(VarDef),
-    MethodDef(MethodDef),
-    Type(Type),
-    Statement(Statement),
-    Block(Block),
-    Expr(Expr),
-    LValue(LValue),
-    Const(Const),
-    Sealed(bool),
-    None,
-}
+// some util types, only for convenience
+type ClassList = Vec<ClassDef>;
+type FieldList = Vec<FieldDef>;
+type VarDefList = Vec<VarDef>;
+type StatementList = Vec<Statement>;
+type ExprList = Vec<Expr>;
+type ConstList = Vec<Const>;
+type GuardedList = Vec<(Expr, Statement)>;
+type Flag = bool;
 
 %}
 
@@ -182,1000 +147,726 @@ pub enum SemValue {
 
 Program
     : ClassList {
-        |$1: Sem| -> Program;
-        $$ = Program {
-            classes: get_move!($1, ClassList),
-        };
+        |$1: ClassList| -> Program;
+        $$ = Program { classes: $1, };
     }
     ;
 
 ClassList
     : ClassList ClassDef {
-        |$1: Sem, $2: Sem| -> Sem;
-        let mut ret = $1;
-        get_ref!(ret, ClassList).push(get_move!($2, ClassDef));
-        $$ = ret;
+        |$1: ClassList, $2: ClassDef| -> ClassList;
+        $1.push($2);
+        $$ = $1;
     }
     | ClassDef {
-        |$1: Sem| -> Sem;
-        $$ = Sem {
-            loc: NO_LOCATION,
-            value: SemValue::ClassList(vec![get_move!($1, ClassDef)]),
-        }
+        |$1: ClassDef| -> ClassList;
+        $$ = vec![$1];
     }
     ;
 
 ClassDef
-    : MaybeSealed CLASS Identifier MaybeExtends  '{' FieldList '}' {
-        |$1: Sem, $2: Token, $3: Sem, $4: Sem, $6: Sem| -> Sem;
-        $$ = Sem {
+    : MaybeSealed CLASS IDENTIFIER MaybeExtends  '{' FieldList '}' {
+        |$1: Flag, $2: Token, $3: Token, $4: Option<String>, $6: FieldList| -> ClassDef;
+        $$ = ClassDef {
             loc: $2.get_loc(),
-            value: SemValue::ClassDef(ClassDef {
-                loc: $2.get_loc(),
-                name: get_move!($3, Identifier),
-                parent: match $4.value {
-                    SemValue::Identifier(name) => Some(name),
-                    SemValue::None => None,
-                    _ => unreachable!(),
-                },
-                fields: get_move!($6, FieldList),
-                sealed: get_move!($1, Sealed),
-            })
-        }
+            name: $3.get_id(),
+            parent: $4,
+            fields: $6,
+            sealed: $1,
+        };
     }
     ;
 
 MaybeSealed
     : SEALED {
-        || -> Sem;
-        $$ = Sem {
-            loc: NO_LOCATION,
-            value: SemValue::Sealed(true),
-        };
+        || -> Flag;
+        $$ = false;
     }
     | /* empty */ {
-        || -> Sem;
-        $$ = Sem {
-            loc: NO_LOCATION,
-            value: SemValue::Sealed(false),
-        };
+        || -> Flag;
+        $$ = true;
     }
     ;
 
 MaybeExtends
-    : EXTENDS Identifier {
-        |$2: Sem| -> Sem;
-        $$ = Sem {
-            loc: $2.loc,
-            value: SemValue::Identifier(get_move!($2, Identifier)),
-        };
+    : EXTENDS IDENTIFIER {
+        |$2: Token| -> Option<String>;
+        $$ = Some($2.get_id());
     }
     | /* empty */ {
-        || -> Sem;
-        $$ = Sem {
-            loc: NO_LOCATION,
-            value: SemValue::None,
-        };
+        || -> Option<String>;
+        $$ = None;
     }
     ;
 
 FieldList
-    : FieldList VarDef {
-        |$1: Sem, $2: Sem| -> Sem;
-        let mut ret = $1;
-        get_ref!(ret, FieldList).push(FieldDef::VarDef(get_move!($2, VarDef)));
-        $$ = ret;
+    : FieldList VarDef ';' {
+        |$1: FieldList, $2: VarDef| -> FieldList;
+        $1.push(FieldDef::VarDef($2));
+        $$ = $1;
     }
     | FieldList MethodDef {
-        |$1: Sem, $2: Sem| -> Sem;
-        let mut ret = $1;
-        get_ref!(ret, FieldList).push(FieldDef::MethodDef(get_move!($2, MethodDef)));
-        $$ = ret;
+        |$1: FieldList, $2: MethodDef| -> FieldList;
+        $1.push(FieldDef::MethodDef($2));
+        $$ = $1;
     }
     | /* empty */ {
-        || -> Sem;
-        $$ = Sem {
-            loc: NO_LOCATION,
-            value: SemValue::FieldList(Vec::new())
-        };
+        || -> FieldList;
+        $$ = Vec::new();
     }
     ;
 
 // I don't know why use 'MaybeStatic -> eps | STATIC' will cause shift-reduce conflict
 MethodDef
-    : STATIC Type Identifier '(' VariableListOrEmpty ')' Block {
-        |$1:Token, $2: Sem, $3: Sem, $5: Sem, $7: Sem| -> Sem;
-        $$ = Sem {
-            loc: $3.loc,
-            value: SemValue::MethodDef(MethodDef {
-                loc: $3.loc,
-                name: get_move!($3, Identifier),
-                return_type: get_move!($2, Type),
-                parameters: get_move!($5, VarDefList),
-                static_: true,
-                body: get_move!($7, Block),
-            })
+    : STATIC Type IDENTIFIER '(' VarDefListOrEmpty ')' Block {
+        |$2: Type, $3: Token, $5: VarDefList, $7: Block| -> MethodDef;
+        $$ = MethodDef {
+            loc: $3.get_loc(),
+            name: $3.get_id(),
+            return_type: $2,
+            parameters: $5,
+            static_: true,
+            body: $7,
         };
     }
-    | Type Identifier '(' VariableListOrEmpty ')' Block {
-        |$1: Sem, $2: Sem, $4: Sem, $6: Sem| -> Sem;
-        $$ = Sem {
-            loc: $2.loc,
-            value: SemValue::MethodDef(MethodDef {
-                loc: $2.loc,
-                name: get_move!($2, Identifier),
-                return_type: get_move!($1, Type),
-                parameters: get_move!($4, VarDefList),
-                static_: false,
-                body: get_move!($6, Block),
-            })
+    | Type IDENTIFIER '(' VarDefListOrEmpty ')' Block {
+        |$1: Type, $2: Token, $4: VarDefList, $6: Block| -> MethodDef;
+        $$ = MethodDef {
+            loc: $2.get_loc(),
+            name: $2.get_id(),
+            return_type: $1,
+            parameters: $4,
+            static_: false,
+            body: $6,
         };
     }
     ;
 
-VariableListOrEmpty
-    : VariableList {
-        |$1: Sem| -> Sem;
+VarDefListOrEmpty
+    : VarDefList {
+        |$1: VarDefList| -> VarDefList;
         $$ = $1;
     }
     | /* empty */ {
-        || -> Sem;
-        $$ = Sem {
-            loc: NO_LOCATION,
-            value: SemValue::VarDefList(Vec::new()),
-        };
+        || -> VarDefList;
+        $$ = Vec::new();
     }
     ;
 
-VariableList
-    : VariableList ',' Variable {
-        |$1: Sem, $3: Sem| -> Sem;
-        let mut ret = $1;
-        get_ref!(ret, VarDefList).push(get_move!($3, VarDef));
-        $$ = ret;
+VarDefList
+    : VarDefList ',' VarDef {
+        |$1: VarDefList, $3: VarDef| -> VarDefList;
+        $1.push($3);
+        $$ = $1;
     }
-    | Variable {
-        |$1: Sem| -> Sem;
-        $$ = Sem {
-            loc: NO_LOCATION,
-            value: SemValue::VarDefList(vec!(get_move!($1, VarDef))),
-        };
+    | VarDef {
+        |$1: VarDef| -> VarDefList;
+        $$ = vec![$1];
     }
     ;
 
 Block
     : '{' StatementList '}' {
-        |$1: Token, $2: Sem| -> Sem;
-        $$ = Sem {
+        |$1: Token, $2: StatementList| -> Block;
+        $$ = Block {
             loc: $1.get_loc(),
-            value: SemValue::Block(Block {
-                loc: $1.get_loc(),
-                statements: get_move!($2, StatementList),
-            }),
+            statements: $2,
         };
     }
     ;
 
 StatementList
     : StatementList Statement {
-        |$1: Sem, $2: Sem| -> Sem;
-        let mut ret = $1;
-        get_ref!(ret, StatementList).push(get_move!($2, Statement));
-        $$ = ret;
+        |$1: StatementList, $2: Statement| -> StatementList;
+        $1.push($2);
+        $$ = $1;
     }
     | /* empty */ {
-        || -> Sem;
-        $$ = Sem {
-            loc: NO_LOCATION,
-            value: SemValue::StatementList(Vec::new()),
-        };
+        || -> StatementList;
+        $$ = Vec::new();
     }
     ;
 
 Statement
-    : VarDef {
-        |$1: Sem| -> Sem;
-        $$ = Sem {
-            loc: $1.loc,
-            value: SemValue::Statement(Statement::VarDef(get_move!($1, VarDef))),
-        };
+    : VarDef ';' {
+        |$1: VarDef| -> Statement;
+        $$ = Statement::VarDef($1);
     }
     | Simple ';' {
-        |$1: Sem| -> Sem;
-        $$ = $1;
+        |$1: Simple| -> Statement;
+        $$ = Statement::Simple($1);
     }
     | If {
-        |$1: Sem| -> Sem;
+        |$1: Statement| -> Statement;
         $$ = $1;
     }
     | While {
-        |$1: Sem| -> Sem;
+        |$1: Statement| -> Statement;
         $$ = $1;
     }
     | For {
-        |$1: Sem| -> Sem;
+        |$1: Statement| -> Statement;
         $$ = $1;
     }
     | Return ';' {
-        |$1: Sem| -> Sem;
+        |$1: Statement| -> Statement;
         $$ = $1;
     }
     | Print ';' {
-        |$1: Sem| -> Sem;
+        |$1: Statement| -> Statement;
         $$ = $1;
     }
     | Break ';' {
-        |$1: Sem| -> Sem;
+        |$1: Statement| -> Statement;
         $$ = $1;
     }
     | ObjectCopy ';' {
-        |$1: Sem| -> Sem;
+        |$1: Statement| -> Statement;
         $$ = $1;
     }
     | Foreach {
-        |$1: Sem| -> Sem;
+        |$1: Statement| -> Statement;
         $$ = $1;
     }
     | Guarded {
-        |$1: Sem| -> Sem;
+        |$1: Statement| -> Statement;
         $$ = $1;
     }
     | Block {
-        |$1: Sem| -> Sem;
-        $$ = Sem {
-            loc: $1.loc,
-            value: SemValue::Statement(Statement::Block(get_move!($1, Block))),
-        };
+        |$1: Block| -> Statement;
+        $$ = Statement::Block($1);
     }
     ;
 
 While
     : WHILE '(' Expr ')' Statement {
-        |$1: Token, $3: Sem, $5: Sem| -> Sem;
-        $$ = Sem {
+        |$1: Token, $3: Expr, $5: Statement| -> Statement;
+        $$ = Statement::While(While {
             loc: $1.get_loc(),
-            value: SemValue::Statement(Statement::While(While {
-                loc: $1.get_loc(),
-                cond: get_move!($3, Expr),
-                body: Box::new(get_move!($5, Statement)),
-            })),
-        };
+            cond: $3,
+            body: Box::new($5),
+        });
     }
     ;
 
 For
     : FOR '(' Simple ';' Expr ';' Simple ')' Statement {
-        |$1: Token, $3: Sem, $5: Sem, $7: Sem, $9: Sem| -> Sem;
-        $$ = Sem {
+        |$1: Token, $3: Simple, $5: Expr, $7: Simple, $9: Statement| -> Statement;
+        $$ = Statement::For(For {
             loc: $1.get_loc(),
-            value: SemValue::Statement(Statement::For(For {
-                loc: $1.get_loc(),
-                init: match get_move!($3, Statement) {
-                    Statement::Simple(simple) => simple,
-                    _ => unreachable!(),
-                },
-                cond: get_move!($5, Expr),
-                update: match get_move!($7, Statement) {
-                    Statement::Simple(simple) => simple,
-                    _ => unreachable!(),
-                },
-                body: Box::new(get_move!($9, Statement)),
-            })),
-        };
+            init: $3,
+            cond: $5,
+            update: $7,
+            body: Box::new($9),
+        });
     }
     ;
 
 Break
     : BREAK {
-        |$1: Token| -> Sem;
-        $$ = Sem {
-            loc: $1.get_loc(),
-            value: SemValue::Statement(Statement::Break(Break {
-                loc: $1.get_loc(),
-            })),
-        };
+        |$1: Token| -> Statement;
+        $$ = Statement::Break(Break { loc: $1.get_loc(), });
     }
     ;
 
 If
     : IF '(' Expr ')' Statement MaybeElse {
-        |$1: Token, $3: Sem, $5: Sem, $6: Sem| -> Sem;
-        $$ = Sem {
+        |$1: Token, $3: Expr, $5: Statement, $6: Option<Statement>| -> Statement;
+        $$ = Statement::If(If {
             loc: $1.get_loc(),
-            value: SemValue::Statement(Statement::If(If {
-                loc: $1.get_loc(),
-                cond: get_move!($3, Expr),
-                on_true: Box::new(get_move!($5, Statement)),
-                on_false: match $6.value {
-                    SemValue::Statement(statement) => {Some(Box::new(statement))}
-                    SemValue::None => {None}
-                    _ => unreachable!(),
-                },
-            })),
-        }
+            cond: $3,
+            on_true: Box::new($5),
+            on_false: match $6 {
+                Some(statement) => Some(Box::new(statement)),
+                None => None,
+            },
+        });
     }
     ;
 
 MaybeElse
     : ELSE Statement {
-        |$1: Token, $2: Sem| -> Sem;
-        $$ = Sem {
-            loc: $1.get_loc(),
-            value: SemValue::Statement(get_move!($2, Statement)),
-        };
+        |$1: Token, $2: Statement| -> Option<Statement>;
+        $$ = Some($2);
     }
     | /* empty */  {
-        || -> Sem;
-        $$ = Sem {
-            loc: NO_LOCATION,
-            value: SemValue::None,
-        };
+        || -> Option<Statement>;
+        $$ = None;
     }
     ;
 
 ObjectCopy
-    : SCOPY '(' Identifier ',' Expr ')' {
-        |$1: Token, $3: Sem, $5: Sem| -> Sem;
-        $$ = Sem {
+    : SCOPY '(' IDENTIFIER ',' Expr ')' {
+        |$1: Token, $3: Token, $5: Expr| -> Statement;
+        $$ = Statement::ObjectCopy(ObjectCopy {
             loc: $1.get_loc(),
-            value: SemValue::Statement(Statement::ObjectCopy(ObjectCopy {
-                loc: $1.get_loc(),
-                dst: get_move!($3, Identifier),
-                src: get_move!($5, Expr),
-            })),
-        }
+            dst: $3.get_id(),
+            src: $5,
+        });
     }
     ;
 
 Foreach
-    : FOREACH '(' TypeOrVar Identifier IN Expr MaybeForeachCond ')' Statement {
-        |$1: Token, $3: Sem, $4: Sem, $6: Sem, $7: Sem, $9: Sem| -> Sem;
-        $$ = Sem {
+    : FOREACH '(' TypeOrVar IDENTIFIER IN Expr MaybeForeachCond ')' Statement {
+        |$1: Token, $3: Type, $4: Token, $6: Expr, $7: Option<Expr>, $9: Statement| -> Statement;
+        $$ = Statement::Foreach(Foreach {
             loc: $1.get_loc(),
-            value: SemValue::Statement(Statement::Foreach(Foreach {
-                loc: $1.get_loc(),
-                type_: get_move!($3, Type),
-                name: get_move!($4, Identifier),
-                array: get_move!($6, Expr),
-                cond: match $7.value {
-                    SemValue::Expr(expr) => Some(expr),
-                    SemValue::None => None,
-                    _ => unreachable!(),
-                },
-                body: Box::new(get_move!($9, Statement)),
-            })),
-        }
+            type_: $3,
+            name: $4.get_id(),
+            array: $6,
+            cond: $7,
+            body: Box::new($9),
+        });
     }
     ;
 
 TypeOrVar
     : VAR {
-        |$1: Token| -> Sem;
-        $$ = Sem {
-            loc: $1.get_loc(),
-            value: SemValue::Type(Type::Var),
-        };
+        || -> Type;
+        $$ = Type::Var;
     }
     | Type {
-        |$1: Sem| -> Sem;
-        $$ = Sem {
-            loc: $1.loc,
-            value: SemValue::Type(get_move!($1, Type)),
-        };
+        |$1: Type| -> Type;
+        $$ = $1;
     }
     ;
 
 MaybeForeachCond
     : WHILE Expr {
-        |$1: Token, $2: Sem| -> Sem;
-        $$ = Sem {
-            loc: $1.get_loc(),
-            value: SemValue::Expr(get_move!($2, Expr)),
-        };
+        |$1: Token, $2: Expr| -> Option<Expr>;
+        $$ = Some($2);
     }
     | /* empty */ {
-        || -> Sem;
-        $$ = Sem {
-            loc: NO_LOCATION,
-            value: SemValue::None,
-        };
+        || -> Option<Expr>;
+        $$ = None;
     }
     ;
 
 Guarded
     : IF '{' GuardedBranchesOrEmpty '}' {
-        |$1: Token, $3: Sem|-> Sem;
-        $$ = Sem {
+        |$1: Token, $3: GuardedList|-> Statement;
+        $$ = Statement::Guarded(Guarded {
             loc: $1.get_loc(),
-            value: SemValue::Statement(Statement::Guarded(Guarded {
-                loc: $1.get_loc(),
-                guarded: get_move!($3, GuardedList),
-            }))
-        };
+            guarded: $3,
+        });
     }
     ;
 
 GuardedBranchesOrEmpty
     :  GuardedBranches {
-        |$1: Sem| -> Sem;
+        |$1: GuardedList| -> GuardedList;
         $$ = $1;
     }
     | /* empty */ {
-        || -> Sem;
-        $$ = Sem {
-            loc: NO_LOCATION,
-            value: SemValue::GuardedList(Vec::new()),
-        };
+        || -> GuardedList;
+        $$ = Vec::new();
     }
     ;
 
 GuardedBranches
     : GuardedBranches GUARD_SPLIT Expr ':' Statement {
-        |$1: Sem, $3: Sem, $5: Sem| -> Sem;
-        let mut ret = $1;
-        get_ref!(ret, GuardedList).push((get_move!($3, Expr), get_move!($5, Statement)));
-        $$ = ret;
+        |$1: GuardedList, $3: Expr, $5: Statement| -> GuardedList;
+        $1.push(($3, $5));
+        $$ = $1;
     }
     | Expr ':' Statement {
-        |$1: Sem, $3: Sem| -> Sem;
-        $$ = Sem {
-            loc: NO_LOCATION,
-            value: SemValue::GuardedList(vec![(get_move!($1, Expr), get_move!($3, Statement))]),
-        };
+        |$1: Expr, $3: Statement| -> GuardedList;
+        $$ = vec![($1, $3)];
     }
     ;
 
 Return
     : RETURN Expr {
-        |$1: Token, $2: Sem| -> Sem;
-        $$ = Sem {
+        |$1: Token, $2: Expr| -> Statement;
+        $$ = Statement::Return(Return {
             loc: $1.get_loc(),
-            value: SemValue::Statement(Statement::Return(Return {
-                loc: $1.get_loc(),
-                expr: Some(get_move!($2, Expr)),
-            }))
-        };
+            expr: Some($2),
+        });
     }
     | RETURN {
-        |$1: Token| -> Sem;
-        $$ = Sem {
+        |$1: Token| -> Statement;
+        $$ = Statement::Return(Return {
             loc: $1.get_loc(),
-            value: SemValue::Statement(Statement::Return(Return {
-                loc: $1.get_loc(),
-                expr: None,
-            }))
-        };
+            expr: None,
+        });
     }
     ;
 
 
 Print
     : PRINT '(' ExprList ')' {
-        |$1: Token, $3: Sem| -> Sem;
-        $$ = Sem {
+        |$1: Token, $3: ExprList| -> Statement;
+        $$ = Statement::Print(Print {
             loc: $1.get_loc(),
-            value: SemValue::Statement(Statement::Print(Print {
-                loc: $1.get_loc(),
-                print: get_move!($3, ExprList),
-            }))
-        };
+            print: $3,
+        });
     }
     ;
 
 ExprList
     : ExprList ',' Expr {
-        |$1: Sem, $3: Sem| -> Sem;
-        let mut ret = $1;
-        get_ref!(ret, ExprList).push(get_move!($3, Expr));
-        $$ = ret;
+        |$1: ExprList, $3: Expr| -> ExprList;
+        $1.push($3);
+        $$ = $1;
     }
     | Expr {
-        |$1: Sem| -> Sem;
-        $$ = Sem {
-            loc: NO_LOCATION,
-            value: SemValue::ExprList(vec!(get_move!($1, Expr))),
-        };
+        |$1: Expr| -> ExprList;
+        $$ = vec![$1];
     }
     ;
 
 Simple
     : LValue '=' Expr {
-        |$1: Sem, $2: Token, $3: Sem| -> Sem;
-        $$ = Sem {
+        |$1: LValue, $2: Token, $3: Expr| -> Simple;
+        $$ = Simple::Assign(Assign {
             loc: $2.get_loc(),
-            value: SemValue::Statement(Statement::Simple(Simple::Assign(Assign {
-                loc: $2.get_loc(),
-                dst: get_move!($1, LValue),
-                src: get_move!($3, Expr),
-            }))),
-        };
+            dst: $1,
+            src: $3,
+        });
     }
-    | VAR Identifier '=' Expr {
-        |$2: Sem, $3: Token, $4: Sem| -> Sem;
-        $$ = Sem {
+    | VAR IDENTIFIER '=' Expr {
+        |$2: Token, $3: Token, $4: Expr| -> Simple;
+        $$ = Simple::VarAssign(VarAssign {
             loc: $3.get_loc(),
-            value: SemValue::Statement(Statement::Simple(Simple::VarAssign(VarAssign {
-                loc: $3.get_loc(),
-                name: get_move!($2, Identifier),
-                src: get_move!($4, Expr),
-            }))),
-        };
+            name: $2.get_id(),
+            src: $4,
+        });
     }
     | Expr {
-        |$1: Sem| -> Sem;
-        $$ = Sem {
-            loc: $1.loc,
-            value: SemValue::Statement(Statement::Simple(Simple::Expr(get_move!($1, Expr)))),
-        };
+        |$1: Expr| -> Simple;
+        $$ = Simple::Expr($1);
     }
     | /* empty */ {
-        || -> Sem;
-        $$ = Sem {
-            loc: self.get_loc(),
-            value: SemValue::Statement(Statement::Simple(Simple::Skip(Skip {
-                loc: self.get_loc(),
-            }))),
-        };
+        || -> Simple;
+        $$ = Simple::Skip(Skip { loc: self.get_loc(), });
     }
     ;
 
 Expr
     : LValue {
-        |$1: Sem| -> Sem;
-        $$ = Sem {
-            loc: $1.loc,
-            value: SemValue::Expr(Expr::LValue(get_move!($1, LValue))),
-        }
+        |$1: LValue| -> Expr;
+        $$ = Expr::LValue($1);
     }
     | Call {
-        |$1: Sem| -> Sem;
+        |$1: Expr| -> Expr;
         $$ = $1;
     }
     | Const {
-        |$1: Sem| -> Sem;
-        $$ = Sem {
-            loc: $1.loc,
-            value: SemValue::Expr(Expr::Const(get_move!($1, Const))),
-        }
+        |$1: Const| -> Expr;
+        $$ = Expr::Const($1);
     }
     | Expr '+' Expr {
-        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        |$1: Expr, $2: Token, $3: Expr| -> Expr;
         $$ = gen_binary($1, $2, $3, Operator::Add);
     }
     | Expr '-' Expr {
-        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        |$1: Expr, $2: Token, $3: Expr| -> Expr;
         $$ = gen_binary($1, $2, $3, Operator::Sub);
     }
     | Expr '*' Expr {
-        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        |$1: Expr, $2: Token, $3: Expr| -> Expr;
         $$ = gen_binary($1, $2, $3, Operator::Mul);
     }
     | Expr '/' Expr {
-        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        |$1: Expr, $2: Token, $3: Expr| -> Expr;
         $$ = gen_binary($1, $2, $3, Operator::Div);
     }
     | Expr '%' Expr {
-        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        |$1: Expr, $2: Token, $3: Expr| -> Expr;
         $$ = gen_binary($1, $2, $3, Operator::Mod);
     }
     | Expr EQUAL Expr {
-        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        |$1: Expr, $2: Token, $3: Expr| -> Expr;
         $$ = gen_binary($1, $2, $3, Operator::Eq);
     }
     | Expr NOT_EQUAL Expr {
-        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        |$1: Expr, $2: Token, $3: Expr| -> Expr;
         $$ = gen_binary($1, $2, $3, Operator::Ne);
     }
     | Expr '<' Expr {
-        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        |$1: Expr, $2: Token, $3: Expr| -> Expr;
         $$ = gen_binary($1, $2, $3, Operator::Lt);
     }
     | Expr '>' Expr {
-        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        |$1: Expr, $2: Token, $3: Expr| -> Expr;
         $$ = gen_binary($1, $2, $3, Operator::Gt);
     }
     | Expr LESS_EQUAL Expr {
-        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        |$1: Expr, $2: Token, $3: Expr| -> Expr;
         $$ = gen_binary($1, $2, $3, Operator::Le);
     }
     | Expr GREATER_EQUAL Expr {
-        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        |$1: Expr, $2: Token, $3: Expr| -> Expr;
         $$ = gen_binary($1, $2, $3, Operator::Ge);
     }
     | Expr AND Expr {
-        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        |$1: Expr, $2: Token, $3: Expr| -> Expr;
         $$ = gen_binary($1, $2, $3, Operator::And);
     }
     | Expr OR Expr {
-        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        |$1: Expr, $2: Token, $3: Expr| -> Expr;
         $$ = gen_binary($1, $2, $3, Operator::Or);
     }
     | Expr REPEAT Expr {
-        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        |$1: Expr, $2: Token, $3: Expr| -> Expr;
         $$ = gen_binary($1, $2, $3, Operator::Repeat);
     }
     | Expr CONCAT Expr {
-        |$1: Sem, $2: Token, $3: Sem| -> Sem;
+        |$1: Expr, $2: Token, $3: Expr| -> Expr;
         $$ = gen_binary($1, $2, $3, Operator::Concat);
     }
     | Expr '[' Expr ':' Expr ']' {
-        |$1: Sem, $2: Token, $3: Sem, $5: Sem| -> Sem;
-        $$ = Sem {
+        |$1: Expr, $2: Token, $3: Expr, $5: Expr| -> Expr;
+        $$ = Expr::Range(Range {
             loc: $2.get_loc(),
-            value: SemValue::Expr(Expr::Range(Range {
-                loc: $2.get_loc(),
-                array: Box::new(get_move!($1, Expr)),
-                lower: Box::new(get_move!($3, Expr)),
-                upper: Box::new(get_move!($5, Expr)),
-            }))
-        };
+            array: Box::new($1),
+            lower: Box::new($3),
+            upper: Box::new($5),
+        });
     }
     | Expr '[' Expr ']' DEFAULT Expr {
-        |$1: Sem, $2: Token, $3: Sem, $6: Sem| -> Sem;
-        $$ = Sem {
+        |$1: Expr, $2: Token, $3: Expr, $6: Expr| -> Expr;
+        $$ = Expr::Default(Default {
             loc: $2.get_loc(),
-            value: SemValue::Expr(Expr::Default(Default {
-                loc: $2.get_loc(),
-                array: Box::new(get_move!($1, Expr)),
-                index: Box::new(get_move!($3, Expr)),
-                default: Box::new(get_move!($6, Expr)),
-            }))
-        };
+            array: Box::new($1),
+            index: Box::new($3),
+            default: Box::new($6),
+        });
     }
-    | '[' Expr FOR Identifier IN Expr ']' {
-        |$1: Token, $2: Sem, $4: Sem, $6: Sem| -> Sem;
-        $$ = Sem {
+    | '[' Expr FOR IDENTIFIER IN Expr ']' {
+        |$1: Token, $2: Expr, $4: Token, $6: Expr| -> Expr;
+        $$ = Expr::Comprehension(Comprehension {
             loc: $1.get_loc(),
-            value: SemValue::Expr(Expr::Comprehension(Comprehension {
-                loc: $1.get_loc(),
-                expr: Box::new(get_move!($2, Expr)),
-                name: get_move!($4, Identifier),
-                array: Box::new(get_move!($6, Expr)),
-                cond: None,
-            })),
-        };
+            expr: Box::new($2),
+            name: $4.get_id(),
+            array: Box::new($6),
+            cond: None,
+        });
     }
-    | '[' Expr FOR Identifier IN Expr IF Expr ']' {
-        |$1: Token, $2: Sem, $4: Sem, $6: Sem, $8: Sem| -> Sem;
-        $$ = Sem {
+    | '[' Expr FOR IDENTIFIER IN Expr IF Expr ']' {
+        |$1: Token, $2: Expr, $4: Token, $6: Expr, $8: Expr| -> Expr;
+        $$ = Expr::Comprehension(Comprehension {
             loc: $1.get_loc(),
-            value: SemValue::Expr(Expr::Comprehension(Comprehension {
-                loc: $1.get_loc(),
-                expr: Box::new(get_move!($2, Expr)),
-                name: get_move!($4, Identifier),
-                array: Box::new(get_move!($6, Expr)),
-                cond: Some(Box::new(get_move!($8, Expr))),
-            })),
-        };
+            expr: Box::new($2),
+            name: $4.get_id(),
+            array: Box::new($6),
+            cond: Some(Box::new($8)),
+        });
     }
     | '(' Expr ')' {
-        |$2: Sem| -> Sem;
+        |$2: Expr| -> Expr;
         $$ = $2;
     }
     | '-' Expr %prec UMINUS {
-        |$1: Token, $2: Sem| -> Sem;
+        |$1: Token, $2: Expr| -> Expr;
         $$ = gen_unary($1, $2, Operator::Neg);
     }
     | '!' Expr {
-        |$1: Token, $2: Sem| -> Sem;
+        |$1: Token, $2: Expr| -> Expr;
         $$ = gen_unary($1, $2, Operator::Not);
     }
     | READ_INTEGER '(' ')' {
-        |$1: Token| -> Sem;
-        $$ = Sem {
-            loc: $1.get_loc(),
-            value: SemValue::Expr(Expr::ReadInt(ReadInt {
-                loc: $1.get_loc(),
-            }))
-        };
+        |$1: Token| -> Expr;
+        $$ = Expr::ReadInt(ReadInt { loc: $1.get_loc(), });
     }
     | READ_LINE '(' ')' {
-        |$1: Token| -> Sem;
-        $$ = Sem {
-            loc: $1.get_loc(),
-            value: SemValue::Expr(Expr::ReadLine(ReadLine {
-                loc: $1.get_loc(),
-            }))
-        };
+        |$1: Token| -> Expr;
+        $$ = Expr::ReadLine(ReadLine { loc: $1.get_loc(), });
     }
     | THIS {
-        |$1: Token| -> Sem;
-        $$ = Sem {
-            loc: $1.get_loc(),
-            value: SemValue::Expr(Expr::This(This {
-                loc: $1.get_loc(),
-            }))
-        };
+        |$1: Token| -> Expr;
+        $$ = Expr::This(This { loc: $1.get_loc(), });
     }
-    | NEW Identifier '(' ')' {
-        |$1: Token, $2: Sem| -> Sem;
-        $$ = Sem {
+    | NEW IDENTIFIER '(' ')' {
+        |$1: Token, $2: Token| -> Expr;
+        $$ = Expr::NewClass(NewClass {
             loc: $1.get_loc(),
-            value: SemValue::Expr(Expr::NewClass(NewClass {
-                loc: $1.get_loc(),
-                name: get_move!($2, Identifier),
-            }))
-        };
+            name: $2.get_id(),
+        });
     }
     | NEW Type '[' Expr ']' {
-        |$1: Token, $2: Sem, $4: Sem| -> Sem;
-        $$ = Sem {
+        |$1: Token, $2: Type, $4: Expr| -> Expr;
+        $$ = Expr::NewArray(NewArray {
             loc: $1.get_loc(),
-            value: SemValue::Expr(Expr::NewArray(NewArray {
-                loc: $1.get_loc(),
-                type_: get_move!($2, Type),
-                len: Box::new(get_move!($4, Expr)),
-            }))
-        };
+            type_: $2,
+            len: Box::new($4),
+        });
     }
-    | INSTANCEOF '(' Expr ',' Identifier ')' {
-        |$1: Token, $3: Sem, $5: Sem| -> Sem;
-        $$ = Sem {
+    | INSTANCEOF '(' Expr ',' IDENTIFIER ')' {
+        |$1: Token, $3: Expr, $5: Token| -> Expr;
+        $$ = Expr::TypeTest(TypeTest {
             loc: $1.get_loc(),
-            value: SemValue::Expr(Expr::TypeTest(TypeTest {
-                loc: $1.get_loc(),
-                expr: Box::new(get_move!($3, Expr)),
-                name: get_move!($5, Identifier),
-            }))
-        };
+            expr: Box::new($3),
+            name: $5.get_id(),
+        });
     }
-    | '(' CLASS Identifier ')' Expr {
-        |$3: Sem, $5: Sem| -> Sem;
-        $$ = Sem {
-            loc: $3.loc,
-            value: SemValue::Expr(Expr::TypeCast(TypeCast {
-                loc: $3.loc,
-                name: get_move!($3, Identifier),
-                expr: Box::new(get_move!($5, Expr)),
-            }))
-        };
+    | '(' CLASS IDENTIFIER ')' Expr {
+        |$3: Token, $5: Expr| -> Expr;
+        $$ = Expr::TypeCast(TypeCast {
+            loc: $3.get_loc(),
+            name: $3.get_id(),
+            expr: Box::new($5),
+        });
     }
     ;
 
 LValue
-    : MaybeReceiver Identifier {
-        |$1: Sem, $2: Sem| -> Sem;
-        $$ = Sem {
-            loc: $2.loc,
-            value: SemValue::LValue(LValue::Identifier(Identifier {
-                loc: $2.loc,
-                owner: match $1.value {
-                    SemValue::Expr(expr) => {Some(Box::new(expr))}
-                    SemValue::None => {None}
-                    _ => unreachable!(),
-                },
-                name: get_move!($2, Identifier),
-            })),
-        };
+    : MaybeReceiver IDENTIFIER {
+        |$1: Option<Expr>, $2: Token| -> LValue;
+        $$ = LValue::Identifier(Identifier {
+            loc: $2.get_loc(),
+            owner: match $1 {
+                Some(expr) => Some(Box::new(expr)),
+                None => None,
+            },
+            name: $2.get_id(),
+        });
     }
     | Expr '[' Expr ']' {
-        |$1: Sem, $3: Sem| -> Sem;
-        $$ = Sem {
-            loc: $1.loc,
-            value: SemValue::LValue(LValue::Indexed(Indexed {
-                loc: $1.loc,
-                array: Box::new(get_move!($1, Expr)),
-                index: Box::new(get_move!($3, Expr)),
-            }))
-        }
+        |$1: Expr, $3: Expr| -> LValue;
+        $$ = LValue::Indexed(Indexed {
+            loc: $1.get_loc(),
+            array: Box::new($1),
+            index: Box::new($3),
+        });
     }
     ;
 
 MaybeReceiver
     : Expr '.' {
-        |$1: Sem| -> Sem;
-        $$ = $1;
+        |$1: Expr| -> Option<Expr>;
+        $$ = Some($1);
     }
     | /* empty */ {
-        || -> Sem;
-        $$ = Sem {
-            loc: NO_LOCATION,
-            value: SemValue::None,
-        };
+        || -> Option<Expr>;
+        $$ = None;
     }
     ;
 
 Call
-    : MaybeReceiver Identifier '(' ExprListOrEmpty ')' {
-        |$1: Sem, $2: Sem, $4: Sem| -> Sem;
-        $$ = Sem {
-            loc: $2.loc,
-            value: SemValue::Expr(Expr::Call(Call {
-                loc: $2.loc,
-                receiver: match $1.value {
-                    SemValue::Expr(expr) => Some(Box::new(expr)),
-                    SemValue::None => None,
-                    _ => unreachable!(),
-                },
-                name: get_move!($2, Identifier),
-                arguments: get_move!($4, ExprList),
-            })),
-        }
+    : MaybeReceiver IDENTIFIER '(' ExprListOrEmpty ')' {
+        |$1: Option<Expr>, $2: Token, $4: ExprList| -> Expr;
+        $$ = Expr::Call(Call {
+            loc: $2.get_loc(),
+            receiver: match $1 {
+                Some(expr) => Some(Box::new(expr)),
+                None => None,
+            },
+            name: $2.get_id(),
+            arguments: $4,
+        });
     }
     ;
                 
 Const        
     : INT_CONST {
-        |$1: Token| -> Sem;
-        $$ = Sem {
+        |$1: Token| -> Const;
+        $$ = Const::IntConst(IntConst {
             loc: $1.get_loc(),
-            value: SemValue::Const(Const::IntConst(IntConst {
-                loc: $1.get_loc(),
-                value: yytext.parse::<i32>().unwrap(),
-            })),
-        };
+            value: $1.value.parse::<i32>().unwrap(),
+        });
     }
     | TRUE {
-        |$1: Token| -> Sem;
-        $$ = Sem {
+        |$1: Token| -> Const;
+        $$ = Const::BoolConst(BoolConst {
             loc: $1.get_loc(),
-            value: SemValue::Const(Const::BoolConst(BoolConst {
-                loc: $1.get_loc(),
-                value: true,
-            })),
-        };
+            value: true,
+        });
     }
     | FALSE {
-        |$1: Token| -> Sem;
-        $$ = Sem {
+        |$1: Token| -> Const;
+        $$ = Const::BoolConst(BoolConst {
             loc: $1.get_loc(),
-            value: SemValue::Const(Const::BoolConst(BoolConst {
-                loc: $1.get_loc(),
-                value: false,
-            })),
-        };
+            value: false,
+        });
     }
     | STRING_CONST {
-        |$1: Token| -> Sem;
-        $$ = Sem {
+        |$1: Token| -> Const;
+        $$ = Const::StringConst(StringConst {
             loc: $1.get_loc(),
-            value: SemValue::Const(Const::StringConst(StringConst {
-                loc: $1.get_loc(),
-                value: (&yytext[1..yytext.len() - 1]).to_string(),
-            })),
-        };
+            value: (&$1.value[1..yytext.len() - 1]).to_string(),
+        });
     }
     | ArrayConst {
-        |$1: Sem| -> Sem;
+        |$1: Const| -> Const;
         $$ = $1;
     }
     | NULL {
-        |$1: Token| -> Sem;
-        $$ = Sem {
-            loc: $1.get_loc(),
-            value: SemValue::Const(Const::Null(Null {
-                loc: $1.get_loc(),
-            })),
-        };
+        |$1: Token| -> Const;
+        $$ = Const::Null(Null { loc: $1.get_loc(), });
     }
     ;
 
 ArrayConst
     : '[' ConstList ']' {
-        |$2: Sem| -> Sem;
+        |$2: ConstList| -> ConstList;
         $$ = $2;
     }
     | '[' ']' {
-        || -> Sem;
-        $$ = Sem {
-            loc: NO_LOCATION,
-            value: SemValue::Const(Const::ArrayConst(ArrayConst {
-                loc: NO_LOCATION,
-                value: Vec::new(),
-            })),
-        };
+        || -> ConstList;
+        $$ = Vec::new();
     }
     ;
 
 ConstList
     : ConstList ',' Const {
-        |$1: Sem, $3: Sem| -> Sem;
-        let mut ret = $1;
-        match get_ref!(ret, Const) {
-            Const::ArrayConst(array_const) => array_const.value.push(get_move!($3, Const)),
-            _ => unreachable!(),
-        };
-        $$ = ret;
+        |$1: ConstList, $3: Const| -> ConstList;
+        $1.push($3);
+        $$ = $1;
     }
     | Const {
-        |$1: Sem| -> Sem;
-        $$ = Sem {
-            loc: NO_LOCATION,
-            value: SemValue::Const(Const::ArrayConst(ArrayConst {
-                loc: NO_LOCATION,
-                value: vec![get_move!($1, Const)],
-            })),
-        };
+        |$1: Const| -> ConstList;
+        $$ = vec![$1];
     }
     ;
 
 
 ExprListOrEmpty
     : ExprList {
-        |$1: Sem| -> Sem;
+        |$1: ExprList| -> ExprList;
         $$ = $1;
     }
     | /* empty */ {
-        || -> Sem;
-        $$ = Sem {
-            loc: NO_LOCATION,
-            value: SemValue::ExprList(Vec::new()),
-        };
+        || -> ExprList;
+        $$ = Vec::new();
     }
     ;
 
+// no ; followed
 VarDef
-    : Variable ';' {
-        $$ = $1;
-    }
-    ;
-
-Variable
-    : Type Identifier {
-        |$1: Sem, $2: Sem| -> Sem;
-        $$ = Sem {
-            loc: $2.loc,
-            value: SemValue::VarDef(VarDef {
-                loc: $2.loc,
-                name: get_move!($2, Identifier),
-                type_: get_move!($1, Type),
-            })
+    : Type IDENTIFIER {
+        |$1: Type, $2: Token| -> VarDef;
+        $$ = VarDef {
+            loc: $2.get_loc(),
+            name: $2.get_id(),
+            type_: $1,
         };
     }
     ;
                 
 Type
     : INT {
-        |$1: Token| -> Sem;
-        $$ = Sem {
-            loc: $1.get_loc(),
-            value: SemValue::Type(Type::Basic("int")),
-        };
+        |$1: Token| -> Type;
+        $$ = Type::Basic("int");
     }
     | VOID {
-        |$1: Token| -> Sem;
-        $$ = Sem {
-            loc: $1.get_loc(),
-            value: SemValue::Type(Type::Basic("void")),
-        };
+        |$1: Token| -> Type;
+        $$ = Type::Basic("void");
     }
     | BOOL {
-        |$1: Token| -> Sem;
-        $$ = Sem {
-            loc: $1.get_loc(),
-            value: SemValue::Type(Type::Basic("bool")),
-        };
+        |$1: Token| -> Type;
+        $$ = Type::Basic("bool");
     }
     | STRING {
-        |$1: Token| -> Sem;
-        $$ = Sem {
-            loc: $1.get_loc(),
-            value: SemValue::Type(Type::Basic("string")),
-        };
+        |$1: Token| -> Type;
+        $$ = Type::Basic("string");
     }
-    | CLASS Identifier  {
-        |$1: Token, $2: Sem| -> Sem;
-        $$ = Sem {
-            loc: $1.get_loc(),
-            value: SemValue::Type(Type::Class(get_move!($2, Identifier))),
-        };
+    | CLASS IDENTIFIER  {
+        |$1: Token, $2: Token| -> Type;
+        $$ = Type::Class($2.get_id());
     }
     | Type '[' ']' {
-        |$1: Sem| -> Sem;
-        $$ = Sem {
-            loc: $1.loc,
-            value: SemValue::Type(Type::Array(Some(Box::new(get_move!($1, Type))))),
-        };
-    }
-    ;
-
-Identifier
-    : IDENTIFIER {
-        |$1: Token| -> Sem;
-        $$ = Sem {
-            loc: $1.get_loc(),
-            // yytext.to_string() return s the current name
-            value: SemValue::Identifier(yytext.to_string()),
-        }
+        |$1: Type| -> Type;
+        $$ = Type::Array(Box::new($1));
     }
     ;
