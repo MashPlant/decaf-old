@@ -66,7 +66,7 @@
 "}"                 return "'}'";
 ":"                 return "':'";
 
-\"[^\"]*\"  return "STRING_CONST";
+\"[^"]*\"  return "STRING_CONST";
 
 \s+                 return "";
 

@@ -23,85 +23,85 @@ enum SV {
  * Lex rules.
  */
 static LEX_RULES: [&'static str; 79] = [
-    r"^void",
-    r"^int",
-    r"^bool",
-    r"^string",
-    r"^new",
-    r"^null",
-    r"^true",
-    r"^false",
-    r"^class",
-    r"^extends",
-    r"^this",
-    r"^while",
-    r"^foreach",
-    r"^for",
-    r"^if",
-    r"^else",
-    r"^return",
-    r"^break",
-    r"^Print",
-    r"^ReadInteger",
-    r"^ReadLine",
-    r"^static",
-    r"^instanceof",
-    r"^scopy",
-    r"^sealed",
-    r"^var",
-    r"^default",
-    r"^in",
-    r"^\|\|\|",
-    r"^<=",
-    r"^>=",
-    r"^==",
-    r"^!=",
-    r"^&&",
-    r"^\|\|",
-    r"^%%",
-    r"^\+\+",
-    r"^\+",
-    r"^-",
-    r"^\*",
-    r"^/",
-    r"^%",
-    r"^=",
-    r"^<",
-    r"^>",
-    r"^\.",
-    r"^,",
-    r"^;",
-    r"^!",
-    r"^\(",
-    r"^\)",
-    r"^\[",
-    r"^\]",
-    r"^\{",
-    r"^\}",
-    r"^:",
-    "^\"[^\"]*\"",
-    r"^\s+",
-    r"^\d+",
-    r"^[A-Za-z][_0-9A-Za-z]*",
-    r"^\{",
-    r"^\}",
-    r"^\(",
-    r"^\)",
-    r"^,",
-    r"^;",
-    r"^:",
-    r"^=",
-    r"^\+",
-    r"^\-",
-    r"^\*",
-    r"^/",
-    r"^%",
-    r"^<",
-    r"^>",
-    r"^\[",
-    r"^\]",
-    r"^!",
-    r"^\."
+    r##########"^void"##########,
+    r##########"^int"##########,
+    r##########"^bool"##########,
+    r##########"^string"##########,
+    r##########"^new"##########,
+    r##########"^null"##########,
+    r##########"^true"##########,
+    r##########"^false"##########,
+    r##########"^class"##########,
+    r##########"^extends"##########,
+    r##########"^this"##########,
+    r##########"^while"##########,
+    r##########"^foreach"##########,
+    r##########"^for"##########,
+    r##########"^if"##########,
+    r##########"^else"##########,
+    r##########"^return"##########,
+    r##########"^break"##########,
+    r##########"^Print"##########,
+    r##########"^ReadInteger"##########,
+    r##########"^ReadLine"##########,
+    r##########"^static"##########,
+    r##########"^instanceof"##########,
+    r##########"^scopy"##########,
+    r##########"^sealed"##########,
+    r##########"^var"##########,
+    r##########"^default"##########,
+    r##########"^in"##########,
+    r##########"^\|\|\|"##########,
+    r##########"^<="##########,
+    r##########"^>="##########,
+    r##########"^=="##########,
+    r##########"^!="##########,
+    r##########"^&&"##########,
+    r##########"^\|\|"##########,
+    r##########"^%%"##########,
+    r##########"^\+\+"##########,
+    r##########"^\+"##########,
+    r##########"^-"##########,
+    r##########"^\*"##########,
+    r##########"^/"##########,
+    r##########"^%"##########,
+    r##########"^="##########,
+    r##########"^<"##########,
+    r##########"^>"##########,
+    r##########"^\."##########,
+    r##########"^,"##########,
+    r##########"^;"##########,
+    r##########"^!"##########,
+    r##########"^\("##########,
+    r##########"^\)"##########,
+    r##########"^\["##########,
+    r##########"^\]"##########,
+    r##########"^\{"##########,
+    r##########"^\}"##########,
+    r##########"^:"##########,
+    r##########"^"[^"]*""##########,
+    r##########"^\s+"##########,
+    r##########"^\d+"##########,
+    r##########"^[A-Za-z][_0-9A-Za-z]*"##########,
+    r##########"^\{"##########,
+    r##########"^\}"##########,
+    r##########"^\("##########,
+    r##########"^\)"##########,
+    r##########"^,"##########,
+    r##########"^;"##########,
+    r##########"^:"##########,
+    r##########"^="##########,
+    r##########"^\+"##########,
+    r##########"^\-"##########,
+    r##########"^\*"##########,
+    r##########"^/"##########,
+    r##########"^%"##########,
+    r##########"^<"##########,
+    r##########"^>"##########,
+    r##########"^\["##########,
+    r##########"^\]"##########,
+    r##########"^!"##########,
+    r##########"^\."##########
 ];
 
 /**
@@ -293,7 +293,6 @@ lazy_static! {
      */
     static ref TOKENS_MAP: HashMap<&'static str, i32> = hashmap! { "CLASS" => 40, "SEALED" => 41, "EXTENDS" => 42, "STATIC" => 43, "WHILE" => 44, "FOR" => 45, "BREAK" => 46, "IF" => 47, "ELSE" => 48, "SCOPY" => 49, "FOREACH" => 50, "IN" => 51, "VAR" => 52, "GUARD_SPLIT" => 53, "RETURN" => 54, "PRINT" => 55, "EQUAL" => 56, "NOT_EQUAL" => 57, "LESS_EQUAL" => 58, "GREATER_EQUAL" => 59, "AND" => 60, "OR" => 61, "REPEAT" => 62, "CONCAT" => 63, "DEFAULT" => 64, "READ_INTEGER" => 65, "READ_LINE" => 66, "THIS" => 67, "NEW" => 68, "INSTANCEOF" => 69, "INT_CONST" => 70, "TRUE" => 71, "FALSE" => 72, "STRING_CONST" => 73, "NULL" => 74, "INT" => 75, "VOID" => 76, "BOOL" => 77, "STRING" => 78, "IDENTIFIER" => 79, "'{'" => 80, "'}'" => 81, "'('" => 82, "')'" => 83, "','" => 84, "';'" => 85, "':'" => 86, "'='" => 87, "'+'" => 88, "'-'" => 89, "'*'" => 90, "'/'" => 91, "'%'" => 92, "'<'" => 93, "'>'" => 94, "'['" => 95, "']'" => 96, "'!'" => 97, "'.'" => 98, "$" => 99 };
 
-    static ref REGEX_RULES: Vec<Regex> = LEX_RULES.iter().map(|rule| Regex::new(rule).unwrap()).collect();
     /**
      * Parsing table.
      *
@@ -679,6 +678,14 @@ struct Token {
 // ------------------------------------------------------------------
 // Tokenizer.
 
+lazy_static! {
+    /** 
+     * Pre-parse the regex instead of parsing it every time when calling `get_next_token`.
+     * This is really(and most) time consuming accodring to my test.
+     */
+    static ref REGEX_RULES: Vec<Regex> = LEX_RULES.iter().map(|rule| Regex::new(rule).unwrap()).collect();
+}
+
 struct Tokenizer {
     /**
      * Tokenizing string.
@@ -876,7 +883,17 @@ impl Tokenizer {
             .get(self.get_current_state())
             .unwrap();
 
-        for i in 0..lex_rules_for_state.len() {
+        let mut max_match_len = 0;
+        let mut max_match_token: Option<&'static str> = None;
+
+        for i in lex_rules_for_state {
+            let i = *i as usize;
+
+            // the previous author use this to generate a new regex expression
+            // every time when `get_next_token` is called
+            // now this variable is of no use, I leave it here for debug use
+            let _lex_rule = LEX_RULES[i];
+            
             if let Some(matched) = self._match(str_slice, &REGEX_RULES[i]) {
 
                 // Manual handling of EOF token (the end of string). Return it
@@ -885,18 +902,23 @@ impl Tokenizer {
                     self.cursor = self.cursor + 1;
                 }
 
-                self.yytext = matched;
-                self.yyleng = matched.len();
-
-                let token_type = self.handlers[i](self);
-
-                // "" - no token (skip)
-                if token_type.len() == 0 {
-                    return self.get_next_token();
+                // find longest match
+                if matched.len() > max_match_len {
+                    self.yytext = matched;
+                    self.yyleng = matched.len();
+                    max_match_len = matched.len();
+                    max_match_token = Some(self.handlers[i](self));
                 }
-
-                return self.to_token(token_type)
             }
+        }
+
+        if let Some(token) = max_match_token {
+            self.cursor = self.cursor + (self.yyleng as i32);
+            // "" - no token (skip)
+            if token.len() == 0 {
+                return self.get_next_token();
+            }
+            return self.to_token(token);
         }
 
         if self.is_eof() {
@@ -970,16 +992,15 @@ impl Tokenizer {
             Some(caps) => {
                 let matched = caps.get(0).unwrap().as_str();
                 self.capture_location(matched);
-                self.cursor = self.cursor + (matched.len() as i32);
                 Some(matched)
             },
             None => None
         }
     }
 
-    fn to_token(&self, token_type: &'static str) -> Token {
+    fn to_token(&self, token: &'static str) -> Token {
         Token {
-            kind: *TOKENS_MAP.get(token_type).unwrap(),
+            kind: *TOKENS_MAP.get(token).unwrap(),
             value: self.yytext,
             start_offset: self.token_start_offset,
             end_offset: self.token_end_offset,
@@ -1623,19 +1644,7 @@ impl Parser {
     }
 
     fn unexpected_token(&mut self, token: &Token) {
-        if token.value == EOF && !self.tokenizer.has_more_tokens() {
-            self.unexpected_end_of_input();
-        }
-
-        self.tokenizer.panic_unexpected_token(
-            token.value,
-            token.start_line,
-            token.start_column
-        );
-    }
-
-    fn unexpected_end_of_input(&mut self) {
-        panic!("\n\nUnexpected end of input.\n\n");
+        self.tokenizer.panic_unexpected_token(token.value, token.start_line, token.start_column);
     }
 
     fn _handler0(&mut self) -> SV {
