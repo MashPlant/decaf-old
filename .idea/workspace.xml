@@ -10,10 +10,103 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a14d057e-f809-45be-92a2-14edbc6949ba" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/testcases/array-1.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/array-2.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/array-access.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/array-comp.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/array-concat.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/array-const-err.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/array-const.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/array-foreach.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/error1.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/error2.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/error3.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/error4.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/error5.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/fibonacci.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/guarded-1.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/guarded-2.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/guarded-error-1.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/guarded-error-2.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/guarded-error-3.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/nqueues.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/array-1.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/array-2.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/array-access.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/array-comp.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/array-concat.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/array-const-err.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/array-const.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/array-foreach.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/error1.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/error2.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/error3.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/error4.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/error5.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/fibonacci.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/guarded-1.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/guarded-2.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/guarded-error-1.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/guarded-error-2.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/guarded-error-3.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/nqueues.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/scopy.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/sealed.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/test1.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/test2.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/test3.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/test4.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/test5.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/test6.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/var-1.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/output/var-2.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/array-1.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/array-2.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/array-access.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/array-comp.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/array-concat.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/array-const-err.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/array-const.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/array-foreach.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/error1.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/error2.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/error3.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/error4.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/error5.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/fibonacci.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/guarded-1.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/guarded-2.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/guarded-error-1.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/guarded-error-2.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/guarded-error-3.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/nqueues.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/scopy.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/sealed.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/test1.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/test2.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/test3.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/test4.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/test5.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/test6.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/var-1.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/result/var-2.result" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/runAll.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/scopy.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/sealed.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/test1.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/test2.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/test3.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/test4.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/test5.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/test6.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/var-1.decaf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/testcases/var-2.decaf" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/in.txt" beforeDir="false" afterPath="$PROJECT_DIR$/in.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/parser/parser.rs.g" beforeDir="false" afterPath="$PROJECT_DIR$/parser/parser.rs.g" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/parser/src/ast.rs" beforeDir="false" afterPath="$PROJECT_DIR$/parser/src/ast.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/parser/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/parser/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -39,25 +132,26 @@
     <session id="1392633417">
       <usages-collector id="statistics.lifecycle.project">
         <counts>
-          <entry key="project.closed" value="14" />
+          <entry key="project.closed" value="15" />
           <entry key="project.open.time.11" value="1" />
           <entry key="project.open.time.12" value="1" />
-          <entry key="project.open.time.13" value="2" />
+          <entry key="project.open.time.13" value="3" />
           <entry key="project.open.time.14" value="1" />
           <entry key="project.open.time.4" value="1" />
           <entry key="project.open.time.8" value="7" />
           <entry key="project.open.time.9" value="1" />
-          <entry key="project.opened" value="14" />
+          <entry key="project.opened" value="15" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
         <counts>
           <entry key="bnf" value="1" />
-          <entry key="g" value="6" />
+          <entry key="g" value="7" />
           <entry key="lock" value="1" />
           <entry key="md" value="1" />
-          <entry key="py" value="2" />
-          <entry key="rs" value="45" />
+          <entry key="py" value="4" />
+          <entry key="result" value="7" />
+          <entry key="rs" value="51" />
           <entry key="toml" value="7" />
           <entry key="txt" value="16" />
         </counts>
@@ -65,9 +159,9 @@
       <usages-collector id="statistics.file.types.open">
         <counts>
           <entry key="Markdown" value="1" />
-          <entry key="PLAIN_TEXT" value="25" />
-          <entry key="Python" value="2" />
-          <entry key="Rust" value="45" />
+          <entry key="PLAIN_TEXT" value="33" />
+          <entry key="Python" value="4" />
+          <entry key="Rust" value="51" />
           <entry key="TOML file" value="6" />
         </counts>
       </usages-collector>
@@ -75,21 +169,21 @@
         <counts>
           <entry key="GDB" value="44" />
           <entry key="bnf" value="3" />
-          <entry key="g" value="14112" />
+          <entry key="g" value="14145" />
           <entry key="md" value="60" />
-          <entry key="py" value="238" />
-          <entry key="rs" value="11390" />
+          <entry key="py" value="273" />
+          <entry key="rs" value="11558" />
           <entry key="toml" value="14" />
-          <entry key="txt" value="485" />
+          <entry key="txt" value="486" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.edit">
         <counts>
           <entry key="GDBCommands" value="44" />
           <entry key="Markdown" value="60" />
-          <entry key="PLAIN_TEXT" value="14614" />
-          <entry key="Python" value="238" />
-          <entry key="Rust" value="11390" />
+          <entry key="PLAIN_TEXT" value="14648" />
+          <entry key="Python" value="273" />
+          <entry key="Rust" value="11558" />
         </counts>
       </usages-collector>
     </session>
@@ -108,11 +202,20 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/parser/parser.rs.g">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="305">
-              <caret line="840" column="32" selection-start-line="840" selection-start-column="32" selection-end-line="840" selection-end-column="32" />
+            <state relative-caret-position="537">
+              <caret line="787" column="39" selection-start-line="787" selection-start-column="22" selection-end-line="787" selection-end-column="39" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/testcases/runAll.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="366">
+              <caret line="14" column="50" selection-start-line="14" selection-start-column="50" selection-end-line="14" selection-end-column="50" />
             </state>
           </provider>
         </entry>
@@ -120,8 +223,17 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/parser/src/lib.rs">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="239">
-              <caret line="2823" column="17" lean-forward="true" selection-start-line="2823" selection-start-column="8" selection-end-line="2823" selection-end-column="17" />
+            <state relative-caret-position="325">
+              <caret line="937" column="8" selection-start-line="937" selection-start-column="8" selection-end-line="937" selection-end-column="8" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/testcases/output/test5.result">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="148">
+              <caret line="4" column="52" selection-start-line="4" selection-start-column="52" selection-end-line="4" selection-end-column="57" />
             </state>
           </provider>
         </entry>
@@ -129,49 +241,24 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/parser/src/ast.rs">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="217">
-              <caret line="143" column="11" selection-start-line="143" selection-start-column="11" selection-end-line="143" selection-end-column="11" />
+            <state relative-caret-position="634">
+              <caret line="54" column="25" selection-start-line="54" selection-start-column="25" selection-end-line="54" selection-end-column="25" />
               <folding>
-                <element signature="e#330#331#0" expanded="true" />
-                <element signature="e#367#368#0" expanded="true" />
-                <element signature="e#8530#8531#0" expanded="true" />
-                <element signature="e#8570#8571#0" expanded="true" />
-                <element signature="e#15864#15865#0" expanded="true" />
-                <element signature="e#15903#15904#0" expanded="true" />
-                <element signature="e#17982#17983#0" expanded="true" />
-                <element signature="e#18021#18022#0" expanded="true" />
-                <element signature="e#18161#18162#0" expanded="true" />
-                <element signature="e#18203#18204#0" expanded="true" />
-                <element signature="e#18345#18346#0" expanded="true" />
-                <element signature="e#18388#18389#0" expanded="true" />
+                <element signature="e#329#330#0" expanded="true" />
+                <element signature="e#395#396#0" expanded="true" />
+                <element signature="e#416#417#0" expanded="true" />
+                <element signature="e#453#454#0" expanded="true" />
+                <element signature="e#8714#8715#0" expanded="true" />
+                <element signature="e#8754#8755#0" expanded="true" />
+                <element signature="e#17390#17391#0" expanded="true" />
+                <element signature="e#17429#17430#0" expanded="true" />
+                <element signature="e#19508#19509#0" expanded="true" />
+                <element signature="e#19547#19548#0" expanded="true" />
+                <element signature="e#19687#19688#0" expanded="true" />
+                <element signature="e#19729#19730#0" expanded="true" />
+                <element signature="e#19871#19872#0" expanded="true" />
+                <element signature="e#19914#19915#0" expanded="true" />
               </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/in.txt">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="592">
-              <caret line="19" column="24" selection-start-line="19" selection-start-column="24" selection-end-line="19" selection-end-column="24" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/src/main.rs">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1036">
-              <caret line="28" selection-start-line="28" selection-end-line="28" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$USER_HOME$/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/src/libcore/str/mod.rs">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="84582">
-              <caret line="2398" column="47" selection-start-line="2398" selection-start-column="47" selection-end-line="2398" selection-end-column="47" />
             </state>
           </provider>
         </entry>
@@ -188,14 +275,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>&amp;Regex::new</find>
-      <find>Regex::new</find>
-      <find>init</find>
-      <find>Identifier</find>
-      <find>gen_binary</find>
-      <find>get_move!($4, IDENTIFIER)</find>
-      <find>ConstList</find>
-      <find>Box::new($9, )</find>
       <find>type</find>
       <find>-&gt; Option&lt;Statement&gt;</find>
       <find>_0</find>
@@ -218,6 +297,14 @@
       <find>print_to(printer)</find>
       <find>VarDef {</find>
       <find>VarDef</find>
+      <find>seal</find>
+      <find>Flag</find>
+      <find>Met</find>
+      <find>Block</find>
+      <find>print</find>
+      <find>value.to_string()</find>
+      <find>&amp;(</find>
+      <find>to_string()</find>
     </findStrings>
     <replaceStrings>
       <replace>&quot;;</replace>
@@ -264,13 +351,14 @@
         <option value="$PROJECT_DIR$/Cargo.toml" />
         <option value="$PROJECT_DIR$/calc.bnf" />
         <option value="$PROJECT_DIR$/parser/tmp.txt" />
-        <option value="$PROJECT_DIR$/src/main.rs" />
         <option value="$PROJECT_DIR$/fix.py" />
         <option value="$PROJECT_DIR$/README.md" />
-        <option value="$PROJECT_DIR$/parser/src/lib.rs" />
+        <option value="$PROJECT_DIR$/src/main.rs" />
         <option value="$PROJECT_DIR$/in.txt" />
         <option value="$PROJECT_DIR$/parser/src/ast.rs" />
         <option value="$PROJECT_DIR$/parser/parser.rs.g" />
+        <option value="$PROJECT_DIR$/parser/src/lib.rs" />
+        <option value="$PROJECT_DIR$/testcases/runAll.py" />
       </list>
     </option>
   </component>
@@ -312,7 +400,6 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
-      <pane id="Scope" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -340,17 +427,21 @@
           <select />
         </subPane>
       </pane>
+      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
     <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/testcases/result/array-1.result" />
     <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
     <property name="nodejs_npm_path_reset_for_default_project" value="true" />
     <property name="org.rust.cargo.project.model.PROJECT_DISCOVERY" value="true" />
     <property name="settings.editor.selected.configurable" value="preferences.keymap" />
+    <property name="two.files.diff.last.used.file" value="$PROJECT_DIR$/testcases/result/array-1.result" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
       <recent name="$PROJECT_DIR$/parser/src" />
     </key>
   </component>
@@ -406,11 +497,12 @@
       <workItem from="1541229158089" duration="5102000" />
       <workItem from="1541257342239" duration="22000" />
       <workItem from="1541257468558" duration="1980000" />
+      <workItem from="1541402629722" duration="1243000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="76077000" />
+    <option name="totallyTimeSpent" value="79060000" />
   </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
@@ -425,12 +517,12 @@
     <frame x="0" y="-44" width="2736" height="1868" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.12725903" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.19691265" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" weight="0.32951653" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" sideWeight="0.4996235" visible="true" weight="0.49109414" />
+      <window_info anchor="bottom" id="Run" order="2" sideWeight="0.4996235" weight="0.3307888" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.3148855" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
@@ -438,7 +530,7 @@
       <window_info anchor="bottom" id="Database Changes" order="7" show_stripe_button="false" />
       <window_info anchor="bottom" id="Version Control" order="8" />
       <window_info anchor="bottom" id="Event Log" order="9" sideWeight="0.5003765" side_tool="true" weight="0.32951653" />
-      <window_info anchor="bottom" id="Terminal" order="10" weight="0.31870228" />
+      <window_info active="true" anchor="bottom" id="Terminal" order="10" visible="true" weight="0.2856234" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
@@ -555,17 +647,60 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/testcases/output/array-access.result">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/testcases/output/array-2.result">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
     <entry file="file://$PROJECT_DIR$/src/main.rs">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1036">
-          <caret line="28" selection-start-line="28" selection-end-line="28" />
+        <state relative-caret-position="925">
+          <caret line="25" selection-start-line="25" selection-end-line="25" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/in.txt">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="592">
-          <caret line="19" column="24" selection-start-line="19" selection-start-column="24" selection-end-line="19" selection-end-column="24" />
+        <state>
+          <caret column="7" selection-start-column="7" selection-end-column="7" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/testcases/output/array-1.result">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="148">
+          <caret line="4" column="35" selection-start-line="4" selection-start-column="35" selection-end-line="4" selection-end-column="35" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/testcases/result/array-1.result">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="185">
+          <caret line="5" column="21" selection-start-line="5" selection-start-column="12" selection-end-line="5" selection-end-column="21" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/parser/src/ast.rs">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="634">
+          <caret line="54" column="25" selection-start-line="54" selection-start-column="25" selection-end-line="54" selection-end-column="25" />
+          <folding>
+            <element signature="e#329#330#0" expanded="true" />
+            <element signature="e#395#396#0" expanded="true" />
+            <element signature="e#416#417#0" expanded="true" />
+            <element signature="e#453#454#0" expanded="true" />
+            <element signature="e#8714#8715#0" expanded="true" />
+            <element signature="e#8754#8755#0" expanded="true" />
+            <element signature="e#17390#17391#0" expanded="true" />
+            <element signature="e#17429#17430#0" expanded="true" />
+            <element signature="e#19508#19509#0" expanded="true" />
+            <element signature="e#19547#19548#0" expanded="true" />
+            <element signature="e#19687#19688#0" expanded="true" />
+            <element signature="e#19729#19730#0" expanded="true" />
+            <element signature="e#19871#19872#0" expanded="true" />
+            <element signature="e#19914#19915#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -579,38 +714,31 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/parser/src/lib.rs">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="239">
-          <caret line="2823" column="17" lean-forward="true" selection-start-line="2823" selection-start-column="8" selection-end-line="2823" selection-end-column="17" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/parser/src/ast.rs">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="217">
-          <caret line="143" column="11" selection-start-line="143" selection-start-column="11" selection-end-line="143" selection-end-column="11" />
-          <folding>
-            <element signature="e#330#331#0" expanded="true" />
-            <element signature="e#367#368#0" expanded="true" />
-            <element signature="e#8530#8531#0" expanded="true" />
-            <element signature="e#8570#8571#0" expanded="true" />
-            <element signature="e#15864#15865#0" expanded="true" />
-            <element signature="e#15903#15904#0" expanded="true" />
-            <element signature="e#17982#17983#0" expanded="true" />
-            <element signature="e#18021#18022#0" expanded="true" />
-            <element signature="e#18161#18162#0" expanded="true" />
-            <element signature="e#18203#18204#0" expanded="true" />
-            <element signature="e#18345#18346#0" expanded="true" />
-            <element signature="e#18388#18389#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/parser/parser.rs.g">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="305">
-          <caret line="840" column="32" selection-start-line="840" selection-start-column="32" selection-end-line="840" selection-end-column="32" />
+        <state relative-caret-position="537">
+          <caret line="787" column="39" selection-start-line="787" selection-start-column="22" selection-end-line="787" selection-end-column="39" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/parser/src/lib.rs">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="325">
+          <caret line="937" column="8" selection-start-line="937" selection-start-column="8" selection-end-line="937" selection-end-column="8" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/testcases/output/test5.result">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="148">
+          <caret line="4" column="52" selection-start-line="4" selection-start-column="52" selection-end-line="4" selection-end-column="57" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/testcases/runAll.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="366">
+          <caret line="14" column="50" selection-start-line="14" selection-start-column="50" selection-end-line="14" selection-end-column="50" />
         </state>
       </provider>
     </entry>

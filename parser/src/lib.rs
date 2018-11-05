@@ -996,21 +996,21 @@ impl Tokenizer {
     /**
      * Whether there are still tokens in the stream.
      */
-    pub fn has_more_tokens(&mut self) -> bool {
+    pub fn has_more_tokens(&self) -> bool {
         self.cursor <= self.string.len() as i32
     }
 
     /**
      * Whether the cursor is at the EOF.
      */
-    pub fn is_eof(&mut self) -> bool {
+    pub fn is_eof(&self) -> bool {
         self.cursor == self.string.len() as i32
     }
 
     /**
      * Returns current tokenizing state.
      */
-    pub fn get_current_state(&mut self) -> &'static str {
+    pub fn get_current_state(&self) -> &'static str {
         match self.states.last() {
             Some(last) => last,
             None => "INITIAL"
@@ -1631,16 +1631,16 @@ impl Parser {
 // Semantic values prologue.
 let mut _1 = self.values_stack.pop().unwrap();
 
-let __ = _1;
-__
+let _0 = _1;
+_0
 }
 
 fn _handler1(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _1);
 
-let __ = Program { classes: _1, };
-SV::_2(__)
+let _0 = Program { classes: _1, };
+SV::_2(_0)
 }
 
 fn _handler2(&mut self) -> SV {
@@ -1649,16 +1649,16 @@ let mut _2 = pop!(self.values_stack, _3);
 let mut _1 = pop!(self.values_stack, _1);
 
 _1.push(_2);
-        let __ = _1;
-SV::_1(__)
+        let _0 = _1;
+SV::_1(_0)
 }
 
 fn _handler3(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _3);
 
-let __ = vec![_1];
-SV::_1(__)
+let _0 = vec![_1];
+SV::_1(_0)
 }
 
 fn _handler4(&mut self) -> SV {
@@ -1671,30 +1671,30 @@ let mut _3 = pop!(self.values_stack, _0);
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _4);
 
-let __ = ClassDef {
+let _0 = ClassDef {
             loc: _2.get_loc(),
             name: _3.get_id(),
             parent: _4,
             fields: _6,
             sealed: _1,
         };
-SV::_3(__)
+SV::_3(_0)
 }
 
 fn _handler5(&mut self) -> SV {
 // Semantic values prologue.
 self.values_stack.pop();
 
-let __ = false;
-SV::_4(__)
+let _0 = true;
+SV::_4(_0)
 }
 
 fn _handler6(&mut self) -> SV {
 // Semantic values prologue.
 
 
-let __ = true;
-SV::_4(__)
+let _0 = false;
+SV::_4(_0)
 }
 
 fn _handler7(&mut self) -> SV {
@@ -1702,16 +1702,16 @@ fn _handler7(&mut self) -> SV {
 let mut _2 = pop!(self.values_stack, _0);
 self.values_stack.pop();
 
-let __ = Some(_2.get_id());
-SV::_5(__)
+let _0 = Some(_2.get_id());
+SV::_5(_0)
 }
 
 fn _handler8(&mut self) -> SV {
 // Semantic values prologue.
 
 
-let __ = None;
-SV::_5(__)
+let _0 = None;
+SV::_5(_0)
 }
 
 fn _handler9(&mut self) -> SV {
@@ -1721,8 +1721,8 @@ let mut _2 = pop!(self.values_stack, _7);
 let mut _1 = pop!(self.values_stack, _6);
 
 _1.push(FieldDef::VarDef(_2));
-        let __ = _1;
-SV::_6(__)
+        let _0 = _1;
+SV::_6(_0)
 }
 
 fn _handler10(&mut self) -> SV {
@@ -1731,16 +1731,16 @@ let mut _2 = pop!(self.values_stack, _8);
 let mut _1 = pop!(self.values_stack, _6);
 
 _1.push(FieldDef::MethodDef(_2));
-        let __ = _1;
-SV::_6(__)
+        let _0 = _1;
+SV::_6(_0)
 }
 
 fn _handler11(&mut self) -> SV {
 // Semantic values prologue.
 
 
-let __ = Vec::new();
-SV::_6(__)
+let _0 = Vec::new();
+SV::_6(_0)
 }
 
 fn _handler12(&mut self) -> SV {
@@ -1753,7 +1753,7 @@ let mut _3 = pop!(self.values_stack, _0);
 let mut _2 = pop!(self.values_stack, _9);
 self.values_stack.pop();
 
-let __ = MethodDef {
+let _0 = MethodDef {
             loc: _3.get_loc(),
             name: _3.get_id(),
             return_type: _2,
@@ -1761,7 +1761,7 @@ let __ = MethodDef {
             static_: true,
             body: _7,
         };
-SV::_8(__)
+SV::_8(_0)
 }
 
 fn _handler13(&mut self) -> SV {
@@ -1773,7 +1773,7 @@ self.values_stack.pop();
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _9);
 
-let __ = MethodDef {
+let _0 = MethodDef {
             loc: _2.get_loc(),
             name: _2.get_id(),
             return_type: _1,
@@ -1781,23 +1781,23 @@ let __ = MethodDef {
             static_: false,
             body: _6,
         };
-SV::_8(__)
+SV::_8(_0)
 }
 
 fn _handler14(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _10);
 
-let __ = _1;
-SV::_10(__)
+let _0 = _1;
+SV::_10(_0)
 }
 
 fn _handler15(&mut self) -> SV {
 // Semantic values prologue.
 
 
-let __ = Vec::new();
-SV::_10(__)
+let _0 = Vec::new();
+SV::_10(_0)
 }
 
 fn _handler16(&mut self) -> SV {
@@ -1807,16 +1807,16 @@ self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _10);
 
 _1.push(_3);
-        let __ = _1;
-SV::_10(__)
+        let _0 = _1;
+SV::_10(_0)
 }
 
 fn _handler17(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _7);
 
-let __ = vec![_1];
-SV::_10(__)
+let _0 = vec![_1];
+SV::_10(_0)
 }
 
 fn _handler18(&mut self) -> SV {
@@ -1825,11 +1825,11 @@ self.values_stack.pop();
 let mut _2 = pop!(self.values_stack, _12);
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Block {
+let _0 = Block {
             loc: _1.get_loc(),
             statements: _2,
         };
-SV::_11(__)
+SV::_11(_0)
 }
 
 fn _handler19(&mut self) -> SV {
@@ -1838,16 +1838,16 @@ let mut _2 = pop!(self.values_stack, _13);
 let mut _1 = pop!(self.values_stack, _12);
 
 _1.push(_2);
-        let __ = _1;
-SV::_12(__)
+        let _0 = _1;
+SV::_12(_0)
 }
 
 fn _handler20(&mut self) -> SV {
 // Semantic values prologue.
 
 
-let __ = Vec::new();
-SV::_12(__)
+let _0 = Vec::new();
+SV::_12(_0)
 }
 
 fn _handler21(&mut self) -> SV {
@@ -1855,8 +1855,8 @@ fn _handler21(&mut self) -> SV {
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _7);
 
-let __ = Statement::VarDef(_1);
-SV::_13(__)
+let _0 = Statement::VarDef(_1);
+SV::_13(_0)
 }
 
 fn _handler22(&mut self) -> SV {
@@ -1864,32 +1864,32 @@ fn _handler22(&mut self) -> SV {
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _14);
 
-let __ = Statement::Simple(_1);
-SV::_13(__)
+let _0 = Statement::Simple(_1);
+SV::_13(_0)
 }
 
 fn _handler23(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _13);
 
-let __ = _1;
-SV::_13(__)
+let _0 = _1;
+SV::_13(_0)
 }
 
 fn _handler24(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _13);
 
-let __ = _1;
-SV::_13(__)
+let _0 = _1;
+SV::_13(_0)
 }
 
 fn _handler25(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _13);
 
-let __ = _1;
-SV::_13(__)
+let _0 = _1;
+SV::_13(_0)
 }
 
 fn _handler26(&mut self) -> SV {
@@ -1897,8 +1897,8 @@ fn _handler26(&mut self) -> SV {
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _13);
 
-let __ = _1;
-SV::_13(__)
+let _0 = _1;
+SV::_13(_0)
 }
 
 fn _handler27(&mut self) -> SV {
@@ -1906,8 +1906,8 @@ fn _handler27(&mut self) -> SV {
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _13);
 
-let __ = _1;
-SV::_13(__)
+let _0 = _1;
+SV::_13(_0)
 }
 
 fn _handler28(&mut self) -> SV {
@@ -1915,8 +1915,8 @@ fn _handler28(&mut self) -> SV {
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _13);
 
-let __ = _1;
-SV::_13(__)
+let _0 = _1;
+SV::_13(_0)
 }
 
 fn _handler29(&mut self) -> SV {
@@ -1924,32 +1924,32 @@ fn _handler29(&mut self) -> SV {
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _13);
 
-let __ = _1;
-SV::_13(__)
+let _0 = _1;
+SV::_13(_0)
 }
 
 fn _handler30(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _13);
 
-let __ = _1;
-SV::_13(__)
+let _0 = _1;
+SV::_13(_0)
 }
 
 fn _handler31(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _13);
 
-let __ = _1;
-SV::_13(__)
+let _0 = _1;
+SV::_13(_0)
 }
 
 fn _handler32(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _11);
 
-let __ = Statement::Block(_1);
-SV::_13(__)
+let _0 = Statement::Block(_1);
+SV::_13(_0)
 }
 
 fn _handler33(&mut self) -> SV {
@@ -1960,12 +1960,12 @@ let mut _3 = pop!(self.values_stack, _15);
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Statement::While(While {
+let _0 = Statement::While(While {
             loc: _1.get_loc(),
             cond: _3,
             body: Box::new(_5),
         });
-SV::_13(__)
+SV::_13(_0)
 }
 
 fn _handler34(&mut self) -> SV {
@@ -1980,22 +1980,22 @@ let mut _3 = pop!(self.values_stack, _14);
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Statement::For(For {
+let _0 = Statement::For(For {
             loc: _1.get_loc(),
             init: _3,
             cond: _5,
             update: _7,
             body: Box::new(_9),
         });
-SV::_13(__)
+SV::_13(_0)
 }
 
 fn _handler35(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Statement::Break(Break { loc: _1.get_loc(), });
-SV::_13(__)
+let _0 = Statement::Break(Break { loc: _1.get_loc(), });
+SV::_13(_0)
 }
 
 fn _handler36(&mut self) -> SV {
@@ -2007,7 +2007,7 @@ let mut _3 = pop!(self.values_stack, _15);
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Statement::If(If {
+let _0 = Statement::If(If {
             loc: _1.get_loc(),
             cond: _3,
             on_true: Box::new(_5),
@@ -2016,7 +2016,7 @@ let __ = Statement::If(If {
                 None => None,
             },
         });
-SV::_13(__)
+SV::_13(_0)
 }
 
 fn _handler37(&mut self) -> SV {
@@ -2024,16 +2024,16 @@ fn _handler37(&mut self) -> SV {
 let mut _2 = pop!(self.values_stack, _13);
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Some(_2);
-SV::_16(__)
+let _0 = Some(_2);
+SV::_16(_0)
 }
 
 fn _handler38(&mut self) -> SV {
 // Semantic values prologue.
 
 
-let __ = None;
-SV::_16(__)
+let _0 = None;
+SV::_16(_0)
 }
 
 fn _handler39(&mut self) -> SV {
@@ -2045,12 +2045,12 @@ let mut _3 = pop!(self.values_stack, _0);
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Statement::ObjectCopy(ObjectCopy {
+let _0 = Statement::ObjectCopy(ObjectCopy {
             loc: _1.get_loc(),
             dst: _3.get_id(),
             src: _5,
         });
-SV::_13(__)
+SV::_13(_0)
 }
 
 fn _handler40(&mut self) -> SV {
@@ -2065,7 +2065,7 @@ let mut _3 = pop!(self.values_stack, _9);
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Statement::Foreach(Foreach {
+let _0 = Statement::Foreach(Foreach {
             loc: _1.get_loc(),
             type_: _3,
             name: _4.get_id(),
@@ -2073,23 +2073,23 @@ let __ = Statement::Foreach(Foreach {
             cond: _7,
             body: Box::new(_9),
         });
-SV::_13(__)
+SV::_13(_0)
 }
 
 fn _handler41(&mut self) -> SV {
 // Semantic values prologue.
 self.values_stack.pop();
 
-let __ = Type::Var;
-SV::_9(__)
+let _0 = Type::Var;
+SV::_9(_0)
 }
 
 fn _handler42(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _9);
 
-let __ = _1;
-SV::_9(__)
+let _0 = _1;
+SV::_9(_0)
 }
 
 fn _handler43(&mut self) -> SV {
@@ -2097,16 +2097,16 @@ fn _handler43(&mut self) -> SV {
 let mut _2 = pop!(self.values_stack, _15);
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Some(_2);
-SV::_17(__)
+let _0 = Some(_2);
+SV::_17(_0)
 }
 
 fn _handler44(&mut self) -> SV {
 // Semantic values prologue.
 
 
-let __ = None;
-SV::_17(__)
+let _0 = None;
+SV::_17(_0)
 }
 
 fn _handler45(&mut self) -> SV {
@@ -2116,27 +2116,27 @@ let mut _3 = pop!(self.values_stack, _18);
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Statement::Guarded(Guarded {
+let _0 = Statement::Guarded(Guarded {
             loc: _1.get_loc(),
             guarded: _3,
         });
-SV::_13(__)
+SV::_13(_0)
 }
 
 fn _handler46(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _18);
 
-let __ = _1;
-SV::_18(__)
+let _0 = _1;
+SV::_18(_0)
 }
 
 fn _handler47(&mut self) -> SV {
 // Semantic values prologue.
 
 
-let __ = Vec::new();
-SV::_18(__)
+let _0 = Vec::new();
+SV::_18(_0)
 }
 
 fn _handler48(&mut self) -> SV {
@@ -2148,8 +2148,8 @@ self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _18);
 
 _1.push((_3, _5));
-        let __ = _1;
-SV::_18(__)
+        let _0 = _1;
+SV::_18(_0)
 }
 
 fn _handler49(&mut self) -> SV {
@@ -2158,8 +2158,8 @@ let mut _3 = pop!(self.values_stack, _13);
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = vec![(_1, _3)];
-SV::_18(__)
+let _0 = vec![(_1, _3)];
+SV::_18(_0)
 }
 
 fn _handler50(&mut self) -> SV {
@@ -2167,22 +2167,22 @@ fn _handler50(&mut self) -> SV {
 let mut _2 = pop!(self.values_stack, _15);
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Statement::Return(Return {
+let _0 = Statement::Return(Return {
             loc: _1.get_loc(),
             expr: Some(_2),
         });
-SV::_13(__)
+SV::_13(_0)
 }
 
 fn _handler51(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Statement::Return(Return {
+let _0 = Statement::Return(Return {
             loc: _1.get_loc(),
             expr: None,
         });
-SV::_13(__)
+SV::_13(_0)
 }
 
 fn _handler52(&mut self) -> SV {
@@ -2192,11 +2192,11 @@ let mut _3 = pop!(self.values_stack, _19);
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Statement::Print(Print {
+let _0 = Statement::Print(Print {
             loc: _1.get_loc(),
             print: _3,
         });
-SV::_13(__)
+SV::_13(_0)
 }
 
 fn _handler53(&mut self) -> SV {
@@ -2206,16 +2206,16 @@ self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _19);
 
 _1.push(_3);
-        let __ = _1;
-SV::_19(__)
+        let _0 = _1;
+SV::_19(_0)
 }
 
 fn _handler54(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = vec![_1];
-SV::_19(__)
+let _0 = vec![_1];
+SV::_19(_0)
 }
 
 fn _handler55(&mut self) -> SV {
@@ -2224,12 +2224,12 @@ let mut _3 = pop!(self.values_stack, _15);
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _20);
 
-let __ = Simple::Assign(Assign {
+let _0 = Simple::Assign(Assign {
             loc: _2.get_loc(),
             dst: _1,
             src: _3,
         });
-SV::_14(__)
+SV::_14(_0)
 }
 
 fn _handler56(&mut self) -> SV {
@@ -2239,52 +2239,52 @@ let mut _3 = pop!(self.values_stack, _0);
 let mut _2 = pop!(self.values_stack, _0);
 self.values_stack.pop();
 
-let __ = Simple::VarAssign(VarAssign {
+let _0 = Simple::VarAssign(VarAssign {
             loc: _3.get_loc(),
             name: _2.get_id(),
             src: _4,
         });
-SV::_14(__)
+SV::_14(_0)
 }
 
 fn _handler57(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = Simple::Expr(_1);
-SV::_14(__)
+let _0 = Simple::Expr(_1);
+SV::_14(_0)
 }
 
 fn _handler58(&mut self) -> SV {
 // Semantic values prologue.
 
 
-let __ = Simple::Skip(Skip { loc: self.get_loc(), });
-SV::_14(__)
+let _0 = Simple::Skip(Skip { loc: self.get_loc(), });
+SV::_14(_0)
 }
 
 fn _handler59(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _20);
 
-let __ = Expr::LValue(_1);
-SV::_15(__)
+let _0 = Expr::LValue(_1);
+SV::_15(_0)
 }
 
 fn _handler60(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = _1;
-SV::_15(__)
+let _0 = _1;
+SV::_15(_0)
 }
 
 fn _handler61(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _21);
 
-let __ = Expr::Const(_1);
-SV::_15(__)
+let _0 = Expr::Const(_1);
+SV::_15(_0)
 }
 
 fn _handler62(&mut self) -> SV {
@@ -2293,8 +2293,8 @@ let mut _3 = pop!(self.values_stack, _15);
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = gen_binary(_1, _2, _3, Operator::Add);
-SV::_15(__)
+let _0 = gen_binary(_1, _2, _3, Operator::Add);
+SV::_15(_0)
 }
 
 fn _handler63(&mut self) -> SV {
@@ -2303,8 +2303,8 @@ let mut _3 = pop!(self.values_stack, _15);
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = gen_binary(_1, _2, _3, Operator::Sub);
-SV::_15(__)
+let _0 = gen_binary(_1, _2, _3, Operator::Sub);
+SV::_15(_0)
 }
 
 fn _handler64(&mut self) -> SV {
@@ -2313,8 +2313,8 @@ let mut _3 = pop!(self.values_stack, _15);
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = gen_binary(_1, _2, _3, Operator::Mul);
-SV::_15(__)
+let _0 = gen_binary(_1, _2, _3, Operator::Mul);
+SV::_15(_0)
 }
 
 fn _handler65(&mut self) -> SV {
@@ -2323,8 +2323,8 @@ let mut _3 = pop!(self.values_stack, _15);
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = gen_binary(_1, _2, _3, Operator::Div);
-SV::_15(__)
+let _0 = gen_binary(_1, _2, _3, Operator::Div);
+SV::_15(_0)
 }
 
 fn _handler66(&mut self) -> SV {
@@ -2333,8 +2333,8 @@ let mut _3 = pop!(self.values_stack, _15);
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = gen_binary(_1, _2, _3, Operator::Mod);
-SV::_15(__)
+let _0 = gen_binary(_1, _2, _3, Operator::Mod);
+SV::_15(_0)
 }
 
 fn _handler67(&mut self) -> SV {
@@ -2343,8 +2343,8 @@ let mut _3 = pop!(self.values_stack, _15);
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = gen_binary(_1, _2, _3, Operator::Eq);
-SV::_15(__)
+let _0 = gen_binary(_1, _2, _3, Operator::Eq);
+SV::_15(_0)
 }
 
 fn _handler68(&mut self) -> SV {
@@ -2353,8 +2353,8 @@ let mut _3 = pop!(self.values_stack, _15);
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = gen_binary(_1, _2, _3, Operator::Ne);
-SV::_15(__)
+let _0 = gen_binary(_1, _2, _3, Operator::Ne);
+SV::_15(_0)
 }
 
 fn _handler69(&mut self) -> SV {
@@ -2363,8 +2363,8 @@ let mut _3 = pop!(self.values_stack, _15);
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = gen_binary(_1, _2, _3, Operator::Lt);
-SV::_15(__)
+let _0 = gen_binary(_1, _2, _3, Operator::Lt);
+SV::_15(_0)
 }
 
 fn _handler70(&mut self) -> SV {
@@ -2373,8 +2373,8 @@ let mut _3 = pop!(self.values_stack, _15);
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = gen_binary(_1, _2, _3, Operator::Gt);
-SV::_15(__)
+let _0 = gen_binary(_1, _2, _3, Operator::Gt);
+SV::_15(_0)
 }
 
 fn _handler71(&mut self) -> SV {
@@ -2383,8 +2383,8 @@ let mut _3 = pop!(self.values_stack, _15);
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = gen_binary(_1, _2, _3, Operator::Le);
-SV::_15(__)
+let _0 = gen_binary(_1, _2, _3, Operator::Le);
+SV::_15(_0)
 }
 
 fn _handler72(&mut self) -> SV {
@@ -2393,8 +2393,8 @@ let mut _3 = pop!(self.values_stack, _15);
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = gen_binary(_1, _2, _3, Operator::Ge);
-SV::_15(__)
+let _0 = gen_binary(_1, _2, _3, Operator::Ge);
+SV::_15(_0)
 }
 
 fn _handler73(&mut self) -> SV {
@@ -2403,8 +2403,8 @@ let mut _3 = pop!(self.values_stack, _15);
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = gen_binary(_1, _2, _3, Operator::And);
-SV::_15(__)
+let _0 = gen_binary(_1, _2, _3, Operator::And);
+SV::_15(_0)
 }
 
 fn _handler74(&mut self) -> SV {
@@ -2413,8 +2413,8 @@ let mut _3 = pop!(self.values_stack, _15);
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = gen_binary(_1, _2, _3, Operator::Or);
-SV::_15(__)
+let _0 = gen_binary(_1, _2, _3, Operator::Or);
+SV::_15(_0)
 }
 
 fn _handler75(&mut self) -> SV {
@@ -2423,8 +2423,8 @@ let mut _3 = pop!(self.values_stack, _15);
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = gen_binary(_1, _2, _3, Operator::Repeat);
-SV::_15(__)
+let _0 = gen_binary(_1, _2, _3, Operator::Repeat);
+SV::_15(_0)
 }
 
 fn _handler76(&mut self) -> SV {
@@ -2433,8 +2433,8 @@ let mut _3 = pop!(self.values_stack, _15);
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = gen_binary(_1, _2, _3, Operator::Concat);
-SV::_15(__)
+let _0 = gen_binary(_1, _2, _3, Operator::Concat);
+SV::_15(_0)
 }
 
 fn _handler77(&mut self) -> SV {
@@ -2446,13 +2446,13 @@ let mut _3 = pop!(self.values_stack, _15);
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = Expr::Range(Range {
+let _0 = Expr::Range(Range {
             loc: _2.get_loc(),
             array: Box::new(_1),
             lower: Box::new(_3),
             upper: Box::new(_5),
         });
-SV::_15(__)
+SV::_15(_0)
 }
 
 fn _handler78(&mut self) -> SV {
@@ -2464,13 +2464,13 @@ let mut _3 = pop!(self.values_stack, _15);
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = Expr::Default(Default {
+let _0 = Expr::Default(Default {
             loc: _2.get_loc(),
             array: Box::new(_1),
             index: Box::new(_3),
             default: Box::new(_6),
         });
-SV::_15(__)
+SV::_15(_0)
 }
 
 fn _handler79(&mut self) -> SV {
@@ -2483,14 +2483,14 @@ self.values_stack.pop();
 let mut _2 = pop!(self.values_stack, _15);
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Expr::Comprehension(Comprehension {
+let _0 = Expr::Comprehension(Comprehension {
             loc: _1.get_loc(),
             expr: Box::new(_2),
             name: _4.get_id(),
             array: Box::new(_6),
             cond: None,
         });
-SV::_15(__)
+SV::_15(_0)
 }
 
 fn _handler80(&mut self) -> SV {
@@ -2505,14 +2505,14 @@ self.values_stack.pop();
 let mut _2 = pop!(self.values_stack, _15);
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Expr::Comprehension(Comprehension {
+let _0 = Expr::Comprehension(Comprehension {
             loc: _1.get_loc(),
             expr: Box::new(_2),
             name: _4.get_id(),
             array: Box::new(_6),
             cond: Some(Box::new(_8)),
         });
-SV::_15(__)
+SV::_15(_0)
 }
 
 fn _handler81(&mut self) -> SV {
@@ -2521,8 +2521,8 @@ self.values_stack.pop();
 let mut _2 = pop!(self.values_stack, _15);
 self.values_stack.pop();
 
-let __ = _2;
-SV::_15(__)
+let _0 = _2;
+SV::_15(_0)
 }
 
 fn _handler82(&mut self) -> SV {
@@ -2530,8 +2530,8 @@ fn _handler82(&mut self) -> SV {
 let mut _2 = pop!(self.values_stack, _15);
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = gen_unary(_1, _2, Operator::Neg);
-SV::_15(__)
+let _0 = gen_unary(_1, _2, Operator::Neg);
+SV::_15(_0)
 }
 
 fn _handler83(&mut self) -> SV {
@@ -2539,8 +2539,8 @@ fn _handler83(&mut self) -> SV {
 let mut _2 = pop!(self.values_stack, _15);
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = gen_unary(_1, _2, Operator::Not);
-SV::_15(__)
+let _0 = gen_unary(_1, _2, Operator::Not);
+SV::_15(_0)
 }
 
 fn _handler84(&mut self) -> SV {
@@ -2549,8 +2549,8 @@ self.values_stack.pop();
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Expr::ReadInt(ReadInt { loc: _1.get_loc(), });
-SV::_15(__)
+let _0 = Expr::ReadInt(ReadInt { loc: _1.get_loc(), });
+SV::_15(_0)
 }
 
 fn _handler85(&mut self) -> SV {
@@ -2559,16 +2559,16 @@ self.values_stack.pop();
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Expr::ReadLine(ReadLine { loc: _1.get_loc(), });
-SV::_15(__)
+let _0 = Expr::ReadLine(ReadLine { loc: _1.get_loc(), });
+SV::_15(_0)
 }
 
 fn _handler86(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Expr::This(This { loc: _1.get_loc(), });
-SV::_15(__)
+let _0 = Expr::This(This { loc: _1.get_loc(), });
+SV::_15(_0)
 }
 
 fn _handler87(&mut self) -> SV {
@@ -2578,11 +2578,11 @@ self.values_stack.pop();
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Expr::NewClass(NewClass {
+let _0 = Expr::NewClass(NewClass {
             loc: _1.get_loc(),
             name: _2.get_id(),
         });
-SV::_15(__)
+SV::_15(_0)
 }
 
 fn _handler88(&mut self) -> SV {
@@ -2593,12 +2593,12 @@ self.values_stack.pop();
 let mut _2 = pop!(self.values_stack, _9);
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Expr::NewArray(NewArray {
+let _0 = Expr::NewArray(NewArray {
             loc: _1.get_loc(),
             type_: _2,
             len: Box::new(_4),
         });
-SV::_15(__)
+SV::_15(_0)
 }
 
 fn _handler89(&mut self) -> SV {
@@ -2610,12 +2610,12 @@ let mut _3 = pop!(self.values_stack, _15);
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Expr::TypeTest(TypeTest {
+let _0 = Expr::TypeTest(TypeTest {
             loc: _1.get_loc(),
             expr: Box::new(_3),
             name: _5.get_id(),
         });
-SV::_15(__)
+SV::_15(_0)
 }
 
 fn _handler90(&mut self) -> SV {
@@ -2626,12 +2626,12 @@ let mut _3 = pop!(self.values_stack, _0);
 self.values_stack.pop();
 self.values_stack.pop();
 
-let __ = Expr::TypeCast(TypeCast {
+let _0 = Expr::TypeCast(TypeCast {
             loc: _3.get_loc(),
             name: _3.get_id(),
             expr: Box::new(_5),
         });
-SV::_15(__)
+SV::_15(_0)
 }
 
 fn _handler91(&mut self) -> SV {
@@ -2639,7 +2639,7 @@ fn _handler91(&mut self) -> SV {
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _17);
 
-let __ = LValue::Identifier(Identifier {
+let _0 = LValue::Identifier(Identifier {
             loc: _2.get_loc(),
             owner: match _1 {
                 Some(expr) => Some(Box::new(expr)),
@@ -2647,7 +2647,7 @@ let __ = LValue::Identifier(Identifier {
             },
             name: _2.get_id(),
         });
-SV::_20(__)
+SV::_20(_0)
 }
 
 fn _handler92(&mut self) -> SV {
@@ -2657,12 +2657,12 @@ let mut _3 = pop!(self.values_stack, _15);
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = LValue::Indexed(Indexed {
+let _0 = LValue::Indexed(Indexed {
             loc: _1.get_loc(),
             array: Box::new(_1),
             index: Box::new(_3),
         });
-SV::_20(__)
+SV::_20(_0)
 }
 
 fn _handler93(&mut self) -> SV {
@@ -2670,16 +2670,16 @@ fn _handler93(&mut self) -> SV {
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _15);
 
-let __ = Some(_1);
-SV::_17(__)
+let _0 = Some(_1);
+SV::_17(_0)
 }
 
 fn _handler94(&mut self) -> SV {
 // Semantic values prologue.
 
 
-let __ = None;
-SV::_17(__)
+let _0 = None;
+SV::_17(_0)
 }
 
 fn _handler95(&mut self) -> SV {
@@ -2690,7 +2690,7 @@ self.values_stack.pop();
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _17);
 
-let __ = Expr::Call(Call {
+let _0 = Expr::Call(Call {
             loc: _2.get_loc(),
             receiver: match _1 {
                 Some(expr) => Some(Box::new(expr)),
@@ -2699,67 +2699,70 @@ let __ = Expr::Call(Call {
             name: _2.get_id(),
             arguments: _4,
         });
-SV::_15(__)
+SV::_15(_0)
 }
 
 fn _handler96(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Const::IntConst(IntConst {
+let _0 = Const::IntConst(IntConst {
             loc: _1.get_loc(),
             value: _1.value.parse::<i32>().unwrap(),
         });
-SV::_21(__)
+SV::_21(_0)
 }
 
 fn _handler97(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Const::BoolConst(BoolConst {
+let _0 = Const::BoolConst(BoolConst {
             loc: _1.get_loc(),
             value: true,
         });
-SV::_21(__)
+SV::_21(_0)
 }
 
 fn _handler98(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Const::BoolConst(BoolConst {
+let _0 = Const::BoolConst(BoolConst {
             loc: _1.get_loc(),
             value: false,
         });
-SV::_21(__)
+SV::_21(_0)
 }
 
 fn _handler99(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Const::StringConst(StringConst {
+let _0 = Const::StringConst(StringConst {
             loc: _1.get_loc(),
-            value: (&_1.value[1..self.tokenizer.yytext.len() - 1]).to_string(),
+            value: _1.value.to_string(),
         });
-SV::_21(__)
+SV::_21(_0)
 }
 
 fn _handler100(&mut self) -> SV {
 // Semantic values prologue.
-let mut _1 = pop!(self.values_stack, _21);
+let mut _1 = pop!(self.values_stack, _22);
 
-let __ = _1;
-SV::_21(__)
+let _0 = Const::ArrayConst(ArrayConst {
+            loc: self.get_loc(),
+            value: _1,
+        });
+SV::_21(_0)
 }
 
 fn _handler101(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Const::Null(Null { loc: _1.get_loc(), });
-SV::_21(__)
+let _0 = Const::Null(Null { loc: _1.get_loc(), });
+SV::_21(_0)
 }
 
 fn _handler102(&mut self) -> SV {
@@ -2768,8 +2771,8 @@ self.values_stack.pop();
 let mut _2 = pop!(self.values_stack, _22);
 self.values_stack.pop();
 
-let __ = _2;
-SV::_22(__)
+let _0 = _2;
+SV::_22(_0)
 }
 
 fn _handler103(&mut self) -> SV {
@@ -2777,8 +2780,8 @@ fn _handler103(&mut self) -> SV {
 self.values_stack.pop();
 self.values_stack.pop();
 
-let __ = Vec::new();
-SV::_22(__)
+let _0 = Vec::new();
+SV::_22(_0)
 }
 
 fn _handler104(&mut self) -> SV {
@@ -2788,32 +2791,32 @@ self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _22);
 
 _1.push(_3);
-        let __ = _1;
-SV::_22(__)
+        let _0 = _1;
+SV::_22(_0)
 }
 
 fn _handler105(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _21);
 
-let __ = vec![_1];
-SV::_22(__)
+let _0 = vec![_1];
+SV::_22(_0)
 }
 
 fn _handler106(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _19);
 
-let __ = _1;
-SV::_19(__)
+let _0 = _1;
+SV::_19(_0)
 }
 
 fn _handler107(&mut self) -> SV {
 // Semantic values prologue.
 
 
-let __ = Vec::new();
-SV::_19(__)
+let _0 = Vec::new();
+SV::_19(_0)
 }
 
 fn _handler108(&mut self) -> SV {
@@ -2821,44 +2824,44 @@ fn _handler108(&mut self) -> SV {
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _9);
 
-let __ = VarDef {
+let _0 = VarDef {
             loc: _2.get_loc(),
             name: _2.get_id(),
             type_: _1,
         };
-SV::_7(__)
+SV::_7(_0)
 }
 
 fn _handler109(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Type::Basic("int");
-SV::_9(__)
+let _0 = Type::Basic("int");
+SV::_9(_0)
 }
 
 fn _handler110(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Type::Basic("void");
-SV::_9(__)
+let _0 = Type::Basic("void");
+SV::_9(_0)
 }
 
 fn _handler111(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Type::Basic("bool");
-SV::_9(__)
+let _0 = Type::Basic("bool");
+SV::_9(_0)
 }
 
 fn _handler112(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Type::Basic("string");
-SV::_9(__)
+let _0 = Type::Basic("string");
+SV::_9(_0)
 }
 
 fn _handler113(&mut self) -> SV {
@@ -2866,8 +2869,8 @@ fn _handler113(&mut self) -> SV {
 let mut _2 = pop!(self.values_stack, _0);
 let mut _1 = pop!(self.values_stack, _0);
 
-let __ = Type::Class(_2.get_id());
-SV::_9(__)
+let _0 = Type::Class(_2.get_id());
+SV::_9(_0)
 }
 
 fn _handler114(&mut self) -> SV {
@@ -2876,7 +2879,7 @@ self.values_stack.pop();
 self.values_stack.pop();
 let mut _1 = pop!(self.values_stack, _9);
 
-let __ = Type::Array(Box::new(_1));
-SV::_9(__)
+let _0 = Type::Array(Box::new(_1));
+SV::_9(_0)
 }
 }

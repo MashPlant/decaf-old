@@ -68,6 +68,7 @@
 
 \"[^"]*\"  return "STRING_CONST";
 
+//[^\n]*            return "";
 \s+                 return "";
 
 \d+                 return "INT_CONST";
@@ -180,11 +181,11 @@ ClassDef
 MaybeSealed
     : SEALED {
         || -> Flag;
-        $$ = false;
+        $$ = true;
     }
     | /* empty */ {
         || -> Flag;
-        $$ = true;
+        $$ = false;
     }
     ;
 
@@ -784,12 +785,15 @@ Const
         |$1: Token| -> Const;
         $$ = Const::StringConst(StringConst {
             loc: $1.get_loc(),
-            value: (&$1.value[1..yytext.len() - 1]).to_string(),
+            value: $1.value.to_string(),
         });
     }
     | ArrayConst {
-        |$1: Const| -> Const;
-        $$ = $1;
+        |$1: ConstList| -> Const;
+        $$ = Const::ArrayConst(ArrayConst {
+            loc: self.get_loc(),
+            value: $1,
+        });
     }
     | NULL {
         |$1: Token| -> Const;

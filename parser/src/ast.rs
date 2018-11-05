@@ -15,6 +15,11 @@ impl IndentPrinter {
         }
     }
 
+    fn pop_space(&mut self) {
+        if self.content.ends_with(" ") { self.content.pop(); }
+    }
+
+
     fn inc_indent(&mut self) {
         self.indent += "    ";
     }
@@ -41,11 +46,13 @@ impl IndentPrinter {
     }
 
     fn newline(&mut self) {
+        self.pop_space();
         self.content += "\n";
         self.newline = true;
     }
 
     pub fn flush<W: io::Write>(&mut self, writer: &mut W) {
+        self.pop_space();
         writer.write(self.content.as_bytes()).unwrap();
     }
 }
@@ -247,9 +254,12 @@ pub struct Block {
 
 impl Block {
     pub fn print_to(&self, printer: &mut IndentPrinter) {
+        printer.println("stmtblock");
+        printer.inc_indent();
         for statement in &self.statements {
             statement.print_to(printer);
         }
+        printer.dec_indent();
     }
 }
 

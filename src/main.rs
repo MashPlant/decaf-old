@@ -18,7 +18,7 @@ fn main() {
     let mut input = String::new();
     {
         let args: Vec<String> = env::args().collect();
-        let filename: &str = if args.len() > 1 { &args[1] } else { "in.txt" };
+        let filename = if args.len() > 1 { &args[1] } else { "in.txt" };
         let mut f = File::open(filename).unwrap();
         f.read_to_string(&mut input).unwrap();
     }
