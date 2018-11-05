@@ -1,0 +1,10 @@
+program
+    class Main <empty>
+        static func main voidtype
+            formals
+            stmtblock
+                vardef str stringtype
+                assign
+                    varref str
+                    stringconst "string
+        "
