@@ -1,4 +1,5 @@
 extern crate parser;
+extern crate util;
 
 use std::io;
 use std::mem;
@@ -27,7 +28,7 @@ fn main() {
     let mut parser = parser::Parser::new();
 
     let node = parser.parse(input);
-    let mut printer = parser::ast::IndentPrinter::new();
+    let mut printer = util::print::IndentPrinter::new();
     node.print_to(&mut printer);
     printer.flush(&mut io::stdout());
 }

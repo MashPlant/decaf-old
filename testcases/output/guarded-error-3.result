@@ -1,6 +1,1 @@
-thread 'main' panicked at '
-
-// Extra `|||` for `if`.
-^
- Unexpected token: "/" at 1:0.', parser/src/lib.rs:938:9
-note: Run with `RUST_BACKTRACE=1` for a backtrace.
+*** Error at (10,54): syntax error

@@ -2,13 +2,15 @@
 
 %lex
 
+%x S
+
 %%
 
 // keywords
 "void"              return "VOID";
 "int"               return "INT";
 "bool"              return "BOOL";
-"string"            return "STRING";    
+"string"            return "STRING";
 "new"               return "NEW";
 "null"              return "NULL";
 "true"              return "TRUE";
@@ -19,9 +21,9 @@
 "while"             return "WHILE";
 "foreach"           return "FOREACH";
 "for"               return "FOR";
-"if"                return "IF";        
+"if"                return "IF";
 "else"              return "ELSE";
-"return"            return "RETURN";    
+"return"            return "RETURN";
 "break"             return "BREAK";
 "Print"             return "PRINT";
 "ReadInteger"       return "READ_INTEGER";
@@ -66,9 +68,31 @@
 "}"                 return "'}'";
 ":"                 return "':'";
 
-\"[^"]*\"  return "STRING_CONST";
+<INITIAL>\"         {
+                        self.begin("S");
+                        self.string_builder.0.clear();
+                        self.string_builder.1 = self.token_start_line;
+                        self.string_builder.2 = self.token_start_column;
+                        return "";
+                    }
+<S>\n               {
+                        //issueError(new NewlineInStrError(sloc, MiscUtils.quote(buffer.toString())));
+                         return "";
+                    }
+<S>EOF              {
+                        //issueError(new UntermStrError(sloc, MiscUtils.quote(buffer.toString())));
+                        self.begin("INITIAL");
+                        return "";
+                    }
+<S>\"               { self.begin("INITIAL"); return "STRING_CONST"; }
+<S>"\n"             { self.string_builder.0.push('\n'); return ""; }
+<S>"\t"             { self.string_builder.0.push('\t'); return ""; }
+<S>\\\u0022         { self.string_builder.0.push('"');  return ""; }
+<S>\\\\             { self.string_builder.0.push('\\'); return ""; }
+<S>.                { self.string_builder.0.push_str(yytext); return ""; }
 
-//[^\n]*            return "";
+
+\u002f\u002f[^\n]*  return "";
 \s+                 return "";
 
 \d+                 return "INT_CONST";
@@ -127,6 +151,12 @@ fn gen_unary(opt: Token, opr: Expr, kind: Operator) -> Expr {
         opt: kind,
         opr: Box::new(opr),
     })
+}
+
+fn on_parse_error(_parser: &Parser, token: &Token) {
+    let loc = token.get_loc();
+    eprintln!("*** Error at ({},{}): syntax error", loc.0, loc.1 + 1);
+    std::process::exit(1);
 }
 
 // Final result type returned from `parse` method call.
@@ -782,10 +812,10 @@ Const
         });
     }
     | STRING_CONST {
-        |$1: Token| -> Const;
+        || -> Const;
         $$ = Const::StringConst(StringConst {
-            loc: $1.get_loc(),
-            value: $1.value.to_string(),
+            loc: Location(self.tokenizer.string_builder.1, self.tokenizer.string_builder.2),
+            value: self.tokenizer.string_builder.0.clone(),
         });
     }
     | ArrayConst {

@@ -1,6 +1,2 @@
-thread 'main' panicked at '
-
-// This Program should trigger an "Integer Too Large Error"
-^
- Unexpected token: "/" at 1:0.', parser/src/lib.rs:938:9
+thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: ParseIntError { kind: Overflow }', libcore/result.rs:945:5
 note: Run with `RUST_BACKTRACE=1` for a backtrace.

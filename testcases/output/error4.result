@@ -6,5 +6,4 @@ program
                 vardef str stringtype
                 assign
                     varref str
-                    stringconst "string
-        "
+                    stringconst "string        "

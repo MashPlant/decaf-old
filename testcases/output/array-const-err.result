@@ -1,6 +1,1 @@
-thread 'main' panicked at '
-
-        xs = [1,0,-1]; // -1 is an expression, not a constant!
-                  ^
- Unexpected token: "-" at 4:18.', parser/src/lib.rs:938:9
-note: Run with `RUST_BACKTRACE=1` for a backtrace.
+*** Error at (4,19): syntax error

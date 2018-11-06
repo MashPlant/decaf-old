@@ -42,7 +42,7 @@ enum SV {
 /**
  * Lex rules.
  */
-static LEX_RULES: [&'static str; 79] = [
+static LEX_RULES: [&'static str; 88] = [
     r##########"^void"##########,
     r##########"^int"##########,
     r##########"^bool"##########,
@@ -99,7 +99,16 @@ static LEX_RULES: [&'static str; 79] = [
     r##########"^\{"##########,
     r##########"^\}"##########,
     r##########"^:"##########,
-    r##########"^"[^"]*""##########,
+    r##########"^""##########,
+    r##########"^\n"##########,
+    r##########"^EOF"##########,
+    r##########"^""##########,
+    r##########"^\\n"##########,
+    r##########"^\\t"##########,
+    r##########"^\\\u0022"##########,
+    r##########"^\\\\"##########,
+    r##########"^."##########,
+    r##########"^\u002f\u002f[^\n]*"##########,
     r##########"^\s+"##########,
     r##########"^\d+"##########,
     r##########"^[A-Za-z][_0-9A-Za-z]*"##########,
@@ -303,7 +312,7 @@ lazy_static! {
     /**
      * Lexical rules grouped by lexer state (by start condition).
      */
-    static ref LEX_RULES_BY_START_CONDITIONS: HashMap<&'static str, Vec<i32>> = hashmap! { "INITIAL" => vec! [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78 ] };
+    static ref LEX_RULES_BY_START_CONDITIONS: HashMap<&'static str, Vec<i32>> = hashmap! { "INITIAL" => vec! [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87 ], "S" => vec! [ 57, 58, 59, 60, 61, 62, 63, 64 ] };
 
     /**
      * Maps a string name of a token type to its encoded number (the first
@@ -617,6 +626,12 @@ fn gen_unary(opt: Token, opr: Expr, kind: Operator) -> Expr {
     })
 }
 
+fn on_parse_error(_parser: &Parser, token: &Token) {
+    let loc = token.get_loc();
+    eprintln!("*** Error at ({},{}): syntax error", loc.0, loc.1 + 1);
+    std::process::exit(1);
+}
+
 // Final result type returned from `parse` method call.
 pub type TResult = Program;
 
@@ -707,7 +722,9 @@ struct Tokenizer {
     yytext: &'static str,
     yyleng: usize,
 
-    handlers: [fn(&mut Tokenizer) -> &'static str; 79],
+    string_builder: (String, i32, i32),
+
+    handlers: [fn(&mut Tokenizer) -> &'static str; 88],
 }
 
 impl Tokenizer {
@@ -738,6 +755,8 @@ impl Tokenizer {
 
             yytext: "",
             yyleng: 0,
+
+            string_builder: (String::new(), 0, 0),
 
             handlers: [
     Tokenizer::_lex_rule0,
@@ -818,7 +837,16 @@ impl Tokenizer {
     Tokenizer::_lex_rule75,
     Tokenizer::_lex_rule76,
     Tokenizer::_lex_rule77,
-    Tokenizer::_lex_rule78
+    Tokenizer::_lex_rule78,
+    Tokenizer::_lex_rule79,
+    Tokenizer::_lex_rule80,
+    Tokenizer::_lex_rule81,
+    Tokenizer::_lex_rule82,
+    Tokenizer::_lex_rule83,
+    Tokenizer::_lex_rule84,
+    Tokenizer::_lex_rule85,
+    Tokenizer::_lex_rule86,
+    Tokenizer::_lex_rule87
 ],
         };
 
@@ -1271,94 +1299,137 @@ return "':'";
 }
 
 fn _lex_rule56(&mut self) -> &'static str {
-return "STRING_CONST";
+self.begin("S");
+                        self.string_builder.0.clear();
+                        self.string_builder.1 = self.token_start_line;
+                        self.string_builder.2 = self.token_start_column;
+                        return "";
 }
 
 fn _lex_rule57(&mut self) -> &'static str {
-return "";
+//issueError(new NewlineInStrError(sloc, MiscUtils.quote(buffer.toString())));
+                         return "";
 }
 
 fn _lex_rule58(&mut self) -> &'static str {
-return "INT_CONST";
+//issueError(new UntermStrError(sloc, MiscUtils.quote(buffer.toString())));
+                        self.begin("INITIAL");
+                        return "";
 }
 
 fn _lex_rule59(&mut self) -> &'static str {
-return "IDENTIFIER";
+self.begin("INITIAL"); return "STRING_CONST";
 }
 
 fn _lex_rule60(&mut self) -> &'static str {
-return "'{'";
+self.string_builder.0.push('\n'); return "";
 }
 
 fn _lex_rule61(&mut self) -> &'static str {
-return "'}'";
+self.string_builder.0.push('\t'); return "";
 }
 
 fn _lex_rule62(&mut self) -> &'static str {
-return "';'";
+self.string_builder.0.push('"');  return "";
 }
 
 fn _lex_rule63(&mut self) -> &'static str {
-return "'('";
+self.string_builder.0.push('\\'); return "";
 }
 
 fn _lex_rule64(&mut self) -> &'static str {
-return "')'";
+self.string_builder.0.push_str(self.yytext); return "";
 }
 
 fn _lex_rule65(&mut self) -> &'static str {
-return "','";
+return "";
 }
 
 fn _lex_rule66(&mut self) -> &'static str {
-return "':'";
+return "";
 }
 
 fn _lex_rule67(&mut self) -> &'static str {
-return "'='";
+return "INT_CONST";
 }
 
 fn _lex_rule68(&mut self) -> &'static str {
-return "'+'";
+return "IDENTIFIER";
 }
 
 fn _lex_rule69(&mut self) -> &'static str {
-return "'-'";
+return "'{'";
 }
 
 fn _lex_rule70(&mut self) -> &'static str {
-return "'*'";
+return "'}'";
 }
 
 fn _lex_rule71(&mut self) -> &'static str {
-return "'/'";
+return "';'";
 }
 
 fn _lex_rule72(&mut self) -> &'static str {
-return "'%'";
+return "'('";
 }
 
 fn _lex_rule73(&mut self) -> &'static str {
-return "'<'";
+return "')'";
 }
 
 fn _lex_rule74(&mut self) -> &'static str {
-return "'>'";
+return "','";
 }
 
 fn _lex_rule75(&mut self) -> &'static str {
-return "'['";
+return "':'";
 }
 
 fn _lex_rule76(&mut self) -> &'static str {
-return "']'";
+return "'='";
 }
 
 fn _lex_rule77(&mut self) -> &'static str {
-return "'!'";
+return "'+'";
 }
 
 fn _lex_rule78(&mut self) -> &'static str {
+return "'-'";
+}
+
+fn _lex_rule79(&mut self) -> &'static str {
+return "'*'";
+}
+
+fn _lex_rule80(&mut self) -> &'static str {
+return "'/'";
+}
+
+fn _lex_rule81(&mut self) -> &'static str {
+return "'%'";
+}
+
+fn _lex_rule82(&mut self) -> &'static str {
+return "'<'";
+}
+
+fn _lex_rule83(&mut self) -> &'static str {
+return "'>'";
+}
+
+fn _lex_rule84(&mut self) -> &'static str {
+return "'['";
+}
+
+fn _lex_rule85(&mut self) -> &'static str {
+return "']'";
+}
+
+fn _lex_rule86(&mut self) -> &'static str {
+return "'!'";
+}
+
+fn _lex_rule87(&mut self) -> &'static str {
 return "'.'";
 }
 }
@@ -1624,7 +1695,7 @@ impl Parser {
     }
 
     fn unexpected_token(&mut self, token: &Token) {
-        self.tokenizer.panic_unexpected_token(token.value, token.start_line, token.start_column);
+        on_parse_error(self, &token);
     }
 
     fn _handler0(&mut self) -> SV {
@@ -2737,11 +2808,11 @@ SV::_21(_0)
 
 fn _handler99(&mut self) -> SV {
 // Semantic values prologue.
-let mut _1 = pop!(self.values_stack, _0);
+self.values_stack.pop();
 
 let _0 = Const::StringConst(StringConst {
-            loc: _1.get_loc(),
-            value: _1.value.to_string(),
+            loc: Location(self.tokenizer.string_builder.1, self.tokenizer.string_builder.2),
+            value: self.tokenizer.string_builder.0.clone(),
         });
 SV::_21(_0)
 }
