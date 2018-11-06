@@ -2,5 +2,5 @@ thread 'main' panicked at '
 
         i = i ^ -1; // error!
               ^
- Unexpected token: "^" at 6:14.', parser/src/lib.rs:966:9
+ Unexpected token: "^" at 6:14.', parser/src/lib.rs:922:9
 note: Run with `RUST_BACKTRACE=1` for a backtrace.

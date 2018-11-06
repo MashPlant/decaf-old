@@ -9,14 +9,12 @@ extern crate lazy_static;
 use regex::Regex;
 use std::collections::HashMap;
 
-/**
- * Stack value.
- */
+// Stack value.
 enum SV {
     Undefined,
     _0(Token),
     _1(ClassList),
-    _2(Program),
+    _2(Result<Program, Vec<Error>>),
     _3(ClassDef),
     _4(Flag),
     _5(Option<String>),
@@ -39,9 +37,7 @@ enum SV {
     _22(ConstList)
 }
 
-/**
- * Lex rules.
- */
+// Lex rules.
 static LEX_RULES: [&'static str; 88] = [
     r##########"^void"##########,
     r##########"^int"##########,
@@ -133,16 +129,11 @@ static LEX_RULES: [&'static str; 88] = [
     r##########"^\."##########
 ];
 
-/**
- * EOF value.
- */
+// EOF value.
 static EOF: &'static str = "$";
 
-/**
- * A macro for map literals.
- *
- * hashmap!{ 1 => "one", 2 => "two" };
- */
+// A macro for map literals.
+// usage: hashmap!{ 1 => "one", 2 => "two" };
 macro_rules! hashmap(
     { $($key:expr => $value:expr),+ } => {
         {
@@ -155,25 +146,18 @@ macro_rules! hashmap(
      };
 );
 
-/**
- * Unwraps a SV for the result. The result type is known from the grammar.
- */
+// Unwraps a SV for the result. The result type is known from the grammar.
 macro_rules! get_result {
     ($r:expr, $ty:ident) => (match $r { SV::$ty(v) => v, _ => unreachable!() });
 }
 
-/**
- * Pops a SV with needed enum value.
- */
+// Pops a SV with needed enum value.
 macro_rules! pop {
     ($s:expr, $ty:ident) => (get_result!($s.pop().unwrap(), $ty));
 }
 
-/**
- * Productions data.
- *
- * 0 - encoded non-terminal, 1 - length of RHS to pop from the stack
- */
+// Productions data.
+// 0 - encoded non-terminal, 1 - length of RHS to pop from the stack
 static PRODUCTIONS : [[i32; 2]; 115] = [
     [-1, 1],
     [0, 1],
@@ -292,9 +276,7 @@ static PRODUCTIONS : [[i32; 2]; 115] = [
     [37, 3]
 ];
 
-/**
- * Table entry.
- */
+// Table entry.
 enum TE {
     Accept,
 
@@ -309,23 +291,16 @@ enum TE {
 }
 
 lazy_static! {
-    /**
-     * Lexical rules grouped by lexer state (by start condition).
-     */
+    // Lexical rules grouped by lexer state (by start condition).
     static ref LEX_RULES_BY_START_CONDITIONS: HashMap<&'static str, Vec<i32>> = hashmap! { "INITIAL" => vec! [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87 ], "S" => vec! [ 57, 58, 59, 60, 61, 62, 63, 64 ] };
 
-    /**
-     * Maps a string name of a token type to its encoded number (the first
-     * token number starts after all numbers for non-terminal).
-     */
+    // Maps a string name of a token type to its encoded number (the first
+    // token number starts after all numbers for non-terminal).
     static ref TOKENS_MAP: HashMap<&'static str, i32> = hashmap! { "CLASS" => 38, "IDENTIFIER" => 39, "SEALED" => 40, "EXTENDS" => 41, "STATIC" => 42, "WHILE" => 43, "FOR" => 44, "BREAK" => 45, "IF" => 46, "ELSE" => 47, "SCOPY" => 48, "FOREACH" => 49, "IN" => 50, "VAR" => 51, "GUARD_SPLIT" => 52, "RETURN" => 53, "PRINT" => 54, "EQUAL" => 55, "NOT_EQUAL" => 56, "LESS_EQUAL" => 57, "GREATER_EQUAL" => 58, "AND" => 59, "OR" => 60, "REPEAT" => 61, "CONCAT" => 62, "DEFAULT" => 63, "READ_INTEGER" => 64, "READ_LINE" => 65, "THIS" => 66, "NEW" => 67, "INSTANCEOF" => 68, "INT_CONST" => 69, "TRUE" => 70, "FALSE" => 71, "STRING_CONST" => 72, "NULL" => 73, "INT" => 74, "VOID" => 75, "BOOL" => 76, "STRING" => 77, "'{'" => 78, "'}'" => 79, "';'" => 80, "'('" => 81, "')'" => 82, "','" => 83, "':'" => 84, "'='" => 85, "'+'" => 86, "'-'" => 87, "'*'" => 88, "'/'" => 89, "'%'" => 90, "'<'" => 91, "'>'" => 92, "'['" => 93, "']'" => 94, "'!'" => 95, "'.'" => 96, "$" => 97 };
 
-    /**
-     * Parsing table.
-     *
-     * Vector index is the state number, value is a map
-     * from an encoded symbol to table entry (TE).
-     */
+    // Parsing table.
+    // Vector index is the state number, value is a map
+    // from an encoded symbol to table entry (TE).
     static ref TABLE: Vec<HashMap<i32, TE>>= vec![
     hashmap! { 0 => TE::Transit(1), 1 => TE::Transit(2), 2 => TE::Transit(3), 3 => TE::Transit(4), 38 => TE::Reduce(6), 40 => TE::Shift(5) },
     hashmap! { 97 => TE::Accept },
@@ -577,6 +552,8 @@ lazy_static! {
 // Should include at least result type:
 //
 // type TResult = <...>;
+// 
+// You can specify TError = <...>, if not specified, it will be ()
 //
 // Can also include parsing hooks:
 //
@@ -584,10 +561,13 @@ lazy_static! {
 //     ...
 //   }
 //
-//   fn on_parse_begin(parser: &mut Parser, string: &'static str) {
+//   fn on_parse_end(parser: &mut Parser, string: &'static str) {
 //     ...
 //   }
-//
+//   
+//   fn on_parse_error(parser: &Parser, token: &Token) {
+//     ...
+//   } 
 
 pub mod ast;
 extern crate common;
@@ -599,13 +579,13 @@ use errors::*;
 
 impl Parser {
     fn get_loc(&self) -> Location {
-        Location(self.tokenizer.token_start_line, self.tokenizer.token_start_column)
+        Location(self.tokenizer.token_start_line, self.tokenizer.token_start_column + 1)
     }
 }
 
 impl Token {
     fn get_loc(&self) -> Location {
-        Location(self.start_line, self.start_column)
+        Location(self.start_line, self.start_column + 1)
     }
 
     fn get_id(&self) -> String {
@@ -632,12 +612,12 @@ fn gen_unary(opt: Token, opr: Expr, kind: Operator) -> Expr {
 
 fn on_parse_error(_parser: &Parser, token: &Token) {
     let loc = token.get_loc();
-    eprintln!("*** Error at ({},{}): syntax error", loc.0, loc.1 + 1);
+    eprintln!("*** Error at ({},{}): syntax error", loc.0, loc.1);
     std::process::exit(1);
 }
 
 // Final result type returned from `parse` method call.
-pub type TResult = Program;
+pub type TResult = Result<Program, Vec<Error>>;
 // Error type
 pub type TError = Error;
 
@@ -682,39 +662,26 @@ struct Token {
 // Tokenizer.
 
 lazy_static! {
-    /** 
-     * Pre-parse the regex instead of parsing it every time when calling `get_next_token`.
-     * This is really(and most) time consuming accodring to my test.
-     */
+    // Pre-parse the regex instead of parsing it every time when calling `get_next_token`.
     static ref REGEX_RULES: Vec<Regex> = LEX_RULES.iter().map(|rule| Regex::new(rule).unwrap()).collect();
 }
 
 struct Tokenizer {
-    /**
-     * Tokenizing string.
-     */
+    // Tokenizing string.
     string: &'static str,
 
-    /**
-     * Cursor for current symbol.
-     */
+    // Cursor for current symbol.
     cursor: i32,
 
-    /**
-     * States.
-     */
+    // States.
     states: Vec<&'static str>,
 
-    /**
-     * Line-based location tracking.
-     */
+    // Line-based location tracking.
     current_line: i32,
     current_column: i32,
     current_line_begin_offset: i32,
 
-    /**
-     * Location data of a matched token.
-     */
+    // Location data of a matched token.
     token_start_offset: i32,
     token_end_offset: i32,
     token_start_line: i32,
@@ -722,9 +689,7 @@ struct Tokenizer {
     token_start_column: i32,
     token_end_column: i32,
 
-    /**
-     * Matched text, and its length.
-     */
+    // Matched text, and its length.
     yytext: &'static str,
     yyleng: usize,
 
@@ -734,13 +699,9 @@ struct Tokenizer {
 }
 
 impl Tokenizer {
-
-    /**
-     * Creates a new Tokenizer instance.
-     *
-     * The same instance can be then reused in parser
-     * by calling `init_string`.
-     */
+    // Creates a new Tokenizer instance.
+    // The same instance can be then reused in parser
+    // by calling `init_string`.
     pub fn new() -> Tokenizer {
         let mut tokenizer = Tokenizer {
             string: "",
@@ -859,9 +820,7 @@ impl Tokenizer {
         tokenizer
     }
 
-    /**
-     * Initializes a parsing string.
-     */
+    // Initializes a parsing string. 
     pub fn init_string(&mut self, string: &'static str) -> &mut Tokenizer {
         self.string = string;
 
@@ -884,9 +843,7 @@ impl Tokenizer {
         self
     }
 
-    /**
-     * Returns next token.
-     */
+    // Returns next token.
     pub fn get_next_token(&mut self) -> Token {
         if !self.has_more_tokens() {
             self.yytext = EOF;
@@ -904,11 +861,6 @@ impl Tokenizer {
 
         for i in lex_rules_for_state {
             let i = *i as usize;
-
-            // the previous author use this to generate a new regex expression
-            // every time when `get_next_token` is called
-            // now this variable is of no use, I leave it here for debug use
-            let _lex_rule = LEX_RULES[i];
             
             if let Some(matched) = self._match(str_slice, &REGEX_RULES[i]) {
 
@@ -952,11 +904,9 @@ impl Tokenizer {
         unreachable!()
     }
 
-    /**
-     * Throws default "Unexpected token" exception, showing the actual
-     * line from the source, pointing with the ^ marker to the bad token.
-     * In addition, shows `line:column` location.
-     */
+    // Throws default "Unexpected token" exception, showing the actual
+    // line from the source, pointing with the ^ marker to the bad token.
+    // In addition, shows `line:column` location.
     fn panic_unexpected_token(&self, string: &'static str, line: i32, column: i32) {
         let line_source = self.string
             .split('\n')
@@ -1027,23 +977,17 @@ impl Tokenizer {
         }
     }
 
-    /**
-     * Whether there are still tokens in the stream.
-     */
+    // Whether there are still tokens in the stream.
     pub fn has_more_tokens(&self) -> bool {
         self.cursor <= self.string.len() as i32
     }
 
-    /**
-     * Whether the cursor is at the EOF.
-     */
+    // Whether the cursor is at the EOF.
     pub fn is_eof(&self) -> bool {
         self.cursor == self.string.len() as i32
     }
 
-    /**
-     * Returns current tokenizing state.
-     */
+    // Returns current tokenizing state.
     pub fn get_current_state(&self) -> &'static str {
         match self.states.last() {
             Some(last) => last,
@@ -1051,25 +995,19 @@ impl Tokenizer {
         }
     }
 
-    /**
-     * Enters a new state pushing it on the states stack.
-     */
+    // Enters a new state pushing it on the states stack.
     pub fn push_state(&mut self, state: &'static str) -> &mut Tokenizer {
         self.states.push(state);
         self
     }
 
-    /**
-     * Alias for `push_state`.
-     */
+    // Alias for `push_state`.
     pub fn begin(&mut self, state: &'static str) -> &mut Tokenizer {
         self.push_state(state);
         self
     }
 
-    /**
-     * Exits a current state popping it from the states stack.
-     */
+    // Exits a current state popping it from the states stack.
     pub fn pop_state(&mut self) -> &'static str {
         match self.states.pop() {
             Some(top) => top,
@@ -1077,9 +1015,7 @@ impl Tokenizer {
         }
     }
 
-    /**
-     * Lex rule handlers.
-     */
+    // Lex rule handlers.
     fn _lex_rule0(&mut self) -> &'static str {
 return "VOID";
 }
@@ -1443,37 +1379,25 @@ return "'.'";
 // ------------------------------------------------------------------
 // Parser.
 
-/**
- * Parser.
- */
 pub struct Parser {
-    /**
-     * Parsing stack: semantic values.
-     */
+    // Parsing stack: semantic values.
     values_stack: Vec<SV>,
 
-    /**
-     * Parsing stack: state numbers.
-     */
+    // Parsing stack: state numbers.
     states_stack: Vec<usize>,
 
-    /**
-     * Tokenizer instance.
-     */
+    // Tokenizer instance.
     tokenizer: Tokenizer,
-
+    
+    // errors
     errors: Vec<Error>,
 
-    /**
-     * Semantic action handlers.
-     */
+    // Semantic action handlers.
     handlers: [fn(&mut Parser) -> SV; 115],
 }
 
 impl Parser {
-    /**
-     * Creates a new Parser instance.
-     */
+    // Creates a new Parser instance.
     pub fn new() -> Parser {
         Parser {
             // Stacks.
@@ -1603,9 +1527,7 @@ impl Parser {
         }
     }
 
-    /**
-     * Parses a string.
-     */
+    // Parses a string.
     pub fn parse(&mut self, string: &'static str) -> TResult {
         
 
@@ -1719,7 +1641,11 @@ fn _handler1(&mut self) -> SV {
 // Semantic values prologue.
 let mut _1 = pop!(self.values_stack, _1);
 
-let _0 = Program { classes: _1, };
+let _0 = if self.errors.is_empty() {
+            Ok(Program { classes: _1, })
+        } else {
+            Err(std::mem::replace(&mut self.errors, Vec::new()))
+        };
 SV::_2(_0)
 }
 
@@ -2788,7 +2714,10 @@ let mut _1 = pop!(self.values_stack, _0);
 
 let _0 = Const::IntConst(IntConst {
             loc: _1.get_loc(),
-            value: _1.value.parse::<i32>().unwrap(),
+            value: _1.value.parse::<i32>().unwrap_or_else(|_| {
+                self.errors.push(Error::new(_1.get_loc(), IntTooLarge{ string: _1.get_id(), }));
+                0
+            }),
         });
 SV::_21(_0)
 }

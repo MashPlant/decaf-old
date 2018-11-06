@@ -27,8 +27,11 @@ fn main() {
 
     let mut parser = parser::Parser::new();
 
-    let node = parser.parse(input);
-    let mut printer = util::print::IndentPrinter::new();
-    node.print_to(&mut printer);
-    printer.flush(&mut io::stdout());
+    let _ = parser.parse(input)
+        .map_err(|errors| { for error in errors { println!("{}", error); } })
+        .map(|program| {
+            let mut printer = util::print::IndentPrinter::new();
+            program.print_to(&mut printer);
+            printer.flush(&mut io::stdout());
+        });
 }

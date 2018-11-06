@@ -1,7 +1,7 @@
 extern crate common;
 
-use std::string::ToString;
-use common::{Location, NO_LOCATION};
+use std::fmt;
+use common::*;
 
 pub trait IError {
     fn get_msg(&self) -> String;
@@ -9,14 +9,23 @@ pub trait IError {
 
 pub struct Error {
     pub loc: Location,
-    pub object: Box<IError>,
+    pub error: Box<IError>,
 }
 
-impl ToString for Error {
-    fn to_string(&self) -> String {
+impl Error {
+    pub fn new<E: IError + 'static>(loc: Location, error: E) -> Error {
+        Error {
+            loc,
+            error: Box::new(error),
+        }
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.loc {
-            NO_LOCATION => format!("*** Error: {}", self.object.get_msg()),
-            loc => format!("*** Error at {}: {}", loc, &self.object.get_msg()),
+            NO_LOCATION => write!(f, "*** Error: {}", self.error.get_msg()),
+            loc => write!(f, "*** Error at {}: {}", loc, &self.error.get_msg()),
         }
     }
 }

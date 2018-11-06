@@ -126,13 +126,13 @@ use errors::*;
 
 impl Parser {
     fn get_loc(&self) -> Location {
-        Location(self.tokenizer.token_start_line, self.tokenizer.token_start_column)
+        Location(self.tokenizer.token_start_line, self.tokenizer.token_start_column + 1)
     }
 }
 
 impl Token {
     fn get_loc(&self) -> Location {
-        Location(self.start_line, self.start_column)
+        Location(self.start_line, self.start_column + 1)
     }
 
     fn get_id(&self) -> String {
@@ -159,12 +159,12 @@ fn gen_unary(opt: Token, opr: Expr, kind: Operator) -> Expr {
 
 fn on_parse_error(_parser: &Parser, token: &Token) {
     let loc = token.get_loc();
-    eprintln!("*** Error at ({},{}): syntax error", loc.0, loc.1 + 1);
+    eprintln!("*** Error at ({},{}): syntax error", loc.0, loc.1);
     std::process::exit(1);
 }
 
 // Final result type returned from `parse` method call.
-pub type TResult = Program;
+pub type TResult = Result<Program, Vec<Error>>;
 // Error type
 pub type TError = Error;
 
@@ -184,8 +184,12 @@ type Flag = bool;
 
 Program
     : ClassList {
-        |$1: ClassList| -> Program;
-        $$ = Program { classes: $1, };
+        |$1: ClassList| -> Result<Program, Vec<Error>>;
+        $$ = if self.errors.is_empty() {
+            Ok(Program { classes: $1, })
+        } else {
+            Err(std::mem::replace(&mut self.errors, Vec::new()))
+        }
     }
     ;
 
@@ -800,7 +804,10 @@ Const
         |$1: Token| -> Const;
         $$ = Const::IntConst(IntConst {
             loc: $1.get_loc(),
-            value: $1.value.parse::<i32>().unwrap(),
+            value: $1.value.parse::<i32>().unwrap_or_else(|_| {
+                self.errors.push(Error::new($1.get_loc(), IntTooLarge{ string: $1.get_id(), }));
+                0
+            }),
         });
     }
     | TRUE {
