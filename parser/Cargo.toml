@@ -7,3 +7,5 @@ authors = ["MashPlant <740678788@qq.com>"]
 regex = "0.2"
 lazy_static = "0.2.8"
 util = { path = "../util" }
+common = { path = "../common" }
+errors = { path = "../errors" }

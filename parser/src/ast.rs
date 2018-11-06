@@ -1,12 +1,9 @@
 extern crate util;
+extern crate common;
 
-use ast::util::print::IndentPrinter;
-use ast::util::quote::quote;
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct Location(pub i32, pub i32);
-
-pub const NO_LOCATION: Location = Location(-1, -1);
+use self::util::print::IndentPrinter;
+use self::util::quote::quote;
+use self::common::Location;
 
 #[derive(Debug)]
 pub struct Program {

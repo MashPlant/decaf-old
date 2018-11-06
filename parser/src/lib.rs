@@ -590,8 +590,12 @@ lazy_static! {
 //
 
 pub mod ast;
+extern crate common;
+extern crate errors;
 
 use ast::*;
+use common::*;
+use errors::*;
 
 impl Parser {
     fn get_loc(&self) -> Location {
@@ -634,6 +638,8 @@ fn on_parse_error(_parser: &Parser, token: &Token) {
 
 // Final result type returned from `parse` method call.
 pub type TResult = Program;
+// Error type
+pub type TError = Error;
 
 // some util types, only for convenience
 type ClassList = Vec<ClassDef>;
@@ -1456,6 +1462,8 @@ pub struct Parser {
      */
     tokenizer: Tokenizer,
 
+    errors: Vec<Error>,
+
     /**
      * Semantic action handlers.
      */
@@ -1473,6 +1481,7 @@ impl Parser {
             states_stack: Vec::new(),
 
             tokenizer: Tokenizer::new(),
+            errors: Vec::new(),
 
             handlers: [
     Parser::_handler0,

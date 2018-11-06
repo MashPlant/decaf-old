@@ -117,8 +117,12 @@
 %{
 
 pub mod ast;
+extern crate common;
+extern crate errors;
 
 use ast::*;
+use common::*;
+use errors::*;
 
 impl Parser {
     fn get_loc(&self) -> Location {
@@ -161,6 +165,8 @@ fn on_parse_error(_parser: &Parser, token: &Token) {
 
 // Final result type returned from `parse` method call.
 pub type TResult = Program;
+// Error type
+pub type TError = Error;
 
 // some util types, only for convenience
 type ClassList = Vec<ClassDef>;
