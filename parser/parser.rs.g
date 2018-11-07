@@ -83,7 +83,7 @@
                     }
 // it must be accompanied by \n, so no-op here
 <S>\r               return "";
-<S>EOF              {
+<S>$                {
                         let loc = Location(self.string_builder.1, self.string_builder.2);
                         let string = util::quote(&self.string_builder.0.clone());
                         self.report_error(Error::new(loc, UnterminatedStr{ string }));

@@ -11,17 +11,9 @@
   <component name="ChangeListManager">
     <list default="true" id="a14d057e-f809-45be-92a2-14edbc6949ba" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/in.txt" beforeDir="false" afterPath="$PROJECT_DIR$/in.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/parser/parser.rs.g" beforeDir="false" afterPath="$PROJECT_DIR$/parser/parser.rs.g" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/parser/src/ast.rs" beforeDir="false" afterPath="$PROJECT_DIR$/parser/src/ast.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/parser/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/parser/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/testcases/output/error1.result" beforeDir="false" afterPath="$PROJECT_DIR$/testcases/output/error1.result" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/testcases/output/error4.result" beforeDir="false" afterPath="$PROJECT_DIR$/testcases/output/error4.result" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/testcases/output/error5.result" beforeDir="false" afterPath="$PROJECT_DIR$/testcases/output/error5.result" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/util/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/util/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/util/src/print.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/util/src/quote.rs" beforeDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -64,25 +56,25 @@
         <counts>
           <entry key="Run decaf (disassembly)" value="1" />
           <entry key="bnf" value="1" />
-          <entry key="decaf" value="14" />
+          <entry key="decaf" value="15" />
           <entry key="g" value="16" />
           <entry key="gitignore" value="2" />
           <entry key="lock" value="1" />
           <entry key="md" value="1" />
           <entry key="py" value="4" />
-          <entry key="result" value="55" />
-          <entry key="rs" value="106" />
+          <entry key="result" value="59" />
+          <entry key="rs" value="107" />
           <entry key="toml" value="17" />
-          <entry key="txt" value="25" />
+          <entry key="txt" value="26" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.open">
         <counts>
           <entry key="Disassembly" value="1" />
           <entry key="Markdown" value="1" />
-          <entry key="PLAIN_TEXT" value="115" />
+          <entry key="PLAIN_TEXT" value="121" />
           <entry key="Python" value="4" />
-          <entry key="Rust" value="106" />
+          <entry key="Rust" value="107" />
           <entry key="TOML file" value="16" />
         </counts>
       </usages-collector>
@@ -91,7 +83,7 @@
           <entry key="GDB" value="188" />
           <entry key="bar" value="53" />
           <entry key="bnf" value="3" />
-          <entry key="g" value="15443" />
+          <entry key="g" value="15446" />
           <entry key="gitignore" value="19" />
           <entry key="md" value="60" />
           <entry key="py" value="273" />
@@ -104,7 +96,7 @@
         <counts>
           <entry key="GDBCommands" value="188" />
           <entry key="Markdown" value="60" />
-          <entry key="PLAIN_TEXT" value="16118" />
+          <entry key="PLAIN_TEXT" value="16121" />
           <entry key="Python" value="273" />
           <entry key="Rust" value="13452" />
           <entry key="TOML file" value="60" />
@@ -117,8 +109,17 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/main.rs">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="705">
-              <caret line="29" selection-start-line="29" selection-end-line="29" />
+            <state relative-caret-position="742">
+              <caret line="30" selection-start-line="30" selection-end-line="30" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/parser/parser.rs.g">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="148">
+              <caret line="82" column="21" lean-forward="true" selection-start-line="82" selection-start-column="21" selection-end-line="82" selection-end-column="21" />
             </state>
           </provider>
         </entry>
@@ -126,14 +127,17 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/parser/src/lib.rs">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="407">
-              <caret line="98" column="19" selection-start-line="98" selection-start-column="19" selection-end-line="98" selection-end-column="19" />
-              <folding>
-                <element signature="e#107738#107739#0" expanded="true" />
-                <element signature="e#107792#107793#0" expanded="true" />
-                <element signature="e#122173#122174#0" expanded="true" />
-                <element signature="e#122217#122218#0" expanded="true" />
-              </folding>
+            <state relative-caret-position="314">
+              <caret line="1286" column="62" selection-start-line="1286" selection-start-column="58" selection-end-line="1286" selection-end-column="62" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/testcases/output/error5.result">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="74">
+              <caret line="2" lean-forward="true" selection-end-line="2" />
             </state>
           </provider>
         </entry>
@@ -141,17 +145,26 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/testcases/output/error4.result">
           <provider selected="true" editor-type-id="text-editor">
-            <state>
-              <caret column="63" selection-start-column="63" selection-end-column="63" />
+            <state relative-caret-position="74">
+              <caret line="2" lean-forward="true" selection-start-line="2" selection-end-line="2" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/testcases/error5.decaf">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="111">
+              <caret line="3" column="16" lean-forward="true" selection-end-line="3" selection-end-column="16" />
             </state>
           </provider>
         </entry>
       </file>
       <file pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/parser/parser.rs.g">
+        <entry file="file://$PROJECT_DIR$/in.txt">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="476">
-              <caret line="83" column="46" selection-start-line="83" selection-start-column="46" selection-end-line="83" selection-end-column="46" />
+            <state relative-caret-position="222">
+              <caret line="6" column="1" lean-forward="true" selection-end-line="6" selection-end-column="1" />
             </state>
           </provider>
         </entry>
@@ -160,7 +173,7 @@
         <entry file="file://$PROJECT_DIR$/testcases/error4.decaf">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="222">
-              <caret line="6" column="1" lean-forward="true" selection-end-line="6" selection-end-column="1" />
+              <caret line="6" column="1" selection-end-line="6" selection-end-column="1" />
             </state>
           </provider>
         </entry>
@@ -177,7 +190,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>on_parse_e</find>
       <find>\t</find>
       <find>'static</find>
       <find>720:6</find>
@@ -207,6 +219,7 @@
       <find>is_</find>
       <find>is_eof</find>
       <find>EOF</find>
+      <find>Unte</find>
     </findStrings>
     <replaceStrings>
       <replace />
@@ -279,7 +292,7 @@
     <detection-done>true</detection-done>
     <sorting>DEFINITION_ORDER</sorting>
   </component>
-  <component name="ProjectFrameBounds" extendedState="6">
+  <component name="ProjectFrameBounds" extendedState="7">
     <option name="x" value="1083" />
     <option name="y" value="163" />
     <option name="width" value="1791" />
@@ -364,6 +377,12 @@
             <path>
               <item name="decaf" type="b2602c69:ProjectViewProjectNode" />
               <item name="decaf" type="462c0819:PsiDirectoryNode" />
+              <item name="testcases" type="462c0819:PsiDirectoryNode" />
+              <item name="output" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="decaf" type="b2602c69:ProjectViewProjectNode" />
+              <item name="decaf" type="462c0819:PsiDirectoryNode" />
               <item name="util" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
@@ -390,8 +409,8 @@
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$" />
       <recent name="$PROJECT_DIR$/parser/src" />
+      <recent name="$PROJECT_DIR$" />
       <recent name="$PROJECT_DIR$/parser" />
     </key>
   </component>
@@ -452,12 +471,12 @@
       <workItem from="1541429001397" duration="4482000" />
       <workItem from="1541462423339" duration="5447000" />
       <workItem from="1541468003936" duration="6798000" />
-      <workItem from="1541564335961" duration="1522000" />
+      <workItem from="1541564335961" duration="1771000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="98850000" />
+    <option name="totallyTimeSpent" value="99099000" />
   </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
@@ -472,13 +491,13 @@
     <frame x="0" y="-44" width="2736" height="1868" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.21121988" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.21121988" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" weight="0.32951653" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" sideWeight="0.4996235" visible="true" weight="0.44974554" />
-      <window_info anchor="bottom" id="Debug" order="3" weight="0.28816795" />
+      <window_info anchor="bottom" id="Run" order="2" sideWeight="0.4996235" weight="0.44974554" />
+      <window_info anchor="bottom" id="Debug" order="3" visible="true" weight="0.28816795" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
       <window_info anchor="bottom" id="TODO" order="6" weight="0.32951653" />
@@ -527,9 +546,9 @@
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/src/main.rs</url>
-          <line>30</line>
-          <option name="timeStamp" value="8" />
+          <url>file://$PROJECT_DIR$/parser/src/lib.rs</url>
+          <line>1286</line>
+          <option name="timeStamp" value="27" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
@@ -778,26 +797,58 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/main.rs">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="705">
-          <caret line="29" selection-start-line="29" selection-end-line="29" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/testcases/output/guarded-error-1.result">
       <provider selected="true" editor-type-id="text-editor" />
     </entry>
     <entry file="file://$PROJECT_DIR$/testcases/result/guarded-error-1.result">
       <provider selected="true" editor-type-id="text-editor" />
     </entry>
-    <entry file="file://$PROJECT_DIR$/testcases/output/error5.result">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
     <entry file="file://$PROJECT_DIR$/testcases/result/error5.result">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="74">
           <caret line="2" lean-forward="true" selection-start-line="2" selection-end-line="2" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/testcases/error4.decaf">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="222">
+          <caret line="6" column="1" selection-end-line="6" selection-end-column="1" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/testcases/output/error4.result">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="74">
+          <caret line="2" lean-forward="true" selection-start-line="2" selection-end-line="2" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/parser/parser.rs.g">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="148">
+          <caret line="82" column="21" lean-forward="true" selection-start-line="82" selection-start-column="21" selection-end-line="82" selection-end-column="21" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/parser/src/lib.rs">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="314">
+          <caret line="1286" column="62" selection-start-line="1286" selection-start-column="58" selection-end-line="1286" selection-end-column="62" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main.rs">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="742">
+          <caret line="30" selection-start-line="30" selection-end-line="30" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/testcases/output/error5.result">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="74">
+          <caret line="2" lean-forward="true" selection-end-line="2" />
         </state>
       </provider>
     </entry>
@@ -808,44 +859,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/testcases/error4.decaf">
+    <entry file="file://$PROJECT_DIR$/in.txt">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="222">
           <caret line="6" column="1" lean-forward="true" selection-end-line="6" selection-end-column="1" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/in.txt">
-      <provider selected="true" editor-type-id="text-editor">
-        <state>
-          <caret column="12" lean-forward="true" selection-start-column="12" selection-end-column="12" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/parser/src/lib.rs">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="407">
-          <caret line="98" column="19" selection-start-line="98" selection-start-column="19" selection-end-line="98" selection-end-column="19" />
-          <folding>
-            <element signature="e#107738#107739#0" expanded="true" />
-            <element signature="e#107792#107793#0" expanded="true" />
-            <element signature="e#122173#122174#0" expanded="true" />
-            <element signature="e#122217#122218#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/testcases/output/error4.result">
-      <provider selected="true" editor-type-id="text-editor">
-        <state>
-          <caret column="63" selection-start-column="63" selection-end-column="63" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/parser/parser.rs.g">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="476">
-          <caret line="83" column="46" selection-start-line="83" selection-start-column="46" selection-end-line="83" selection-end-column="46" />
         </state>
       </provider>
     </entry>
