@@ -72,15 +72,21 @@
                         self.begin("S");
                         self.string_builder.0.clear();
                         self.string_builder.1 = self.token_start_line;
-                        self.string_builder.2 = self.token_start_column;
+                        self.string_builder.2 = self.token_start_column + 1;
                         return "";
                     }
 <S>\n               {
-                        //issueError(new NewlineInStrError(sloc, MiscUtils.quote(buffer.toString())));
-                         return "";
+                        let loc = Location(self.string_builder.1, self.string_builder.2);
+                        let string = util::quote(&self.string_builder.0.clone());
+                        self.report_error(Error::new(loc, NewlineInStr{ string }));
+                        return "";
                     }
+// it must be accompanied by \n, so no-op here
+<S>\r               return "";
 <S>EOF              {
-                        //issueError(new UntermStrError(sloc, MiscUtils.quote(buffer.toString())));
+                        let loc = Location(self.string_builder.1, self.string_builder.2);
+                        let string = util::quote(&self.string_builder.0.clone());
+                        self.report_error(Error::new(loc, UnterminatedStr{ string }));
                         self.begin("INITIAL");
                         return "";
                     }
@@ -119,6 +125,7 @@
 pub mod ast;
 extern crate common;
 extern crate errors;
+extern crate util;
 
 use ast::*;
 use common::*;
@@ -157,9 +164,16 @@ fn gen_unary(opt: Token, opr: Expr, kind: Operator) -> Expr {
     })
 }
 
-fn on_parse_error(_parser: &Parser, token: &Token) {
+fn on_parse_error(parser: &Parser, token: &Token) {
+    for error in &parser.errors { eprintln!("{}", error); }
     let loc = token.get_loc();
     eprintln!("*** Error at ({},{}): syntax error", loc.0, loc.1);
+    std::process::exit(1);
+}
+
+fn on_lex_error(lex: &Tokenizer, slice: &str) {
+    for error in lex.get_errors() { eprintln!("{}", error); }
+    eprintln!("*** Error at ({},{}): unrecognized character '{}'", lex.current_line, lex.current_column + 1, slice);
     std::process::exit(1);
 }
 

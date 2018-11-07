@@ -30,7 +30,7 @@ fn main() {
     let _ = parser.parse(input)
         .map_err(|errors| { for error in errors { println!("{}", error); } })
         .map(|program| {
-            let mut printer = util::print::IndentPrinter::new();
+            let mut printer = util::IndentPrinter::new();
             program.print_to(&mut printer);
             printer.flush(&mut io::stdout());
         });

@@ -1,9 +1,1 @@
-program
-    class Main <empty>
-        static func main voidtype
-            formals
-            stmtblock
-                vardef str stringtype
-                assign
-                    varref str
-                    stringconst "string        "
+*** Error at (4,15): illegal newline in string constant "string"

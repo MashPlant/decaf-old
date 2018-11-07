@@ -1,8 +1,7 @@
 extern crate util;
 extern crate common;
 
-use self::util::print::IndentPrinter;
-use self::util::quote::quote;
+use self::util::{IndentPrinter, quote};
 use self::common::Location;
 
 #[derive(Debug)]

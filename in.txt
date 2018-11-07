@@ -1,6 +1,7 @@
 class Main {
-    void main() {
-        int a;
-        a = 111111111111111111111111111111111;
+    static void main() {
+        string str;
+        str = "string
+        ";
     }
 }
