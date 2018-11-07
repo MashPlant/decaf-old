@@ -572,7 +572,7 @@ lazy_static! {
 
 
 
-pub mod ast;
+extern crate ast;
 extern crate common;
 extern crate errors;
 extern crate util;
