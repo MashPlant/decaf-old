@@ -18,8 +18,10 @@ fn string_to_static_str(s: String) -> &'static str {
 fn main() {
     let mut input = String::new();
     {
-        let args: Vec<String> = env::args().collect();
-        let filename = if args.len() > 1 { &args[1] } else { "in.txt" };
+        let filename = env::args().nth(1).unwrap_or_else(|| {
+            eprintln!("Please specify input filename");
+            std::process::exit(1);
+        });
         let mut f = File::open(filename).unwrap();
         f.read_to_string(&mut input).unwrap();
     }
