@@ -1,19 +1,17 @@
-extern crate common;
-
 use std::fmt;
-use common::*;
+use super::loc::*;
 
 pub trait IError {
     fn get_msg(&self) -> String;
 }
 
 pub struct Error {
-    pub loc: Location,
+    pub loc: Loc,
     pub error: Box<IError>,
 }
 
 impl Error {
-    pub fn new<E: IError + 'static>(loc: Location, error: E) -> Error {
+    pub fn new<E: IError + 'static>(loc: Loc, error: E) -> Error {
         Error {
             loc,
             error: Box::new(error),
@@ -24,7 +22,7 @@ impl Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.loc {
-            NO_LOCATION => write!(f, "*** Error: {}", self.error.get_msg()),
+            NO_LOC => write!(f, "*** Error: {}", self.error.get_msg()),
             loc => write!(f, "*** Error at {}: {}", loc, &self.error.get_msg()),
         }
     }

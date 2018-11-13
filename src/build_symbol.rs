@@ -1,6 +1,4 @@
-extern crate ast;
-
-use self::ast::*;
+use super::ast::*;
 
 struct BuildSymbol {}
 

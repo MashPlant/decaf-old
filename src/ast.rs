@@ -1,8 +1,5 @@
-extern crate util;
-extern crate common;
-
-use self::util::*;
-use self::common::Location;
+use super::util::*;
+use super::loc::*;
 
 #[derive(Debug)]
 pub struct Program {
@@ -20,7 +17,7 @@ impl Program {
 
 #[derive(Debug)]
 pub struct ClassDef {
-    pub loc: Location,
+    pub loc: Loc,
     pub name: String,
     pub parent: Option<String>,
     pub fields: Vec<FieldDef>,
@@ -60,7 +57,7 @@ impl FieldDef {
 
 #[derive(Debug)]
 pub struct MethodDef {
-    pub loc: Location,
+    pub loc: Loc,
     pub name: String,
     pub return_type: Type,
     pub parameters: Vec<VarDef>,
@@ -89,7 +86,7 @@ impl MethodDef {
 
 #[derive(Debug)]
 pub struct VarDef {
-    pub loc: Location,
+    pub loc: Loc,
     pub name: String,
     pub type_: Type,
 }
@@ -149,7 +146,7 @@ pub enum Statement {
 
 impl Statement {
     pub fn print_to(&self, printer: &mut IndentPrinter) {
-        use Statement::*;
+        use self::Statement::*;
         match &self {
             VarDef(var_def) => var_def.print_to(printer),
             Simple(simple) => simple.print_to(printer),
@@ -188,7 +185,7 @@ impl Simple {
 
 #[derive(Debug)]
 pub struct Block {
-    pub loc: Location,
+    pub loc: Loc,
     pub statements: Vec<Statement>,
 }
 
@@ -205,7 +202,7 @@ impl Block {
 
 #[derive(Debug)]
 pub struct If {
-    pub loc: Location,
+    pub loc: Loc,
     pub cond: Expr,
     pub on_true: Box<Statement>,
     pub on_false: Option<Box<Statement>>,
@@ -229,7 +226,7 @@ impl If {
 
 #[derive(Debug)]
 pub struct While {
-    pub loc: Location,
+    pub loc: Loc,
     pub cond: Expr,
     pub body: Box<Statement>,
 }
@@ -246,7 +243,7 @@ impl While {
 
 #[derive(Debug)]
 pub struct For {
-    pub loc: Location,
+    pub loc: Loc,
     // Skip for no init or update
     pub init: Simple,
     pub cond: Expr,
@@ -268,7 +265,7 @@ impl For {
 
 #[derive(Debug)]
 pub struct Return {
-    pub loc: Location,
+    pub loc: Loc,
     pub expr: Option<Expr>,
 }
 
@@ -285,7 +282,7 @@ impl Return {
 
 #[derive(Debug)]
 pub struct Print {
-    pub loc: Location,
+    pub loc: Loc,
     pub print: Vec<Expr>,
 }
 
@@ -300,7 +297,7 @@ impl Print {
 
 #[derive(Debug)]
 pub struct Break {
-    pub loc: Location,
+    pub loc: Loc,
 }
 
 impl Break {
@@ -311,7 +308,7 @@ impl Break {
 
 #[derive(Debug)]
 pub struct ObjectCopy {
-    pub loc: Location,
+    pub loc: Loc,
     pub dst: String,
     pub src: Expr,
 }
@@ -328,7 +325,7 @@ impl ObjectCopy {
 
 #[derive(Debug)]
 pub struct Foreach {
-    pub loc: Location,
+    pub loc: Loc,
     pub type_: Type,
     pub name: String,
     pub array: Expr,
@@ -356,7 +353,7 @@ impl Foreach {
 
 #[derive(Debug)]
 pub struct Guarded {
-    pub loc: Location,
+    pub loc: Loc,
     pub guarded: Vec<(Expr, Statement)>,
 }
 
@@ -381,7 +378,7 @@ impl Guarded {
 
 #[derive(Debug)]
 pub struct Assign {
-    pub loc: Location,
+    pub loc: Loc,
     pub dst: LValue,
     pub src: Expr,
 }
@@ -398,7 +395,7 @@ impl Assign {
 
 #[derive(Debug)]
 pub struct VarAssign {
-    pub loc: Location,
+    pub loc: Loc,
     pub name: String,
     pub src: Expr,
 }
@@ -416,7 +413,7 @@ impl VarAssign {
 
 #[derive(Debug)]
 pub struct Skip {
-    pub loc: Location,
+    pub loc: Loc,
 }
 
 impl Skip {
@@ -467,7 +464,7 @@ pub enum Expr {
 
 impl Expr {
     pub fn print_to(&self, printer: &mut IndentPrinter) {
-        use Expr::*;
+        use self::Expr::*;
         match &self {
             LValue(lvalue) => lvalue.print_to(printer),
             Const(const_) => const_.print_to(printer),
@@ -487,8 +484,8 @@ impl Expr {
         };
     }
 
-    pub fn get_loc(&self) -> Location {
-        use Expr::*;
+    pub fn get_loc(&self) -> Loc {
+        use self::Expr::*;
         match &self {
             LValue(lvalue) => lvalue.get_loc(),
             Const(const_) => const_.get_loc(),
@@ -523,7 +520,7 @@ impl LValue {
         }
     }
 
-    pub fn get_loc(&self) -> Location {
+    pub fn get_loc(&self) -> Loc {
         match &self {
             LValue::Indexed(indexed) => indexed.loc,
             LValue::Identifier(identifier) => identifier.loc,
@@ -533,7 +530,7 @@ impl LValue {
 
 #[derive(Debug)]
 pub struct Indexed {
-    pub loc: Location,
+    pub loc: Loc,
     pub array: Box<Expr>,
     pub index: Box<Expr>,
 }
@@ -550,7 +547,7 @@ impl Indexed {
 
 #[derive(Debug)]
 pub struct Identifier {
-    pub loc: Location,
+    pub loc: Loc,
     pub owner: Option<Box<Expr>>,
     pub name: String,
 }
@@ -578,7 +575,7 @@ pub enum Const {
 
 impl Const {
     pub fn print_to(&self, printer: &mut IndentPrinter) {
-        use Const::*;
+        use self::Const::*;
         match &self {
             IntConst(int_const) => int_const.print_to(printer),
             BoolConst(bool_const) => bool_const.print_to(printer),
@@ -588,8 +585,8 @@ impl Const {
         }
     }
 
-    pub fn get_loc(&self) -> Location {
-        use Const::*;
+    pub fn get_loc(&self) -> Loc {
+        use self::Const::*;
         match &self {
             IntConst(int_const) => int_const.loc,
             BoolConst(bool_const) => bool_const.loc,
@@ -602,7 +599,7 @@ impl Const {
 
 #[derive(Debug)]
 pub struct IntConst {
-    pub loc: Location,
+    pub loc: Loc,
     pub value: i32,
 }
 
@@ -615,7 +612,7 @@ impl IntConst {
 
 #[derive(Debug)]
 pub struct BoolConst {
-    pub loc: Location,
+    pub loc: Loc,
     pub value: bool,
 }
 
@@ -628,7 +625,7 @@ impl BoolConst {
 
 #[derive(Debug)]
 pub struct StringConst {
-    pub loc: Location,
+    pub loc: Loc,
     pub value: String,
 }
 
@@ -641,7 +638,7 @@ impl StringConst {
 
 #[derive(Debug)]
 pub struct ArrayConst {
-    pub loc: Location,
+    pub loc: Loc,
     pub value: Vec<Const>,
 }
 
@@ -660,7 +657,7 @@ impl ArrayConst {
 
 #[derive(Debug)]
 pub struct Null {
-    pub loc: Location,
+    pub loc: Loc,
 }
 
 impl Null {
@@ -671,7 +668,7 @@ impl Null {
 
 #[derive(Debug)]
 pub struct Call {
-    pub loc: Location,
+    pub loc: Loc,
     pub receiver: Option<Box<Expr>>,
     pub name: String,
     pub arguments: Vec<Expr>,
@@ -693,14 +690,14 @@ impl Call {
 
 #[derive(Debug)]
 pub struct Unary {
-    pub loc: Location,
+    pub loc: Loc,
     pub opt: Operator,
     pub opr: Box<Expr>,
 }
 
 impl Unary {
     pub fn print_to(&self, printer: &mut IndentPrinter) {
-        use Operator::*;
+        use self::Operator::*;
         let opname = match self.opt {
             Neg => "neg",
             Not => "not",
@@ -715,7 +712,7 @@ impl Unary {
 
 #[derive(Debug)]
 pub struct Binary {
-    pub loc: Location,
+    pub loc: Loc,
     pub opt: Operator,
     pub left: Box<Expr>,
     pub right: Box<Expr>,
@@ -723,7 +720,7 @@ pub struct Binary {
 
 impl Binary {
     pub fn print_to(&self, printer: &mut IndentPrinter) {
-        use Operator::*;
+        use self::Operator::*;
         let opname = match self.opt {
             Add => "add",
             Sub => "sub",
@@ -752,7 +749,7 @@ impl Binary {
 
 #[derive(Debug)]
 pub struct This {
-    pub loc: Location,
+    pub loc: Loc,
 }
 
 impl This {
@@ -763,7 +760,7 @@ impl This {
 
 #[derive(Debug)]
 pub struct ReadInt {
-    pub loc: Location,
+    pub loc: Loc,
 }
 
 impl ReadInt {
@@ -774,7 +771,7 @@ impl ReadInt {
 
 #[derive(Debug)]
 pub struct ReadLine {
-    pub loc: Location,
+    pub loc: Loc,
 }
 
 impl ReadLine {
@@ -785,7 +782,7 @@ impl ReadLine {
 
 #[derive(Debug)]
 pub struct NewClass {
-    pub loc: Location,
+    pub loc: Loc,
     pub name: String,
 }
 
@@ -798,7 +795,7 @@ impl NewClass {
 
 #[derive(Debug)]
 pub struct NewArray {
-    pub loc: Location,
+    pub loc: Loc,
     pub type_: Type,
     pub len: Box<Expr>,
 }
@@ -816,7 +813,7 @@ impl NewArray {
 
 #[derive(Debug)]
 pub struct TypeTest {
-    pub loc: Location,
+    pub loc: Loc,
     pub expr: Box<Expr>,
     pub name: String,
 }
@@ -833,7 +830,7 @@ impl TypeTest {
 
 #[derive(Debug)]
 pub struct TypeCast {
-    pub loc: Location,
+    pub loc: Loc,
     pub name: String,
     pub expr: Box<Expr>,
 }
@@ -850,7 +847,7 @@ impl TypeCast {
 
 #[derive(Debug)]
 pub struct Range {
-    pub loc: Location,
+    pub loc: Loc,
     pub array: Box<Expr>,
     pub lower: Box<Expr>,
     pub upper: Box<Expr>,
@@ -872,7 +869,7 @@ impl Range {
 
 #[derive(Debug)]
 pub struct Default {
-    pub loc: Location,
+    pub loc: Loc,
     pub array: Box<Expr>,
     pub index: Box<Expr>,
     pub default: Box<Expr>,
@@ -894,7 +891,7 @@ impl Default {
 
 #[derive(Debug)]
 pub struct Comprehension {
-    pub loc: Location,
+    pub loc: Loc,
     pub expr: Box<Expr>,
     pub name: String,
     pub array: Box<Expr>,
@@ -925,7 +922,7 @@ pub trait Visitor {
     fn visit_method_def(&mut self, method_def: &mut MethodDef);
 
     fn visit_statement(&mut self, statement: &mut Statement) {
-        use Statement::*;
+        use self::Statement::*;
         match statement {
             VarDef(var_def) => self.visit_var_def(var_def),
             Simple(simple) => self.visit_simple(simple),
@@ -973,7 +970,7 @@ pub trait Visitor {
     fn visit_assign(&mut self, assign: &mut Assign);
 
     fn visit_expr(&mut self, expr: &mut Expr) {
-        use Expr::*;
+        use self::Expr::*;
         match expr {
             LValue(lvalue) => self.visit_lvalue(lvalue),
             Const(const_) => self.visit_const(const_),

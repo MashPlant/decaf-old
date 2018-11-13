@@ -1,5 +1,13 @@
-extern crate parser;
-extern crate util;
+extern crate regex;
+
+#[macro_use]
+extern crate lazy_static;
+
+pub mod ast;
+pub mod errors;
+pub mod loc;
+pub mod parser;
+pub mod util;
 
 use std::io;
 use std::mem;

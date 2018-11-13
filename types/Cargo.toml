@@ -1,7 +1,0 @@
-[package]
-name = "types"
-version = "0.1.0"
-authors = ["MashPlant <740678788@qq.com>"]
-
-[dependencies]
-ast = { path = "../ast" }

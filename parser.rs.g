@@ -76,7 +76,7 @@
                         return "";
                     }
 <S>\n               {
-                        let loc = Location(self.string_builder.1, self.string_builder.2);
+                        let loc = Loc(self.string_builder.1, self.string_builder.2);
                         let string = util::quote(&self.string_builder.0.clone());
                         self.report_error(Error::new(loc, NewlineInStr{ string }));
                         return "";
@@ -84,7 +84,7 @@
 // it must be accompanied by \n, so no-op here
 <S>\r               return "";
 <S>$                {
-                        let loc = Location(self.string_builder.1, self.string_builder.2);
+                        let loc = Loc(self.string_builder.1, self.string_builder.2);
                         let string = util::quote(&self.string_builder.0.clone());
                         self.report_error(Error::new(loc, UnterminatedStr{ string }));
                         self.begin("INITIAL");
@@ -122,24 +122,23 @@
 
 %{
 
-extern crate ast;
-extern crate common;
-extern crate errors;
-extern crate util;
+use std::process;
+use std::mem;
 
-use ast::*;
-use common::*;
-use errors::*;
+use super::ast::*;
+use super::loc::*;
+use super::errors::*;
+use super::util;
 
 impl Parser {
-    fn get_loc(&self) -> Location {
-        Location(self.tokenizer.token_start_line, self.tokenizer.token_start_column + 1)
+    fn get_loc(&self) -> Loc {
+        Loc(self.tokenizer.token_start_line, self.tokenizer.token_start_column + 1)
     }
 }
 
 impl Token {
-    fn get_loc(&self) -> Location {
-        Location(self.start_line, self.start_column + 1)
+    fn get_loc(&self) -> Loc {
+        Loc(self.start_line, self.start_column + 1)
     }
 
     fn get_id(&self) -> String {
@@ -168,13 +167,13 @@ fn on_parse_error(parser: &Parser, token: &Token) {
     for error in &parser.errors { eprintln!("{}", error); }
     let loc = token.get_loc();
     eprintln!("*** Error at ({},{}): syntax error", loc.0, loc.1);
-    std::process::exit(1);
+    process::exit(1);
 }
 
 fn on_lex_error(lex: &Tokenizer, slice: &str) {
     for error in lex.get_errors() { eprintln!("{}", error); }
     eprintln!("*** Error at ({},{}): unrecognized character '{}'", lex.current_line, lex.current_column + 1, slice);
-    std::process::exit(1);
+    process::exit(1);
 }
 
 // Final result type returned from `parse` method call.
@@ -202,7 +201,7 @@ Program
         $$ = if self.errors.is_empty() {
             Ok(Program { classes: $1, })
         } else {
-            Err(std::mem::replace(&mut self.errors, Vec::new()))
+            Err(mem::replace(&mut self.errors, Vec::new()))
         }
     }
     ;
@@ -841,7 +840,7 @@ Const
     | STRING_CONST {
         || -> Const;
         $$ = Const::StringConst(StringConst {
-            loc: Location(self.tokenizer.string_builder.1, self.tokenizer.string_builder.2),
+            loc: Loc(self.tokenizer.string_builder.1, self.tokenizer.string_builder.2),
             value: self.tokenizer.string_builder.0.clone(),
         });
     }
