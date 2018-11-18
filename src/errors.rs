@@ -1,5 +1,6 @@
-use std::fmt;
 use super::loc::*;
+use super::config::*;
+use std::fmt;
 
 pub trait IError {
     fn get_msg(&self) -> String;
@@ -89,10 +90,26 @@ impl IError for ClassNotFound {
     }
 }
 
-pub struct BadInheritance;
+pub struct CyclicInheritance;
 
-impl IError for BadInheritance {
+impl IError for CyclicInheritance {
     fn get_msg(&self) -> String {
         "illegal class inheritance (should be a cyclic)".to_owned()
+    }
+}
+
+pub struct SealedInheritance;
+
+impl IError for SealedInheritance {
+    fn get_msg(&self) -> String {
+        "illegal class inheritance from sealed class".to_owned()
+    }
+}
+
+pub struct NoMainClass;
+
+impl IError for NoMainClass {
+    fn get_msg(&self) -> String {
+        format!("no legal Main class named {} was found", MAIN_CLASS)
     }
 }

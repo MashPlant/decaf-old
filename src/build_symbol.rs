@@ -1,5 +1,7 @@
 use super::ast::*;
+use super::loc::*;
 use super::errors::*;
+use super::config::*;
 
 struct BuildSymbol {
     errors: Vec<Error>,
@@ -10,6 +12,14 @@ unsafe fn calc_order(class_def: &mut ClassDef) -> i32 {
         class_def.order = calc_order(&mut *class_def.parent_ref) + 1;
     }
     class_def.order
+}
+
+impl BuildSymbol {
+    unsafe fn check_override(&mut self, class_def: &ClassDef) {}
+
+    unsafe fn check_main(&mut self, class_def: *const ClassDef) -> bool {
+        true
+    }
 }
 
 impl Visitor for BuildSymbol {
@@ -29,56 +39,34 @@ impl Visitor for BuildSymbol {
                 if let Some(parent) = class_def.parent {
                     if let Some(parent_ref) = program.symbols.get(parent) {
                         if calc_order(class_def) <= calc_order(&mut **parent_ref) {
-                            self.errors.push(Error::new(class_def.loc, BadInheritance));
+                            self.errors.push(Error::new(class_def.loc, CyclicInheritance));
+                        } else if (**parent_ref).sealed {
+                            self.errors.push(Error::new(class_def.loc, SealedInheritance))
+                        } else {
+                            class_def.parent_ref = *parent_ref;
                         }
                     } else {
                         self.errors.push(Error::new(class_def.loc, ClassNotFound { name: parent }));
                     }
                 }
             }
+            for class_def in &mut program.classes {
+                self.visit_class_def(class_def);
+                if class_def.name == MAIN_CLASS {
+                    program.main = class_def;
+                }
+            }
+            for class_def in &program.classes {
+                self.check_override(class_def);
+            }
+            if !self.check_main(program.main) {
+                self.errors.push(Error::new(NO_LOC, NoMainClass));
+            }
         }
-//
-//        for (Tree.ClassDef cd : program.classes) {
-//            Class c = cd.symbol;
-//            if (cd.parent != null && c.getParent() == null) {
-//                issueError(new ClassNotFoundError(cd.getLocation(), cd.parent));
-//                c.dettachParent();
-//            }
-//            Class parent = c.getParent();
-//            if (calcOrder(c) <= calcOrder(parent)) {
-//                issueError(new BadInheritanceError(cd.getLocation()));
-//                c.dettachParent();
-//            }
-//            if (parent != null && parent.isSealed) {
-//                issueError(new BadSealedInherError(cd.getLocation()));
-//            }
-//        }
-//
-//        for (Tree.ClassDef cd : program.classes) {
-//            cd.symbol.createType();
-//        }
-//
-//        for (Tree.ClassDef cd : program.classes) {
-//            cd.accept(this);
-//            if (Driver.getDriver().getOption().getMainClassName().equals(
-//                cd.name)) {
-//                program.main = cd.symbol;
-//            }
-//        }
-//
-//        for (Tree.ClassDef cd : program.classes) {
-//            checkOverride(cd.symbol);
-//        }
-//
-//        if (!isMainClass(program.main)) {
-//            issueError(new NoMainClassError(Driver.getDriver().getOption()
-//                .getMainClassName()));
-//        }
-//        table.close();
     }
 
     fn visit_class_def(&mut self, class_def: &mut ClassDef) {
-        unimplemented!()
+
     }
 
     fn visit_method_def(&mut self, method_def: &mut MethodDef) {
@@ -137,19 +125,11 @@ impl Visitor for BuildSymbol {
         unimplemented!()
     }
 
-    fn visit_lvalue(&mut self, lvalue: &mut LValue) {
-        unimplemented!()
-    }
-
     fn visit_const(&mut self, const_: &mut Const) {
         unimplemented!()
     }
 
     fn visit_unary(&mut self, unary: &mut Unary) {
-        unimplemented!()
-    }
-
-    fn visit_binary(&mut self, binary: &mut Binary) {
         unimplemented!()
     }
 

@@ -4,10 +4,21 @@ use std::collections::HashMap;
 use std::default::Default as D;
 use std::ptr;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Program {
     pub classes: Vec<ClassDef>,
     pub symbols: HashMap<&'static str, *mut ClassDef>,
+    pub main: *const ClassDef,
+}
+
+impl D for Program {
+    fn default() -> Self {
+        Program {
+            classes: D::default(),
+            symbols: D::default(),
+            main: ptr::null(),
+        }
+    }
 }
 
 impl Program {
@@ -30,6 +41,7 @@ pub struct ClassDef {
     // semantic part
     pub order: i32,
     pub parent_ref: *mut ClassDef,
+    pub symbols: HashMap<&'static str, *mut FieldDef>,
 }
 
 impl D for ClassDef {
@@ -42,6 +54,7 @@ impl D for ClassDef {
             sealed: D::default(),
             order: D::default(),
             parent_ref: ptr::null_mut(),
+            symbols: D::default(),
         }
     }
 }

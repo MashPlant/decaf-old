@@ -9,6 +9,7 @@ pub mod loc;
 pub mod parser;
 pub mod util;
 pub mod build_symbol;
+pub mod config;
 
 use std::io;
 use std::mem;
