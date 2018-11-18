@@ -20,8 +20,8 @@ impl Program {
 #[derive(Debug)]
 pub struct ClassDef {
     pub loc: Loc,
-    pub name: String,
-    pub parent: Option<String>,
+    pub name: &'static str,
+    pub parent: Option<&'static str>,
     pub fields: Vec<FieldDef>,
     pub sealed: bool,
 }
@@ -30,8 +30,8 @@ impl ClassDef {
     pub fn print_to(&self, printer: &mut IndentPrinter) {
         if self.sealed { printer.print("sealed"); }
         printer.print("class");
-        printer.print(&self.name);
-        match &self.parent {
+        printer.print(self.name);
+        match self.parent {
             Some(name) => printer.print(&name),
             None => printer.print("<empty>"),
         };
@@ -60,7 +60,7 @@ impl FieldDef {
 #[derive(Debug)]
 pub struct MethodDef {
     pub loc: Loc,
-    pub name: String,
+    pub name: &'static str,
     pub return_type: Type,
     pub parameters: Vec<VarDef>,
     pub static_: bool,
@@ -71,7 +71,7 @@ impl MethodDef {
     pub fn print_to(&self, printer: &mut IndentPrinter) {
         if self.static_ { printer.print("static"); }
         printer.print("func");
-        printer.print(&self.name);
+        printer.print(self.name);
         self.return_type.print_to(printer);
         printer.newline();
         printer.inc_indent();
@@ -89,14 +89,14 @@ impl MethodDef {
 #[derive(Debug)]
 pub struct VarDef {
     pub loc: Loc,
-    pub name: String,
+    pub name: &'static str,
     pub type_: Type,
 }
 
 impl VarDef {
     pub fn print_to(&self, printer: &mut IndentPrinter) {
         printer.print("vardef");
-        printer.print(&self.name);
+        printer.print(self.name);
         self.type_.print_to(printer);
         printer.newline();
     }
@@ -108,7 +108,7 @@ pub enum Type {
     // int, string, bool, void
     Basic(&'static str),
     // user defined class
-    Class(String),
+    Class(&'static str),
     // type [][]...
     Array(Box<Type>),
 }
@@ -311,7 +311,7 @@ impl Break {
 #[derive(Debug)]
 pub struct ObjectCopy {
     pub loc: Loc,
-    pub dst: String,
+    pub dst: &'static str,
     pub src: Expr,
 }
 
@@ -319,7 +319,7 @@ impl ObjectCopy {
     pub fn print_to(&self, printer: &mut IndentPrinter) {
         printer.println("scopy");
         printer.inc_indent();
-        printer.println(&self.dst);
+        printer.println(self.dst);
         self.src.print_to(printer);
         printer.dec_indent();
     }
@@ -329,7 +329,7 @@ impl ObjectCopy {
 pub struct Foreach {
     pub loc: Loc,
     pub type_: Type,
-    pub name: String,
+    pub name: &'static str,
     pub array: Expr,
     pub cond: Option<Expr>,
     pub body: Box<Statement>,
@@ -340,7 +340,7 @@ impl Foreach {
         printer.println("foreach");
         printer.inc_indent();
         printer.print("varbind");
-        printer.print(&self.name);
+        printer.print(self.name);
         self.type_.print_to(printer);
         printer.newline();
         self.array.print_to(printer);
@@ -398,7 +398,7 @@ impl Assign {
 #[derive(Debug)]
 pub struct VarAssign {
     pub loc: Loc,
-    pub name: String,
+    pub name: &'static str,
     pub src: Expr,
 }
 
@@ -407,7 +407,7 @@ impl VarAssign {
         printer.println("assign");
         printer.inc_indent();
         printer.print("var");
-        printer.println(&self.name);
+        printer.println(self.name);
         self.src.print_to(printer);
         printer.dec_indent();
     }
@@ -551,13 +551,13 @@ impl Indexed {
 pub struct Identifier {
     pub loc: Loc,
     pub owner: Option<Box<Expr>>,
-    pub name: String,
+    pub name: &'static str,
 }
 
 impl Identifier {
     pub fn print_to(&self, printer: &mut IndentPrinter) {
         printer.print("varref");
-        printer.println(&self.name);
+        printer.println(self.name);
         if let Some(owner) = &self.owner {
             printer.inc_indent();
             owner.print_to(printer);
@@ -672,14 +672,14 @@ impl Null {
 pub struct Call {
     pub loc: Loc,
     pub receiver: Option<Box<Expr>>,
-    pub name: String,
+    pub name: &'static str,
     pub arguments: Vec<Expr>,
 }
 
 impl Call {
     pub fn print_to(&self, printer: &mut IndentPrinter) {
         printer.print("call");
-        printer.println(&self.name);
+        printer.println(self.name);
         printer.inc_indent();
         match &self.receiver {
             Some(receiver) => receiver.print_to(printer),
@@ -785,13 +785,13 @@ impl ReadLine {
 #[derive(Debug)]
 pub struct NewClass {
     pub loc: Loc,
-    pub name: String,
+    pub name: &'static str,
 }
 
 impl NewClass {
     pub fn print_to(&self, printer: &mut IndentPrinter) {
         printer.print("newobj");
-        printer.println(&self.name);
+        printer.println(self.name);
     }
 }
 
@@ -817,7 +817,7 @@ impl NewArray {
 pub struct TypeTest {
     pub loc: Loc,
     pub expr: Box<Expr>,
-    pub name: String,
+    pub name: &'static str,
 }
 
 impl TypeTest {
@@ -825,7 +825,7 @@ impl TypeTest {
         printer.println("instanceof");
         printer.inc_indent();
         self.expr.print_to(printer);
-        printer.println(&self.name);
+        printer.println(self.name);
         printer.dec_indent();
     }
 }
@@ -833,7 +833,7 @@ impl TypeTest {
 #[derive(Debug)]
 pub struct TypeCast {
     pub loc: Loc,
-    pub name: String,
+    pub name: &'static str,
     pub expr: Box<Expr>,
 }
 
@@ -841,7 +841,7 @@ impl TypeCast {
     pub fn print_to(&self, printer: &mut IndentPrinter) {
         printer.println("classcast");
         printer.inc_indent();
-        printer.println(&self.name);
+        printer.println(self.name);
         self.expr.print_to(printer);
         printer.dec_indent();
     }
@@ -895,7 +895,7 @@ impl Default {
 pub struct Comprehension {
     pub loc: Loc,
     pub expr: Box<Expr>,
-    pub name: String,
+    pub name: &'static str,
     pub array: Box<Expr>,
     pub cond: Option<Box<Expr>>,
 }
@@ -905,7 +905,7 @@ impl Comprehension {
         printer.println("array comp");
         printer.inc_indent();
         printer.print("varbind");
-        printer.println(&self.name);
+        printer.println(self.name);
         self.array.print_to(printer);
         match &self.cond {
             Some(cond) => cond.print_to(printer),

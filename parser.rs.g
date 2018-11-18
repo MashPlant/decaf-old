@@ -140,10 +140,6 @@ impl Token {
     fn get_loc(&self) -> Loc {
         Loc(self.start_line, self.start_column + 1)
     }
-
-    fn get_id(&self) -> String {
-        self.value.to_string()
-    }
 }
 
 fn gen_binary(left: Expr, opt: Token, right: Expr, kind: Operator) -> Expr {
@@ -220,10 +216,10 @@ ClassList
 
 ClassDef
     : MaybeSealed CLASS IDENTIFIER MaybeExtends  '{' FieldList '}' {
-        |$1: Flag, $2: Token, $3: Token, $4: Option<String>, $6: FieldList| -> ClassDef;
+        |$1: Flag, $2: Token, $3: Token, $4: Option<&'static str>, $6: FieldList| -> ClassDef;
         $$ = ClassDef {
             loc: $2.get_loc(),
-            name: $3.get_id(),
+            name: $3.value,
             parent: $4,
             fields: $6,
             sealed: $1,
@@ -244,11 +240,11 @@ MaybeSealed
 
 MaybeExtends
     : EXTENDS IDENTIFIER {
-        |$2: Token| -> Option<String>;
-        $$ = Some($2.get_id());
+        |$2: Token| -> Option<&'static str>;
+        $$ = Some($2.value);
     }
     | /* empty */ {
-        || -> Option<String>;
+        || -> Option<&'static str>;
         $$ = None;
     }
     ;
@@ -276,7 +272,7 @@ MethodDef
         |$2: Type, $3: Token, $5: VarDefList, $7: Block| -> MethodDef;
         $$ = MethodDef {
             loc: $3.get_loc(),
-            name: $3.get_id(),
+            name: $3.value,
             return_type: $2,
             parameters: $5,
             static_: true,
@@ -287,7 +283,7 @@ MethodDef
         |$1: Type, $2: Token, $4: VarDefList, $6: Block| -> MethodDef;
         $$ = MethodDef {
             loc: $2.get_loc(),
-            name: $2.get_id(),
+            name: $2.value,
             return_type: $1,
             parameters: $4,
             static_: false,
@@ -454,7 +450,7 @@ ObjectCopy
         |$1: Token, $3: Token, $5: Expr| -> Statement;
         $$ = Statement::ObjectCopy(ObjectCopy {
             loc: $1.get_loc(),
-            dst: $3.get_id(),
+            dst: $3.value,
             src: $5,
         });
     }
@@ -466,7 +462,7 @@ Foreach
         $$ = Statement::Foreach(Foreach {
             loc: $1.get_loc(),
             type_: $3,
-            name: $4.get_id(),
+            name: $4.value,
             array: $6,
             cond: $7,
             body: Box::new($9),
@@ -582,7 +578,7 @@ Simple
         |$2: Token, $3: Token, $4: Expr| -> Simple;
         $$ = Simple::VarAssign(VarAssign {
             loc: $3.get_loc(),
-            name: $2.get_id(),
+            name: $2.value,
             src: $4,
         });
     }
@@ -692,7 +688,7 @@ Expr
         $$ = Expr::Comprehension(Comprehension {
             loc: $1.get_loc(),
             expr: Box::new($2),
-            name: $4.get_id(),
+            name: $4.value,
             array: Box::new($6),
             cond: None,
         });
@@ -702,7 +698,7 @@ Expr
         $$ = Expr::Comprehension(Comprehension {
             loc: $1.get_loc(),
             expr: Box::new($2),
-            name: $4.get_id(),
+            name: $4.value,
             array: Box::new($6),
             cond: Some(Box::new($8)),
         });
@@ -735,7 +731,7 @@ Expr
         |$1: Token, $2: Token| -> Expr;
         $$ = Expr::NewClass(NewClass {
             loc: $1.get_loc(),
-            name: $2.get_id(),
+            name: $2.value,
         });
     }
     | NEW Type '[' Expr ']' {
@@ -751,14 +747,14 @@ Expr
         $$ = Expr::TypeTest(TypeTest {
             loc: $1.get_loc(),
             expr: Box::new($3),
-            name: $5.get_id(),
+            name: $5.value,
         });
     }
     | '(' CLASS IDENTIFIER ')' Expr {
         |$3: Token, $5: Expr| -> Expr;
         $$ = Expr::TypeCast(TypeCast {
             loc: $3.get_loc(),
-            name: $3.get_id(),
+            name: $3.value,
             expr: Box::new($5),
         });
     }
@@ -773,7 +769,7 @@ LValue
                 Some(expr) => Some(Box::new(expr)),
                 None => None,
             },
-            name: $2.get_id(),
+            name: $2.value,
         });
     }
     | Expr '[' Expr ']' {
@@ -806,7 +802,7 @@ Call
                 Some(expr) => Some(Box::new(expr)),
                 None => None,
             },
-            name: $2.get_id(),
+            name: $2.value,
             arguments: $4,
         });
     }
@@ -818,7 +814,7 @@ Const
         $$ = Const::IntConst(IntConst {
             loc: $1.get_loc(),
             value: $1.value.parse::<i32>().unwrap_or_else(|_| {
-                self.errors.push(Error::new($1.get_loc(), IntTooLarge{ string: $1.get_id(), }));
+                self.errors.push(Error::new($1.get_loc(), IntTooLarge{ string: $1.value.to_string(), }));
                 0
             }),
         });
@@ -898,7 +894,7 @@ VarDef
         |$1: Type, $2: Token| -> VarDef;
         $$ = VarDef {
             loc: $2.get_loc(),
-            name: $2.get_id(),
+            name: $2.value,
             type_: $1,
         };
     }
@@ -923,7 +919,7 @@ Type
     }
     | CLASS IDENTIFIER  {
         |$1: Token, $2: Token| -> Type;
-        $$ = Type::Class($2.get_id());
+        $$ = Type::Class($2.value);
     }
     | Type '[' ']' {
         |$1: Type| -> Type;

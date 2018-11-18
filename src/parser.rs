@@ -13,7 +13,7 @@ enum SV {
     _2(Result<Program, Vec<Error>>),
     _3(ClassDef),
     _4(Flag),
-    _5(Option<String>),
+    _5(Option<&'static str>),
     _6(FieldList),
     _7(VarDef),
     _8(MethodDef),
@@ -583,10 +583,6 @@ impl Parser {
 impl Token {
     fn get_loc(&self) -> Loc {
         Loc(self.start_line, self.start_column + 1)
-    }
-
-    fn get_id(&self) -> String {
-        self.value.to_string()
     }
 }
 
@@ -1707,7 +1703,7 @@ impl Parser {
 
         let _0 = ClassDef {
             loc: _2.get_loc(),
-            name: _3.get_id(),
+            name: _3.value,
             parent: _4,
             fields: _6,
             sealed: _1,
@@ -1736,7 +1732,7 @@ impl Parser {
         let mut _2 = pop!(self.values_stack, _0);
         self.values_stack.pop();
 
-        let _0 = Some(_2.get_id());
+        let _0 = Some(_2.value);
         SV::_5(_0)
     }
 
@@ -1789,7 +1785,7 @@ impl Parser {
 
         let _0 = MethodDef {
             loc: _3.get_loc(),
-            name: _3.get_id(),
+            name: _3.value,
             return_type: _2,
             parameters: _5,
             static_: true,
@@ -1809,7 +1805,7 @@ impl Parser {
 
         let _0 = MethodDef {
             loc: _2.get_loc(),
-            name: _2.get_id(),
+            name: _2.value,
             return_type: _1,
             parameters: _4,
             static_: false,
@@ -2081,7 +2077,7 @@ impl Parser {
 
         let _0 = Statement::ObjectCopy(ObjectCopy {
             loc: _1.get_loc(),
-            dst: _3.get_id(),
+            dst: _3.value,
             src: _5,
         });
         SV::_13(_0)
@@ -2102,7 +2098,7 @@ impl Parser {
         let _0 = Statement::Foreach(Foreach {
             loc: _1.get_loc(),
             type_: _3,
-            name: _4.get_id(),
+            name: _4.value,
             array: _6,
             cond: _7,
             body: Box::new(_9),
@@ -2275,7 +2271,7 @@ impl Parser {
 
         let _0 = Simple::VarAssign(VarAssign {
             loc: _3.get_loc(),
-            name: _2.get_id(),
+            name: _2.value,
             src: _4,
         });
         SV::_14(_0)
@@ -2520,7 +2516,7 @@ impl Parser {
         let _0 = Expr::Comprehension(Comprehension {
             loc: _1.get_loc(),
             expr: Box::new(_2),
-            name: _4.get_id(),
+            name: _4.value,
             array: Box::new(_6),
             cond: None,
         });
@@ -2542,7 +2538,7 @@ impl Parser {
         let _0 = Expr::Comprehension(Comprehension {
             loc: _1.get_loc(),
             expr: Box::new(_2),
-            name: _4.get_id(),
+            name: _4.value,
             array: Box::new(_6),
             cond: Some(Box::new(_8)),
         });
@@ -2614,7 +2610,7 @@ impl Parser {
 
         let _0 = Expr::NewClass(NewClass {
             loc: _1.get_loc(),
-            name: _2.get_id(),
+            name: _2.value,
         });
         SV::_15(_0)
     }
@@ -2647,7 +2643,7 @@ impl Parser {
         let _0 = Expr::TypeTest(TypeTest {
             loc: _1.get_loc(),
             expr: Box::new(_3),
-            name: _5.get_id(),
+            name: _5.value,
         });
         SV::_15(_0)
     }
@@ -2662,7 +2658,7 @@ impl Parser {
 
         let _0 = Expr::TypeCast(TypeCast {
             loc: _3.get_loc(),
-            name: _3.get_id(),
+            name: _3.value,
             expr: Box::new(_5),
         });
         SV::_15(_0)
@@ -2679,7 +2675,7 @@ impl Parser {
                 Some(expr) => Some(Box::new(expr)),
                 None => None,
             },
-            name: _2.get_id(),
+            name: _2.value,
         });
         SV::_20(_0)
     }
@@ -2730,7 +2726,7 @@ impl Parser {
                 Some(expr) => Some(Box::new(expr)),
                 None => None,
             },
-            name: _2.get_id(),
+            name: _2.value,
             arguments: _4,
         });
         SV::_15(_0)
@@ -2743,7 +2739,7 @@ impl Parser {
         let _0 = Const::IntConst(IntConst {
             loc: _1.get_loc(),
             value: _1.value.parse::<i32>().unwrap_or_else(|_| {
-                self.errors.push(Error::new(_1.get_loc(), IntTooLarge { string: _1.get_id() }));
+                self.errors.push(Error::new(_1.get_loc(), IntTooLarge { string: _1.value.to_string() }));
                 0
             }),
         });
@@ -2863,7 +2859,7 @@ impl Parser {
 
         let _0 = VarDef {
             loc: _2.get_loc(),
-            name: _2.get_id(),
+            name: _2.value,
             type_: _1,
         };
         SV::_7(_0)
@@ -2906,7 +2902,7 @@ impl Parser {
         let mut _2 = pop!(self.values_stack, _0);
         let mut _1 = pop!(self.values_stack, _0);
 
-        let _0 = Type::Class(_2.get_id());
+        let _0 = Type::Class(_2.value);
         SV::_9(_0)
     }
 
