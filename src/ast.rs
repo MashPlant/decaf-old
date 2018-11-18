@@ -1,9 +1,11 @@
 use super::util::*;
 use super::loc::*;
+use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Program {
     pub classes: Vec<ClassDef>,
+    pub symbols: HashMap<&'static str, *const ClassDef>,
 }
 
 impl Program {
@@ -915,11 +917,11 @@ impl Comprehension {
 }
 
 pub trait Visitor {
-    fn visit_program(&mut self, program: &mut Program);
+    fn visit_program(&mut self, _program: &mut Program) {}
 
-    fn visit_class_def(&mut self, class_def: &mut ClassDef);
+    fn visit_class_def(&mut self, _class_def: &mut ClassDef) {}
 
-    fn visit_method_def(&mut self, method_def: &mut MethodDef);
+    fn visit_method_def(&mut self, _method_def: &mut MethodDef) {}
 
     fn visit_statement(&mut self, statement: &mut Statement) {
         use self::Statement::*;
@@ -939,35 +941,35 @@ pub trait Visitor {
         };
     }
 
-    fn visit_simple(&mut self, simple: &mut Simple);
+    fn visit_simple(&mut self, _simple: &mut Simple) {}
 
-    fn visit_var_def(&mut self, var_def: &mut VarDef);
+    fn visit_var_def(&mut self, _var_def: &mut VarDef) {}
 
-    fn visit_skip(&mut self, skip: &mut Skip);
+    fn visit_skip(&mut self, _skip: &mut Skip) {}
 
-    fn visit_block(&mut self, block: &mut Block);
+    fn visit_block(&mut self, _block: &mut Block) {}
 
-    fn visit_while(&mut self, while_: &mut While);
+    fn visit_while(&mut self, _while: &mut While) {}
 
-    fn visit_for(&mut self, for_: &mut For);
+    fn visit_for(&mut self, _for: &mut For) {}
 
-    fn visit_if(&mut self, if_: &mut If);
+    fn visit_if(&mut self, _if: &mut If) {}
 
-    fn visit_break(&mut self, break_: &mut Break);
+    fn visit_break(&mut self, _break: &mut Break) {}
 
-    fn visit_return(&mut self, return_: &mut Return);
+    fn visit_return(&mut self, _return: &mut Return) {}
 
-    fn visit_object_copy(&mut self, object_copy: &mut ObjectCopy);
+    fn visit_object_copy(&mut self, _object_copy: &mut ObjectCopy) {}
 
-    fn visit_foreach(&mut self, foreach: &mut Foreach);
+    fn visit_foreach(&mut self, _foreach: &mut Foreach) {}
 
-    fn visit_guarded(&mut self, guarded: &mut Guarded);
+    fn visit_guarded(&mut self, _guarded: &mut Guarded) {}
 
-    fn visit_new_class(&mut self, new_class: &mut NewClass);
+    fn visit_new_class(&mut self, _new_class: &mut NewClass) {}
 
-    fn visit_new_array(&mut self, new_array: &mut NewArray);
+    fn visit_new_array(&mut self, _new_array: &mut NewArray) {}
 
-    fn visit_assign(&mut self, assign: &mut Assign);
+    fn visit_assign(&mut self, _assign: &mut Assign) {}
 
     fn visit_expr(&mut self, expr: &mut Expr) {
         use self::Expr::*;
@@ -990,37 +992,37 @@ pub trait Visitor {
         };
     }
 
-    fn visit_lvalue(&mut self, lvalue: &mut LValue);
+    fn visit_lvalue(&mut self, _lvalue: &mut LValue) {}
 
-    fn visit_const(&mut self, const_: &mut Const);
+    fn visit_const(&mut self, _const_: &mut Const) {}
 
-    fn visit_unary(&mut self, unary: &mut Unary);
+    fn visit_unary(&mut self, _unary: &mut Unary) {}
 
-    fn visit_binary(&mut self, binary: &mut Binary);
+    fn visit_binary(&mut self, _binary: &mut Binary) {}
 
-    fn visit_call(&mut self, call: &mut Call);
+    fn visit_call(&mut self, _call: &mut Call) {}
 
-    fn visit_read_int(&mut self, read_int: &mut ReadInt);
+    fn visit_read_int(&mut self, _read_int: &mut ReadInt) {}
 
-    fn visit_read_line(&mut self, read_line: &mut ReadLine);
+    fn visit_read_line(&mut self, _read_line: &mut ReadLine) {}
 
-    fn visit_print(&mut self, print: &mut Print);
+    fn visit_print(&mut self, _print: &mut Print) {}
 
-    fn visit_this(&mut self, this: &mut This);
+    fn visit_this(&mut self, _this: &mut This) {}
 
-    fn visit_type_cast(&mut self, type_cast: &mut TypeCast);
+    fn visit_type_cast(&mut self, _type_cast: &mut TypeCast) {}
 
-    fn visit_type_test(&mut self, type_test: &mut TypeTest);
+    fn visit_type_test(&mut self, _type_test: &mut TypeTest) {}
 
-    fn visit_indexed(&mut self, indexed: &mut Indexed);
+    fn visit_indexed(&mut self, _indexed: &mut Indexed) {}
 
-    fn visit_identifier(&mut self, identifier: &mut Identifier);
+    fn visit_identifier(&mut self, _identifier: &mut Identifier) {}
 
-    fn visit_range(&mut self, range: &mut Range);
+    fn visit_range(&mut self, _range: &mut Range) {}
 
-    fn visit_default(&mut self, default: &mut Default);
+    fn visit_default(&mut self, _default: &mut Default) {}
 
-    fn visit_comprehension(&mut self, comprehension: &mut Comprehension);
+    fn visit_comprehension(&mut self, _comprehension: &mut Comprehension) {}
 
-    fn visit_type(&mut self, type_: &mut Type);
+    fn visit_type(&mut self, _type: &mut Type) {}
 }

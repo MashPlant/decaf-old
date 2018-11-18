@@ -3,6 +3,7 @@
 
 use regex::Regex;
 use std::collections::HashMap;
+use std::default::Default as D;
 
 // Stack value.
 enum SV {
@@ -29,7 +30,7 @@ enum SV {
     _19(ExprList),
     _20(LValue),
     _21(Const),
-    _22(ConstList)
+    _22(ConstList),
 }
 
 // Lex rules.
@@ -130,7 +131,7 @@ static EOF: &'static str = "$";
 
 // A macro for map literals.
 // usage: hashmap!{ 1 => "one", 2 => "two" };
-macro_rules! hashmap(
+macro_rules! hashmap (
     { $($key:expr => $value:expr),+ } => {
         {
             let mut m = ::std::collections::HashMap::new();
@@ -154,7 +155,7 @@ macro_rules! pop {
 
 // Productions data.
 // 0 - encoded non-terminal, 1 - length of RHS to pop from the stack
-static PRODUCTIONS : [[i32; 2]; 115] = [
+static PRODUCTIONS: [[i32; 2]; 115] = [
     [-1, 1],
     [0, 1],
     [1, 2],
@@ -644,7 +645,6 @@ type Flag = bool;
 
 // ------------------------------------------------------------------
 // Token.
-
 #[derive(Debug, Clone, Copy)]
 struct Token {
     kind: i32,
@@ -851,7 +851,7 @@ impl Tokenizer {
     pub fn get_next_token(&mut self) -> Token {
         if !self.has_more_tokens() {
             self.yytext = EOF;
-            return self.to_token(EOF)
+            return self.to_token(EOF);
         }
 
         let str_slice = &self.string[self.cursor as usize..];
@@ -959,7 +959,7 @@ impl Tokenizer {
                 let matched = caps.get(0).unwrap().as_str();
                 self.capture_location(matched);
                 Some(matched)
-            },
+            }
             None => None
         }
     }
@@ -1265,7 +1265,7 @@ impl Tokenizer {
     fn _lex_rule57(&mut self) -> &'static str {
         let loc = Loc(self.string_builder.1, self.string_builder.2);
         let string = util::quote(&self.string_builder.0.clone());
-        self.report_error(Error::new(loc, NewlineInStr{ string }));
+        self.report_error(Error::new(loc, NewlineInStr { string }));
         return "";
     }
 
@@ -1276,33 +1276,39 @@ impl Tokenizer {
     fn _lex_rule59(&mut self) -> &'static str {
         let loc = Loc(self.string_builder.1, self.string_builder.2);
         let string = util::quote(&self.string_builder.0.clone());
-        self.report_error(Error::new(loc, UnterminatedStr{ string }));
+        self.report_error(Error::new(loc, UnterminatedStr { string }));
         self.begin("INITIAL");
         return "";
     }
 
     fn _lex_rule60(&mut self) -> &'static str {
-        self.begin("INITIAL"); return "STRING_CONST";
+        self.begin("INITIAL");
+        return "STRING_CONST";
     }
 
     fn _lex_rule61(&mut self) -> &'static str {
-        self.string_builder.0.push('\n'); return "";
+        self.string_builder.0.push('\n');
+        return "";
     }
 
     fn _lex_rule62(&mut self) -> &'static str {
-        self.string_builder.0.push('\t'); return "";
+        self.string_builder.0.push('\t');
+        return "";
     }
 
     fn _lex_rule63(&mut self) -> &'static str {
-        self.string_builder.0.push('"');  return "";
+        self.string_builder.0.push('"');
+        return "";
     }
 
     fn _lex_rule64(&mut self) -> &'static str {
-        self.string_builder.0.push('\\'); return "";
+        self.string_builder.0.push('\\');
+        return "";
     }
 
     fn _lex_rule65(&mut self) -> &'static str {
-        self.string_builder.0.push_str(self.yytext); return "";
+        self.string_builder.0.push_str(self.yytext);
+        return "";
     }
 
     fn _lex_rule66(&mut self) -> &'static str {
@@ -1589,7 +1595,7 @@ impl Parser {
 
                     shifted_token = token;
                     token = self.tokenizer.get_next_token();
-                },
+                }
 
                 // Reduce by production.
                 &TE::Reduce(production_number) => {
@@ -1619,7 +1625,7 @@ impl Parser {
                     };
 
                     self.states_stack.push(next_state);
-                },
+                }
 
                 // Accept the string.
                 &TE::Accept => {
@@ -1638,7 +1644,7 @@ impl Parser {
                     let result = get_result!(parsed, _2);
 
                     return result;
-                },
+                }
 
                 _ => unreachable!(),
             }
@@ -1664,7 +1670,7 @@ impl Parser {
         let mut _1 = pop!(self.values_stack, _1);
 
         let _0 = if self.errors.is_empty() {
-            Ok(Program { classes: _1, })
+            Ok(Program { classes: _1, ..D::default() })
         } else {
             Err(mem::replace(&mut self.errors, Vec::new()))
         };
@@ -2022,7 +2028,7 @@ impl Parser {
 // Semantic values prologue.
         let mut _1 = pop!(self.values_stack, _0);
 
-        let _0 = Statement::Break(Break { loc: _1.get_loc(), });
+        let _0 = Statement::Break(Break { loc: _1.get_loc() });
         SV::_13(_0)
     }
 
@@ -2287,7 +2293,7 @@ impl Parser {
 // Semantic values prologue.
 
 
-        let _0 = Simple::Skip(Skip { loc: self.get_loc(), });
+        let _0 = Simple::Skip(Skip { loc: self.get_loc() });
         SV::_14(_0)
     }
 
@@ -2577,7 +2583,7 @@ impl Parser {
         self.values_stack.pop();
         let mut _1 = pop!(self.values_stack, _0);
 
-        let _0 = Expr::ReadInt(ReadInt { loc: _1.get_loc(), });
+        let _0 = Expr::ReadInt(ReadInt { loc: _1.get_loc() });
         SV::_15(_0)
     }
 
@@ -2587,7 +2593,7 @@ impl Parser {
         self.values_stack.pop();
         let mut _1 = pop!(self.values_stack, _0);
 
-        let _0 = Expr::ReadLine(ReadLine { loc: _1.get_loc(), });
+        let _0 = Expr::ReadLine(ReadLine { loc: _1.get_loc() });
         SV::_15(_0)
     }
 
@@ -2595,7 +2601,7 @@ impl Parser {
 // Semantic values prologue.
         let mut _1 = pop!(self.values_stack, _0);
 
-        let _0 = Expr::This(This { loc: _1.get_loc(), });
+        let _0 = Expr::This(This { loc: _1.get_loc() });
         SV::_15(_0)
     }
 
@@ -2737,7 +2743,7 @@ impl Parser {
         let _0 = Const::IntConst(IntConst {
             loc: _1.get_loc(),
             value: _1.value.parse::<i32>().unwrap_or_else(|_| {
-                self.errors.push(Error::new(_1.get_loc(), IntTooLarge{ string: _1.get_id(), }));
+                self.errors.push(Error::new(_1.get_loc(), IntTooLarge { string: _1.get_id() }));
                 0
             }),
         });
@@ -2792,7 +2798,7 @@ impl Parser {
 // Semantic values prologue.
         let mut _1 = pop!(self.values_stack, _0);
 
-        let _0 = Const::Null(Null { loc: _1.get_loc(), });
+        let _0 = Const::Null(Null { loc: _1.get_loc() });
         SV::_21(_0)
     }
 

@@ -4,7 +4,57 @@ struct BuildSymbol {}
 
 impl Visitor for BuildSymbol {
     fn visit_program(&mut self, program: &mut Program) {
-        unimplemented!()
+//        program.globalScope = new GlobalScope();
+//        table.open(program.globalScope);
+//        for (Tree.ClassDef cd : program.classes) {
+//            Class c = new Class(cd.name, cd.parent, cd.isSealed, cd.getLocation());
+//            Class earlier = table.lookupClass(cd.name);
+//            if (earlier != null) {
+//                issueError(new DeclConflictError(cd.getLocation(), cd.name,
+//                                                 earlier.getLocation()));
+//            } else {
+//                table.declare(c);
+//            }
+//            cd.symbol = c;
+//        }
+//
+//        for (Tree.ClassDef cd : program.classes) {
+//            Class c = cd.symbol;
+//            if (cd.parent != null && c.getParent() == null) {
+//                issueError(new ClassNotFoundError(cd.getLocation(), cd.parent));
+//                c.dettachParent();
+//            }
+//            Class parent = c.getParent();
+//            if (calcOrder(c) <= calcOrder(parent)) {
+//                issueError(new BadInheritanceError(cd.getLocation()));
+//                c.dettachParent();
+//            }
+//            if (parent != null && parent.isSealed) {
+//                issueError(new BadSealedInherError(cd.getLocation()));
+//            }
+//        }
+//
+//        for (Tree.ClassDef cd : program.classes) {
+//            cd.symbol.createType();
+//        }
+//
+//        for (Tree.ClassDef cd : program.classes) {
+//            cd.accept(this);
+//            if (Driver.getDriver().getOption().getMainClassName().equals(
+//                cd.name)) {
+//                program.main = cd.symbol;
+//            }
+//        }
+//
+//        for (Tree.ClassDef cd : program.classes) {
+//            checkOverride(cd.symbol);
+//        }
+//
+//        if (!isMainClass(program.main)) {
+//            issueError(new NoMainClassError(Driver.getDriver().getOption()
+//                .getMainClassName()));
+//        }
+//        table.close();
     }
 
     fn visit_class_def(&mut self, class_def: &mut ClassDef) {

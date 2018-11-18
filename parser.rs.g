@@ -199,7 +199,7 @@ Program
     : ClassList {
         |$1: ClassList| -> Result<Program, Vec<Error>>;
         $$ = if self.errors.is_empty() {
-            Ok(Program { classes: $1, })
+            Ok(Program { classes: $1, ..D::default() })
         } else {
             Err(mem::replace(&mut self.errors, Vec::new()))
         }
