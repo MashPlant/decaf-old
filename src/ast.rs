@@ -1,11 +1,13 @@
 use super::util::*;
 use super::loc::*;
 use std::collections::HashMap;
+use std::default::Default as D;
+use std::ptr;
 
 #[derive(Debug, Default)]
 pub struct Program {
     pub classes: Vec<ClassDef>,
-    pub symbols: HashMap<&'static str, *const ClassDef>,
+    pub symbols: HashMap<&'static str, *mut ClassDef>,
 }
 
 impl Program {
@@ -19,11 +21,29 @@ impl Program {
 
 #[derive(Debug)]
 pub struct ClassDef {
+    // syntax part
     pub loc: Loc,
     pub name: &'static str,
     pub parent: Option<&'static str>,
     pub fields: Vec<FieldDef>,
     pub sealed: bool,
+    // semantic part
+    pub order: i32,
+    pub parent_ref: *mut ClassDef,
+}
+
+impl D for ClassDef {
+    fn default() -> Self {
+        ClassDef {
+            loc: D::default(),
+            name: D::default(),
+            parent: D::default(),
+            fields: D::default(),
+            sealed: D::default(),
+            order: D::default(),
+            parent_ref: ptr::null_mut(),
+        }
+    }
 }
 
 impl ClassDef {

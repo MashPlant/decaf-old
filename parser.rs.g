@@ -223,6 +223,7 @@ ClassDef
             parent: $4,
             fields: $6,
             sealed: $1,
+            ..D::default()
         };
     }
     ;

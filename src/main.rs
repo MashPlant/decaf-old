@@ -8,6 +8,7 @@ pub mod errors;
 pub mod loc;
 pub mod parser;
 pub mod util;
+pub mod build_symbol;
 
 use std::io;
 use std::mem;

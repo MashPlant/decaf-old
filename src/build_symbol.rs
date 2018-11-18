@@ -1,22 +1,42 @@
 use super::ast::*;
+use super::errors::*;
 
-struct BuildSymbol {}
+struct BuildSymbol {
+    errors: Vec<Error>,
+}
+
+unsafe fn calc_order(class_def: &mut ClassDef) -> i32 {
+    if class_def.order == 0 {
+        class_def.order = calc_order(&mut *class_def.parent_ref) + 1;
+    }
+    class_def.order
+}
 
 impl Visitor for BuildSymbol {
     fn visit_program(&mut self, program: &mut Program) {
-//        program.globalScope = new GlobalScope();
-//        table.open(program.globalScope);
-//        for (Tree.ClassDef cd : program.classes) {
-//            Class c = new Class(cd.name, cd.parent, cd.isSealed, cd.getLocation());
-//            Class earlier = table.lookupClass(cd.name);
-//            if (earlier != null) {
-//                issueError(new DeclConflictError(cd.getLocation(), cd.name,
-//                                                 earlier.getLocation()));
-//            } else {
-//                table.declare(c);
-//            }
-//            cd.symbol = c;
-//        }
+        unsafe {
+            for class_def in &mut program.classes {
+                program.symbols.entry(class_def.name)
+                    .and_modify(|earlier| {
+                        self.errors.push(Error::new(class_def.loc, ConflictDeclaration {
+                            earlier: (**earlier).loc,
+                            name: (**earlier).name,
+                        }));
+                    })
+                    .or_insert(class_def);
+            }
+            for class_def in &mut program.classes {
+                if let Some(parent) = class_def.parent {
+                    if let Some(parent_ref) = program.symbols.get(parent) {
+                        if calc_order(class_def) <= calc_order(&mut **parent_ref) {
+                            self.errors.push(Error::new(class_def.loc, BadInheritance));
+                        }
+                    } else {
+                        self.errors.push(Error::new(class_def.loc, ClassNotFound { name: parent }));
+                    }
+                }
+            }
+        }
 //
 //        for (Tree.ClassDef cd : program.classes) {
 //            Class c = cd.symbol;
@@ -65,15 +85,7 @@ impl Visitor for BuildSymbol {
         unimplemented!()
     }
 
-    fn visit_simple(&mut self, simple: &mut Simple) {
-        unimplemented!()
-    }
-
     fn visit_var_def(&mut self, var_def: &mut VarDef) {
-        unimplemented!()
-    }
-
-    fn visit_skip(&mut self, skip: &mut Skip) {
         unimplemented!()
     }
 

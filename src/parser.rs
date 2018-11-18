@@ -1707,6 +1707,7 @@ impl Parser {
             parent: _4,
             fields: _6,
             sealed: _1,
+            ..D::default()
         };
         SV::_3(_0)
     }

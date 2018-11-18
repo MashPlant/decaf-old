@@ -67,3 +67,32 @@ impl IError for UnrecognizedChar {
         format!("unrecognized character '{}'", self.ch)
     }
 }
+
+pub struct ConflictDeclaration {
+    pub earlier: Loc,
+    pub name: &'static str,
+}
+
+impl IError for ConflictDeclaration {
+    fn get_msg(&self) -> String {
+        format!("declaration of '{}' here conflicts with earlier declaration at {}", self.name, self.earlier)
+    }
+}
+
+pub struct ClassNotFound {
+    pub name: &'static str,
+}
+
+impl IError for ClassNotFound {
+    fn get_msg(&self) -> String {
+        format!("class '{}' not found", self.name)
+    }
+}
+
+pub struct BadInheritance;
+
+impl IError for BadInheritance {
+    fn get_msg(&self) -> String {
+        "illegal class inheritance (should be a cyclic)".to_owned()
+    }
+}
