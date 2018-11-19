@@ -2,14 +2,13 @@ use super::ast::*;
 use super::loc::*;
 use super::errors::*;
 use super::config::*;
+use super::symbol::*;
 use std::collections::HashMap;
 use std::ptr;
 
 struct BuildSymbol {
     errors: Vec<Error>,
-    global_scope: *const HashMap<&'static str, *mut ClassDef>,
-    class_scope: *mut HashMap<&'static str, *mut FieldDef>,
-    scope_stack: Vec<*mut HashMap<&'static str, *mut VarDef>>,
+    stack: ScopeStack,
 }
 
 unsafe fn calc_order(class_def: &mut ClassDef) -> i32 {
@@ -27,7 +26,22 @@ impl BuildSymbol {
     }
 
     unsafe fn lookup_var(&self, name: &'static str) -> Option<&mut VarDef> {
+        for scope in &self.scope_stack.rev() {
+            if let Some(var) = scope.get(name) {
+                return Some(&mut **var);
+            }
+        }
         None
+    }
+
+    // global scope -> class scope -> [scope stack]
+    // a parameter scope can only be the bottom of scope stack
+    fn is_parameter_scope(&self, scope: *const HashMap<&'static str, *mut VarDef>) -> bool {
+        scope == self.scope_stack[0]
+    }
+
+    fn is_current_scope(&self, scope: *const HashMap<&'static str, *mut VarDef>) -> bool {
+        scope == self.scope_stack.last().unwrap()
     }
 }
 
@@ -116,30 +130,8 @@ impl Visitor for BuildSymbol {
                 self.errors.push(Error::new(var_def.loc, VoidVar { name: var_def.name }));
                 return;
             }
-            if !self.scope_stack.is_empty() {
-                // local scope
-                let earlier = self.lookup_var(var_def.name);
-            } else {
-                // class scope
-            }
+            if let Some(earlier) = self.lookup_var(var_def.name) {}
         }
-//        Variable v = new Variable(varDef.name, varDef.type.type,
-//        varDef.getLocation());
-//        Symbol sym = table.lookup(varDef.name, true);
-//        if (sym != null) {
-//            if (table.getCurrentScope().equals(sym.getScope())) {
-//                issueError(new DeclConflictError(v.getLocation(), v.getName(),
-//                                                 sym.getLocation()));
-//            } else if ((sym.getScope().isFormalScope() && table.getCurrentScope().isLocalScope() && ((LocalScope) table.getCurrentScope()).isCombinedtoFormal())) {
-//            issueError(new DeclConflictError(v.getLocation(), v.getName(),
-//            sym.getLocation()));
-//            } else {
-//            table.declare(v);
-//            }
-//        } else {
-//            table.declare(v);
-//        }
-//        varDef.symbol = v;
     }
 
     fn visit_block(&mut self, block: &mut Block) {

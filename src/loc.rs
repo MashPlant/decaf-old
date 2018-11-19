@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, Ord, PartialOrd)]
 pub struct Loc(pub i32, pub i32);
 
 pub const NO_LOC: Loc = Loc(-1, -1);
