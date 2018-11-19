@@ -17,9 +17,11 @@ pub struct SymbolBuilder {
     scopes: ScopeStack,
 }
 
-unsafe fn calc_order(class_def: &mut ClassDef) -> i32 {
+unsafe fn calc_order(class_def: *mut ClassDef) -> i32 {
+    if class_def.is_null() { return -1; }
+    let class_def = &mut *class_def;
     if class_def.order == 0 {
-        class_def.order = calc_order(&mut *class_def.parent_ref) + 1;
+        class_def.order = calc_order(class_def.parent_ref) + 1;
     }
     class_def.order
 }
@@ -121,12 +123,13 @@ impl Visitor for SymbolBuilder {
                 if let Some(parent) = class_def.parent {
                     if let Some(parent_ref) = self.scopes.lookup_class(parent) {
                         let parent_ref = parent_ref.as_class();
+                        class_def.parent_ref = parent_ref;
                         if calc_order(class_def) <= calc_order(parent_ref) {
                             issue!(self, class_def.loc, CyclicInheritance);
+                            class_def.parent_ref = ptr::null_mut();
                         } else if parent_ref.sealed {
                             issue!(self, class_def.loc, SealedInheritance);
-                        } else {
-                            class_def.parent_ref = parent_ref;
+                            class_def.parent_ref = ptr::null_mut();
                         }
                     } else {
                         issue!(self, class_def.loc, ClassNotFound { name: parent });

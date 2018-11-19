@@ -1,0 +1,24 @@
+GLOBAL SCOPE:
+    (1,1) -> class Main
+    (17,1) -> class Hoo
+    (37,1) -> class Goo : Hoo
+    CLASS SCOPE OF 'Main':
+        (2,9) -> variable i : int
+        (4,17) -> static function main : void
+        FORMAL SCOPE OF 'main':
+            LOCAL SCOPE:
+                (5,19) -> variable h : class : Hoo
+                (11,19) -> variable g : class : Goo
+    CLASS SCOPE OF 'Hoo':
+        (18,9) -> function printNumbers : class : Hoo->int->int
+        FORMAL SCOPE OF 'printNumbers':
+            (18,9) -> variable @this : class : Hoo
+            (18,26) -> variable @n : int
+            LOCAL SCOPE:
+                (19,13) -> variable i : int
+    CLASS SCOPE OF 'Goo':
+        (38,9) -> function printNumbers : class : Goo->int->int
+        FORMAL SCOPE OF 'printNumbers':
+            (38,9) -> variable @this : class : Goo
+            (38,26) -> variable @n : int
+            LOCAL SCOPE:
