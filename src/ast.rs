@@ -191,7 +191,7 @@ pub enum TypeData {
     // int, string, bool, void
     Basic(&'static str),
     // user defined class
-    Class(&'static str),
+    Class(&'static str, *const ClassDef),
     // type [][]...
     Array(Box<Type>),
 }
@@ -221,7 +221,7 @@ impl TypeData {
         match self {
             TypeData::Var => printer.print("var"),
             TypeData::Basic(name) => printer.print(&(name.to_string() + "type")),
-            TypeData::Class(name) => {
+            TypeData::Class(name, _) => {
                 printer.print("classtype");
                 printer.print(name);
             }

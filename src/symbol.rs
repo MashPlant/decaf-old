@@ -34,10 +34,10 @@ impl DerefMut for Scope {
 
 impl Scope {
     pub fn is_local(&self) -> bool {
-        if let ScopeKind::Local(_) = self.kind {
-            true
+        match self.kind {
+            ScopeKind::Local(_) => true,
+            _ => false,
         }
-        false
     }
 }
 
@@ -86,33 +86,39 @@ pub struct ScopeStack {
 }
 
 impl ScopeStack {
-    pub fn lookup(&self, name: &'static str, recursive: bool) -> Option<&Symbol> {
-        if recursive {
-            for scope in &self.scopes.rev() {
-                if let Some(symbol) = scope.get(name) {
-                    return Some(symbol);
+    pub fn lookup(&self, name: &'static str, recursive: bool) -> Option<Symbol> {
+        unsafe {
+            if recursive {
+                for scope in self.scopes.iter().rev() {
+                    if let Some(symbol) = (**scope).get(name) {
+                        return Some(*symbol);
+                    }
+                }
+                None
+            } else {
+                (**self.scopes.last().unwrap()).get(name).map(|symbol| *symbol)
+            }
+        }
+    }
+
+    pub fn lookup_before(&self, name: &'static str, loc: Loc) -> Option<Symbol> {
+        unsafe {
+            for scope in self.scopes.iter().rev() {
+                if let Some(symbol) = (**scope).get(name) {
+                    if (**scope).is_local() && symbol.get_loc() > loc {
+                        continue;
+                    }
+                    return Some(*symbol);
                 }
             }
             None
-        } else {
-            self.scopes.last().unwrap().get(name)
         }
-    }
-
-    pub fn lookup_before(&self, name: &'static str, loc: Loc) -> Option<&Symbol> {
-        for scope in &self.scopes.rev() {
-            if let Some(symbol) = scope.get(name) {
-                if scope.is_local() && symbol.loc > loc {
-                    continue;
-                }
-                return Some(symbol);
-            }
-        }
-        None
     }
 
     pub fn declare(&mut self, symbol: Symbol) {
-        self.scopes.last().unwrap().insert(symbol.get_name(), symbol);
+        unsafe {
+            (**self.scopes.last().unwrap()).insert(symbol.get_name(), symbol);
+        }
     }
 
     pub fn open(&mut self, scope: &mut Scope) {
@@ -120,8 +126,8 @@ impl ScopeStack {
             match scope.kind {
                 ScopeKind::Global => self.global_scope = scope,
                 ScopeKind::Class(class) => {
-                    if !class.parent_ref.is_null() {
-                        self.open(&mut (*class.parent_ref).scope);
+                    if !(*class).parent_ref.is_null() {
+                        self.open(&mut (*(*class).parent_ref).scope);
                     }
                 }
                 _ => {}
@@ -131,10 +137,12 @@ impl ScopeStack {
     }
 
     pub fn close(&mut self) {
-        let scope = self.scopes.pop().unwrap();
-        if let ScopeKind::Class(_) = scope {
-            // all scopes in the stack are parent of the class
-            self.scopes.clear();
+        unsafe {
+            let scope = self.scopes.pop().unwrap();
+            if let ScopeKind::Class(_) = (*scope).kind {
+                // all scopes in the stack are parent of the class
+                self.scopes.clear();
+            }
         }
     }
 
@@ -142,7 +150,9 @@ impl ScopeStack {
         unsafe { &mut **self.scopes.last().unwrap() }
     }
 
-    pub fn lookup_class(&self, name: &'static str) -> Option<&Symbol> {
-        self.global_scope.get(name)
+    pub fn lookup_class(&self, name: &'static str) -> Option<Symbol> {
+        unsafe {
+            (*self.global_scope).get(name).map(|class| *class)
+        }
     }
 }

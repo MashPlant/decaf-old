@@ -568,6 +568,7 @@ lazy_static! {
 
 use std::process;
 use std::mem;
+use std::ptr;
 
 use super::ast::*;
 use super::loc::*;
@@ -2906,7 +2907,7 @@ impl Parser {
         let mut _2 = pop!(self.values_stack, _0);
         let mut _1 = pop!(self.values_stack, _0);
 
-        let _0 = Type { loc: _2.get_loc(), data: TypeData::Class(_2.value) };
+        let _0 = Type { loc: _2.get_loc(), data: TypeData::Class(_2.value, ptr::null()) };
         SV::_9(_0)
     }
 

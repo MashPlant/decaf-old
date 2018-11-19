@@ -95,7 +95,7 @@ impl Visitor for BuildSymbol {
                     name: method_def.name,
                 }));
             } else {
-                self.scopes.declare(Symbol::Method(method_def));
+                self.scopes.declare(Symbol::Method(method_def as *mut _));
             }
             method_def.scope = Scope { symbols: D::default(), kind: ScopeKind::Parameter(method_def) };
             self.scopes.open(&mut method_def.scope);
@@ -109,15 +109,7 @@ impl Visitor for BuildSymbol {
     }
 
     fn visit_var_def(&mut self, var_def: &mut VarDef) {
-        unsafe {
-            self.visit_type(&mut var_def.type_);
-            if var_def.type_.is_void() {
-                var_def.type_.data = TypeData::Error;
-                self.errors.push(Error::new(var_def.loc, VoidVar { name: var_def.name }));
-                return;
-            }
-            if let Some(earlier) = self.lookup_var(var_def.name) {}
-        }
+
     }
 
     fn visit_block(&mut self, block: &mut Block) {
@@ -227,9 +219,11 @@ impl Visitor for BuildSymbol {
     fn visit_type(&mut self, type_: &mut Type) {
         unsafe {
             let mut is_error = false; // work around with borrow check
-            match &type_.data {
-                TypeData::Class(name) => {
-                    if !(*self.global_scope).contains_key(name) {
+            match &mut type_.data {
+                TypeData::Class(name, ref mut class) => {
+                    if let Some(class_symbol) = self.scopes.lookup_class(name) {
+                        *class = class_symbol.as_class();
+                    } else {
                         is_error = true;
                         self.errors.push(Error::new(type_.loc, ClassNotFound { name }));
                     }

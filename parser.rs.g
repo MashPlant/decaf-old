@@ -124,6 +124,7 @@
 
 use std::process;
 use std::mem;
+use std::ptr;
 
 use super::ast::*;
 use super::loc::*;
@@ -923,7 +924,7 @@ Type
     }
     | CLASS IDENTIFIER  {
         |$1: Token, $2: Token| -> Type;
-        $$ = Type { loc: $2.get_loc(), data: TypeData::Class($2.value) };
+        $$ = Type { loc: $2.get_loc(), data: TypeData::Class($2.value, ptr::null()) };
     }
     | Type '[' ']' {
         |$1: Type| -> Type;
