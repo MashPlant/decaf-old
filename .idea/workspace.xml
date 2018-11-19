@@ -9,11 +9,7 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a14d057e-f809-45be-92a2-14edbc6949ba" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/src/ast.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/ast.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/build_symbol.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/build_symbol.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/symbol.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/symbol.rs" afterDir="false" />
-    </list>
+    <list default="true" id="a14d057e-f809-45be-92a2-14edbc6949ba" name="Default Changelist" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -38,7 +34,7 @@
     <session id="1392633417">
       <usages-collector id="statistics.lifecycle.project">
         <counts>
-          <entry key="project.closed" value="29" />
+          <entry key="project.closed" value="30" />
           <entry key="project.open.time.1" value="1" />
           <entry key="project.open.time.10" value="3" />
           <entry key="project.open.time.11" value="4" />
@@ -90,7 +86,7 @@
           <entry key="gitignore" value="19" />
           <entry key="md" value="604" />
           <entry key="py" value="273" />
-          <entry key="rs" value="24523" />
+          <entry key="rs" value="24534" />
           <entry key="toml" value="159" />
           <entry key="txt" value="586" />
         </counts>
@@ -101,7 +97,7 @@
           <entry key="Markdown" value="604" />
           <entry key="PLAIN_TEXT" value="16198" />
           <entry key="Python" value="273" />
-          <entry key="Rust" value="24523" />
+          <entry key="Rust" value="24534" />
           <entry key="TOML file" value="145" />
         </counts>
       </usages-collector>
@@ -149,11 +145,11 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/build_symbol.rs">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="148">
-              <caret line="107" column="9" selection-start-line="107" selection-start-column="9" selection-end-line="107" selection-end-column="9" />
+            <state relative-caret-position="248">
+              <caret line="231" column="31" selection-start-line="231" selection-start-column="31" selection-end-line="231" selection-end-column="31" />
               <folding>
                 <element signature="e#563#564#0" expanded="true" />
                 <element signature="e#582#583#0" expanded="true" />
@@ -214,11 +210,11 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="false">
+      <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/symbol.rs">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="2146">
-              <caret line="58" column="9" selection-start-line="58" selection-start-column="9" selection-end-line="58" selection-end-column="9" />
+            <state relative-caret-position="544">
+              <caret line="125" column="17" lean-forward="true" selection-start-line="125" selection-start-column="17" selection-end-line="125" selection-end-column="17" />
               <folding>
                 <element signature="e#486#487#0" expanded="true" />
                 <element signature="e#514#515#0" expanded="true" />
@@ -366,9 +362,9 @@
         <option value="$PROJECT_DIR$/src/errors.rs" />
         <option value="$PROJECT_DIR$/src/main.rs" />
         <option value="$PROJECT_DIR$/src/loc.rs" />
-        <option value="$PROJECT_DIR$/src/symbol.rs" />
         <option value="$PROJECT_DIR$/src/ast.rs" />
         <option value="$PROJECT_DIR$/src/build_symbol.rs" />
+        <option value="$PROJECT_DIR$/src/symbol.rs" />
       </list>
     </option>
   </component>
@@ -378,7 +374,7 @@
     <detection-done>true</detection-done>
     <sorting>DEFINITION_ORDER</sorting>
   </component>
-  <component name="ProjectFrameBounds" extendedState="7">
+  <component name="ProjectFrameBounds" extendedState="6">
     <option name="x" value="1083" />
     <option name="y" value="163" />
     <option name="width" value="1791" />
@@ -517,12 +513,12 @@
       <workItem from="1542581243516" duration="4411000" />
       <workItem from="1542588135226" duration="2564000" />
       <workItem from="1542603326445" duration="1075000" />
-      <workItem from="1542604429238" duration="4842000" />
+      <workItem from="1542604429238" duration="4913000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="127883000" />
+    <option name="totallyTimeSpent" value="127954000" />
   </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
@@ -542,7 +538,7 @@
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" weight="0.32951653" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" sideWeight="0.4996235" visible="true" weight="0.2544529" />
+      <window_info anchor="bottom" id="Run" order="2" sideWeight="0.4996235" weight="0.4739186" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.28816795" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
@@ -550,7 +546,7 @@
       <window_info anchor="bottom" id="Database Changes" order="7" show_stripe_button="false" />
       <window_info anchor="bottom" id="Version Control" order="8" />
       <window_info anchor="bottom" id="Event Log" order="9" sideWeight="0.5003765" side_tool="true" weight="0.32951653" />
-      <window_info anchor="bottom" id="Terminal" order="10" weight="0.34478372" />
+      <window_info active="true" anchor="bottom" id="Terminal" order="10" visible="true" weight="0.34478372" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
@@ -744,21 +740,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/symbol.rs">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2146">
-          <caret line="58" column="9" selection-start-line="58" selection-start-column="9" selection-end-line="58" selection-end-column="9" />
-          <folding>
-            <element signature="e#486#487#0" expanded="true" />
-            <element signature="e#514#515#0" expanded="true" />
-            <element signature="e#611#612#0" expanded="true" />
-            <element signature="e#643#644#0" expanded="true" />
-            <element signature="e#3057#3058#0" expanded="true" />
-            <element signature="e#3117#3118#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/ast.rs">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="720">
@@ -784,8 +765,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/build_symbol.rs">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="148">
-          <caret line="107" column="9" selection-start-line="107" selection-start-column="9" selection-end-line="107" selection-end-column="9" />
+        <state relative-caret-position="248">
+          <caret line="231" column="31" selection-start-line="231" selection-start-column="31" selection-end-line="231" selection-end-column="31" />
           <folding>
             <element signature="e#563#564#0" expanded="true" />
             <element signature="e#582#583#0" expanded="true" />
@@ -841,6 +822,21 @@
             <element signature="e#6875#6876#0" expanded="true" />
             <element signature="e#6951#6952#0" expanded="true" />
             <element signature="e#6982#6983#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/symbol.rs">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="544">
+          <caret line="125" column="17" lean-forward="true" selection-start-line="125" selection-start-column="17" selection-end-line="125" selection-end-column="17" />
+          <folding>
+            <element signature="e#486#487#0" expanded="true" />
+            <element signature="e#514#515#0" expanded="true" />
+            <element signature="e#611#612#0" expanded="true" />
+            <element signature="e#643#644#0" expanded="true" />
+            <element signature="e#3057#3058#0" expanded="true" />
+            <element signature="e#3117#3118#0" expanded="true" />
           </folding>
         </state>
       </provider>

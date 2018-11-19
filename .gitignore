@@ -1,3 +1,5 @@
 /target
 **/*.rs.bk
-/testcases/output/*
+/testcases/s1/output/*
+/testcases/s2/output/*
+.idea/*
