@@ -10,12 +10,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a14d057e-f809-45be-92a2-14edbc6949ba" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/src/config.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/parser.rs.g" beforeDir="false" afterPath="$PROJECT_DIR$/parser.rs.g" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/ast.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/ast.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/build_symbol.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/build_symbol.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/errors.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/errors.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/scope.rs" beforeDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -63,13 +63,13 @@
           <entry key="Run decaf (disassembly)" value="1" />
           <entry key="bnf" value="1" />
           <entry key="decaf" value="15" />
-          <entry key="g" value="21" />
+          <entry key="g" value="23" />
           <entry key="gitignore" value="2" />
           <entry key="lock" value="1" />
           <entry key="md" value="3" />
           <entry key="py" value="4" />
           <entry key="result" value="60" />
-          <entry key="rs" value="147" />
+          <entry key="rs" value="151" />
           <entry key="toml" value="23" />
           <entry key="txt" value="26" />
         </counts>
@@ -78,9 +78,9 @@
         <counts>
           <entry key="Disassembly" value="1" />
           <entry key="Markdown" value="3" />
-          <entry key="PLAIN_TEXT" value="127" />
+          <entry key="PLAIN_TEXT" value="129" />
           <entry key="Python" value="4" />
-          <entry key="Rust" value="147" />
+          <entry key="Rust" value="151" />
           <entry key="TOML file" value="22" />
         </counts>
       </usages-collector>
@@ -89,11 +89,11 @@
           <entry key="GDB" value="188" />
           <entry key="bar" value="53" />
           <entry key="bnf" value="3" />
-          <entry key="g" value="15491" />
+          <entry key="g" value="15494" />
           <entry key="gitignore" value="19" />
           <entry key="md" value="604" />
           <entry key="py" value="273" />
-          <entry key="rs" value="18765" />
+          <entry key="rs" value="19921" />
           <entry key="toml" value="159" />
           <entry key="txt" value="586" />
         </counts>
@@ -102,9 +102,9 @@
         <counts>
           <entry key="GDBCommands" value="188" />
           <entry key="Markdown" value="604" />
-          <entry key="PLAIN_TEXT" value="16166" />
+          <entry key="PLAIN_TEXT" value="16169" />
           <entry key="Python" value="273" />
-          <entry key="Rust" value="18765" />
+          <entry key="Rust" value="19921" />
           <entry key="TOML file" value="145" />
         </counts>
       </usages-collector>
@@ -115,19 +115,21 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/ast.rs">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="844">
-              <caret line="43" column="54" selection-start-line="43" selection-start-column="54" selection-end-line="43" selection-end-column="54" />
+            <state relative-caret-position="823">
+              <caret line="176" column="13" selection-start-line="176" selection-start-column="13" selection-end-line="176" selection-end-column="13" />
               <folding>
-                <element signature="e#8108#8109#0" expanded="true" />
-                <element signature="e#8148#8149#0" expanded="true" />
-                <element signature="e#16756#16757#0" expanded="true" />
-                <element signature="e#16795#16796#0" expanded="true" />
-                <element signature="e#18871#18872#0" expanded="true" />
-                <element signature="e#18910#18911#0" expanded="true" />
-                <element signature="e#19045#19046#0" expanded="true" />
-                <element signature="e#19087#19088#0" expanded="true" />
-                <element signature="e#19224#19225#0" expanded="true" />
-                <element signature="e#19267#19268#0" expanded="true" />
+                <element signature="e#3638#3639#0" expanded="true" />
+                <element signature="e#3669#3670#0" expanded="true" />
+                <element signature="e#8230#8231#0" expanded="true" />
+                <element signature="e#8270#8271#0" expanded="true" />
+                <element signature="e#16878#16879#0" expanded="true" />
+                <element signature="e#16917#16918#0" expanded="true" />
+                <element signature="e#18993#18994#0" expanded="true" />
+                <element signature="e#19032#19033#0" expanded="true" />
+                <element signature="e#19167#19168#0" expanded="true" />
+                <element signature="e#19209#19210#0" expanded="true" />
+                <element signature="e#19346#19347#0" expanded="true" />
+                <element signature="e#19389#19390#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -145,15 +147,11 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/build_symbol.rs">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="827">
-              <caret line="67" column="54" lean-forward="true" selection-start-line="67" selection-start-column="54" selection-end-line="67" selection-end-column="54" />
+            <state relative-caret-position="407">
+              <caret line="105" column="39" selection-start-line="105" selection-start-column="39" selection-end-line="105" selection-end-column="39" />
               <folding>
                 <element signature="e#473#474#0" expanded="true" />
                 <element signature="e#492#493#0" expanded="true" />
-                <element signature="e#2979#2980#0" expanded="true" />
-                <element signature="e#3010#3011#0" expanded="true" />
-                <element signature="e#3153#3154#0" expanded="true" />
-                <element signature="e#3184#3185#0" expanded="true" />
                 <element signature="e#3316#3317#0" expanded="true" />
                 <element signature="e#3347#3348#0" expanded="true" />
                 <element signature="e#3400#3401#0" expanded="true" />
@@ -250,20 +248,6 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/test.rs">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="740">
-              <caret line="20" column="11" selection-start-line="20" selection-start-column="11" selection-end-line="20" selection-end-column="11" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/src/scope.rs">
-          <provider selected="true" editor-type-id="text-editor" />
-        </entry>
-      </file>
     </leaf>
   </component>
   <component name="FileTemplateManagerImpl">
@@ -276,10 +260,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>println</find>
-      <find>is_</find>
-      <find>is_eof</find>
-      <find>EOF</find>
       <find>Unte</find>
       <find>util</find>
       <find>accept</find>
@@ -305,7 +285,11 @@
       <find>Too</find>
       <find>ClassDef</find>
       <find>ClassdEF</find>
+      <find>Block</find>
+      <find>MethodDef</find>
       <find>main</find>
+      <find>Method</find>
+      <find>ConflictDeclaration</find>
     </findStrings>
     <replaceStrings>
       <replace>While</replace>
@@ -375,12 +359,12 @@
         <option value="$PROJECT_DIR$/Cargo.toml" />
         <option value="$PROJECT_DIR$/src/scope.rs" />
         <option value="$PROJECT_DIR$/test.rs" />
-        <option value="$PROJECT_DIR$/src/parser.rs" />
-        <option value="$PROJECT_DIR$/parser.rs.g" />
         <option value="$PROJECT_DIR$/src/loc.rs" />
         <option value="$PROJECT_DIR$/src/config.rs" />
         <option value="$PROJECT_DIR$/src/main.rs" />
         <option value="$PROJECT_DIR$/src/errors.rs" />
+        <option value="$PROJECT_DIR$/parser.rs.g" />
+        <option value="$PROJECT_DIR$/src/parser.rs" />
         <option value="$PROJECT_DIR$/src/build_symbol.rs" />
         <option value="$PROJECT_DIR$/src/ast.rs" />
       </list>
@@ -523,12 +507,12 @@
       <workItem from="1542458670392" duration="3412000" />
       <workItem from="1542469088218" duration="2439000" />
       <workItem from="1542553758786" duration="2580000" />
-      <workItem from="1542581243516" duration="2429000" />
+      <workItem from="1542581243516" duration="4357000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="117420000" />
+    <option name="totallyTimeSpent" value="119348000" />
   </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
@@ -548,7 +532,7 @@
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" weight="0.32951653" />
-      <window_info anchor="bottom" id="Run" order="2" sideWeight="0.4996235" weight="0.4688295" />
+      <window_info active="true" anchor="bottom" id="Run" order="2" sideWeight="0.4996235" visible="true" weight="0.31170484" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.28816795" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
@@ -647,13 +631,6 @@
       <provider selected="true" editor-type-id="text-editor" />
     </entry>
     <entry file="file://$PROJECT_DIR$/common/Cargo.toml" />
-    <entry file="file://$USER_HOME$/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/src/libcore/option.rs">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-5313">
-          <caret line="712" column="28" lean-forward="true" selection-start-line="712" selection-start-column="28" selection-end-line="712" selection-end-column="28" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/errors/Cargo.toml" />
     <entry file="file://$USER_HOME$/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/src/libcore/result.rs">
       <provider selected="true" editor-type-id="text-editor">
@@ -770,40 +747,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/scope.rs">
-      <provider selected="true" editor-type-id="text-editor" />
-    </entry>
-    <entry file="file://$PROJECT_DIR$/parser.rs.g">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="472">
-          <caret line="225" column="26" selection-start-line="225" selection-start-column="26" selection-end-line="225" selection-end-column="26" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/parser.rs">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="585">
-          <caret line="1709" column="26" lean-forward="true" selection-start-line="1709" selection-start-column="12" selection-end-line="1709" selection-end-column="26" />
-          <folding>
-            <element signature="e#112199#112200#0" expanded="true" />
-            <element signature="e#112235#112236#0" expanded="true" />
-            <element signature="e#112284#112285#0" expanded="true" />
-            <element signature="e#112319#112320#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/loc.rs">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="74">
           <caret line="2" column="51" selection-start-line="2" selection-start-column="51" selection-end-line="2" selection-end-column="51" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main.rs">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="444">
-          <caret line="12" selection-start-line="12" selection-end-line="12" />
         </state>
       </provider>
     </entry>
@@ -831,17 +778,54 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/src/scope.rs">
+      <provider selected="true" editor-type-id="text-editor" />
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/parser.rs">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1177">
+          <caret line="1811" column="26" lean-forward="true" selection-start-line="1811" selection-start-column="26" selection-end-line="1811" selection-end-column="26" />
+          <folding>
+            <element signature="e#112199#112200#0" expanded="true" />
+            <element signature="e#112235#112236#0" expanded="true" />
+            <element signature="e#112284#112285#0" expanded="true" />
+            <element signature="e#112319#112320#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/parser.rs.g">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="600">
+          <caret line="280" column="26" selection-start-line="280" selection-start-column="26" selection-end-line="280" selection-end-column="26" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main.rs">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="444">
+          <caret line="12" selection-start-line="12" selection-end-line="12" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/src/libcore/option.rs">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="333">
+          <caret line="192" column="11" selection-start-line="192" selection-start-column="11" selection-end-line="192" selection-end-column="11" />
+          <folding>
+            <element signature="e#7113#7114#0" expanded="true" />
+            <element signature="e#7143#7144#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/src/build_symbol.rs">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="827">
-          <caret line="67" column="54" lean-forward="true" selection-start-line="67" selection-start-column="54" selection-end-line="67" selection-end-column="54" />
+        <state relative-caret-position="407">
+          <caret line="105" column="39" selection-start-line="105" selection-start-column="39" selection-end-line="105" selection-end-column="39" />
           <folding>
             <element signature="e#473#474#0" expanded="true" />
             <element signature="e#492#493#0" expanded="true" />
-            <element signature="e#2979#2980#0" expanded="true" />
-            <element signature="e#3010#3011#0" expanded="true" />
-            <element signature="e#3153#3154#0" expanded="true" />
-            <element signature="e#3184#3185#0" expanded="true" />
             <element signature="e#3316#3317#0" expanded="true" />
             <element signature="e#3347#3348#0" expanded="true" />
             <element signature="e#3400#3401#0" expanded="true" />
@@ -902,19 +886,21 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/ast.rs">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="844">
-          <caret line="43" column="54" selection-start-line="43" selection-start-column="54" selection-end-line="43" selection-end-column="54" />
+        <state relative-caret-position="823">
+          <caret line="176" column="13" selection-start-line="176" selection-start-column="13" selection-end-line="176" selection-end-column="13" />
           <folding>
-            <element signature="e#8108#8109#0" expanded="true" />
-            <element signature="e#8148#8149#0" expanded="true" />
-            <element signature="e#16756#16757#0" expanded="true" />
-            <element signature="e#16795#16796#0" expanded="true" />
-            <element signature="e#18871#18872#0" expanded="true" />
-            <element signature="e#18910#18911#0" expanded="true" />
-            <element signature="e#19045#19046#0" expanded="true" />
-            <element signature="e#19087#19088#0" expanded="true" />
-            <element signature="e#19224#19225#0" expanded="true" />
-            <element signature="e#19267#19268#0" expanded="true" />
+            <element signature="e#3638#3639#0" expanded="true" />
+            <element signature="e#3669#3670#0" expanded="true" />
+            <element signature="e#8230#8231#0" expanded="true" />
+            <element signature="e#8270#8271#0" expanded="true" />
+            <element signature="e#16878#16879#0" expanded="true" />
+            <element signature="e#16917#16918#0" expanded="true" />
+            <element signature="e#18993#18994#0" expanded="true" />
+            <element signature="e#19032#19033#0" expanded="true" />
+            <element signature="e#19167#19168#0" expanded="true" />
+            <element signature="e#19209#19210#0" expanded="true" />
+            <element signature="e#19346#19347#0" expanded="true" />
+            <element signature="e#19389#19390#0" expanded="true" />
           </folding>
         </state>
       </provider>

@@ -1791,6 +1791,7 @@ impl Parser {
             parameters: _5,
             static_: true,
             body: _7,
+            ..D::default()
         };
         SV::_8(_0)
     }
@@ -1811,6 +1812,7 @@ impl Parser {
             parameters: _4,
             static_: false,
             body: _6,
+            ..D::default()
         };
         SV::_8(_0)
     }
@@ -1859,6 +1861,7 @@ impl Parser {
         let _0 = Block {
             loc: _1.get_loc(),
             statements: _2,
+            ..D::default()
         };
         SV::_11(_0)
     }

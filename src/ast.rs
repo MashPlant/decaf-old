@@ -82,6 +82,13 @@ pub enum FieldDef {
 }
 
 impl FieldDef {
+    pub fn get_loc(&self) -> Loc {
+        match self {
+            FieldDef::MethodDef(method_def) => method_def.loc,
+            FieldDef::VarDef(var_def) => var_def.loc,
+        }
+    }
+
     pub fn print_to(&self, printer: &mut IndentPrinter) {
         match &self {
             FieldDef::MethodDef(method_def) => method_def.print_to(printer),
@@ -90,7 +97,7 @@ impl FieldDef {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MethodDef {
     pub loc: Loc,
     pub name: &'static str,
@@ -98,6 +105,8 @@ pub struct MethodDef {
     pub parameters: Vec<VarDef>,
     pub static_: bool,
     pub body: Block,
+    // symbols for parameters
+    pub symbols: HashMap<&'static str, *mut VarDef>,
 }
 
 impl MethodDef {
@@ -137,6 +146,7 @@ impl VarDef {
 
 #[derive(Debug)]
 pub enum Type {
+    Error,
     Var,
     // int, string, bool, void
     Basic(&'static str),
@@ -146,9 +156,29 @@ pub enum Type {
     Array(Box<Type>),
 }
 
+impl D for Type {
+    fn default() -> Self {
+        Type::Error
+    }
+}
+
 impl Type {
+    pub fn is_error(&self) -> bool {
+        match self {
+            Type::Error => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_void(&self) -> bool {
+        if let Type::Basic(name) = self {
+            name == "void"
+        }
+        false
+    }
+
     pub fn print_to(&self, printer: &mut IndentPrinter) {
-        match &self {
+        match self {
             Type::Var => printer.print("var"),
             Type::Basic(name) => printer.print(&(name.to_string() + "type")),
             Type::Class(name) => {
@@ -159,6 +189,7 @@ impl Type {
                 printer.print("arrtype");
                 name.print_to(printer);
             }
+            _ => unimplemented!()
         }
     }
 }
@@ -218,10 +249,14 @@ impl Simple {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Block {
+    // syntax part
     pub loc: Loc,
     pub statements: Vec<Statement>,
+    // semantic part
+    pub is_method: bool,
+    pub symbols: HashMap<&'static str, *mut VarDef>,
 }
 
 impl Block {
@@ -954,7 +989,7 @@ pub trait Visitor {
 
     fn visit_class_def(&mut self, _class_def: &mut ClassDef) {}
 
-    fn visit_method_def(&mut self, _method_def: &mut MethodDef) {}
+    fn visit_field_def(&mut self, _field_def: &mut FieldDef) {}
 
     fn visit_statement(&mut self, statement: &mut Statement) {
         use self::Statement::*;

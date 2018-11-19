@@ -278,6 +278,7 @@ MethodDef
             parameters: $5,
             static_: true,
             body: $7,
+            ..D::default()
         };
     }
     | Type IDENTIFIER '(' VarDefListOrEmpty ')' Block {
@@ -289,6 +290,7 @@ MethodDef
             parameters: $4,
             static_: false,
             body: $6,
+            ..D::default()
         };
     }
     ;
@@ -322,6 +324,7 @@ Block
         $$ = Block {
             loc: $1.get_loc(),
             statements: $2,
+            ..D::default()
         };
     }
     ;

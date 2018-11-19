@@ -2,9 +2,13 @@ use super::ast::*;
 use super::loc::*;
 use super::errors::*;
 use super::config::*;
+use std::collections::HashMap;
+use std::ptr;
 
 struct BuildSymbol {
     errors: Vec<Error>,
+    class_scope: *mut HashMap<&'static str, *mut FieldDef>,
+    scope_stack: Vec<*mut HashMap<&'static str, *mut VarDef>>,
 }
 
 unsafe fn calc_order(class_def: &mut ClassDef) -> i32 {
@@ -30,7 +34,7 @@ impl Visitor for BuildSymbol {
                     .and_modify(|earlier| {
                         self.errors.push(Error::new(class_def.loc, ConflictDeclaration {
                             earlier: (**earlier).loc,
-                            name: (**earlier).name,
+                            name: class_def.name,
                         }));
                     })
                     .or_insert(class_def);
@@ -66,15 +70,65 @@ impl Visitor for BuildSymbol {
     }
 
     fn visit_class_def(&mut self, class_def: &mut ClassDef) {
-
+        self.class_scope = &mut class_def.symbols;
+        for field_def in &mut class_def.fields {
+            self.visit_field_def(field_def)
+        }
+        self.class_scope = ptr::null_mut();
     }
 
-    fn visit_method_def(&mut self, method_def: &mut MethodDef) {
-        unimplemented!()
+    fn visit_field_def(&mut self, field_def: &mut FieldDef) {
+        unsafe {
+            let field_def_ptr = field_def as *mut FieldDef;
+            match field_def {
+                FieldDef::MethodDef(method_def) => {
+                    self.visit_type(&mut method_def.return_type);
+                    (*self.class_scope).entry(method_def.name)
+                        .and_modify(|earlier| {
+                            self.errors.push(Error::new(method_def.loc, ConflictDeclaration {
+                                earlier: (**earlier).get_loc(),
+                                name: method_def.name,
+                            }));
+                        })
+                        .or_insert(field_def_ptr);
+                    for var_def in &mut method_def.parameters {
+                        self.visit_var_def(var_def);
+                    }
+                    method_def.body.is_method = true;
+                    self.visit_block(&mut method_def.body);
+                }
+                FieldDef::VarDef(var_def) => self.visit_var_def(var_def),
+            }
+        }
     }
 
     fn visit_var_def(&mut self, var_def: &mut VarDef) {
-        unimplemented!()
+        self.visit_type(&mut var_def.type_);
+//        varDef.type.accept(this);
+//        if (varDef.type.type.equal(BaseType.VOID)) {
+//            issueError(new BadVarTypeError(varDef.getLocation(), varDef.name));
+//            // for argList
+//            varDef.symbol = new Variable(".error", BaseType.ERROR, varDef
+//                .getLocation());
+//            return;
+//        }
+//        Variable v = new Variable(varDef.name, varDef.type.type,
+//        varDef.getLocation());
+//        Symbol sym = table.lookup(varDef.name, true);
+//        if (sym != null) {
+//            if (table.getCurrentScope().equals(sym.getScope())) {
+//                issueError(new DeclConflictError(v.getLocation(), v.getName(),
+//                                                 sym.getLocation()));
+//            } else if ((sym.getScope().isFormalScope() && table.getCurrentScope().isLocalScope() && ((LocalScope) table.getCurrentScope()).isCombinedtoFormal())) {
+//            issueError(new DeclConflictError(v.getLocation(), v.getName(),
+//            sym.getLocation()));
+//            } else {
+//            table.declare(v);
+//            }
+//        } else {
+//            table.declare(v);
+//        }
+//        varDef.symbol = v;
     }
 
     fn visit_block(&mut self, block: &mut Block) {
