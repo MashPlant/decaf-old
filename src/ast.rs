@@ -18,10 +18,7 @@ impl D for Program {
     fn default() -> Self {
         Program {
             classes: D::default(),
-            scope: Scope {
-                symbols: D::default(),
-                kind: ScopeKind::Global,
-            },
+            scope: D::default(),
             main: ptr::null(),
         }
     }
@@ -76,11 +73,7 @@ impl D for ClassDef {
             order: -1,
             checked: D::default(),
             parent_ref: ptr::null_mut(),
-            scope: Scope {
-                symbols: D::default(),
-                // actually no use here, will be re-assigned in build_symbol
-                kind: ScopeKind::Class(ptr::null_mut()),
-            },
+            scope: D::default(),
         }
     }
 }
@@ -137,7 +130,7 @@ impl FieldDef {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MethodDef {
     pub loc: Loc,
     pub name: &'static str,
@@ -147,23 +140,6 @@ pub struct MethodDef {
     pub body: Block,
     // scope for parameters
     pub scope: Scope,
-}
-
-impl D for MethodDef {
-    fn default() -> Self {
-        MethodDef {
-            loc: D::default(),
-            name: D::default(),
-            return_type: D::default(),
-            parameters: D::default(),
-            static_: D::default(),
-            body: D::default(),
-            scope: Scope {
-                symbols: D::default(),
-                kind: ScopeKind::Parameter(ptr::null_mut()),
-            },
-        }
-    }
 }
 
 impl MethodDef {
@@ -393,20 +369,6 @@ pub struct Block {
     // semantic part
     pub is_method: bool,
     pub scope: Scope,
-}
-
-impl D for Block {
-    fn default() -> Self {
-        Block {
-            loc: D::default(),
-            statements: D::default(),
-            is_method: D::default(),
-            scope: Scope {
-                symbols: D::default(),
-                kind: ScopeKind::Local(ptr::null_mut()),
-            },
-        }
-    }
 }
 
 impl Block {
@@ -737,6 +699,27 @@ impl Expr {
             Comprehension(comprehension) => comprehension.loc,
         }
     }
+
+    pub fn get_type(&self) -> &Type {
+        use self::Expr::*;
+        match &self {
+            LValue(lvalue) => lvalue.get_type(),
+            Const(const_) => const_.get_type(),
+            Call(call) => &call.type_,
+            Unary(unary) => &unary.type_,
+            Binary(binary) => &binary.type_,
+            This(this) => &this.type_,
+            ReadInt(read_int) => &read_int.type_,
+            ReadLine(read_line) => &read_line.type_,
+            NewClass(new_class) => &new_class.type_,
+            NewArray(new_array) => &new_array.type_,
+            TypeTest(type_test) => &type_test.type_,
+            TypeCast(type_cast) => &type_cast.type_,
+            Range(range) => &range.type_,
+            Default(default) => &default.type_,
+            Comprehension(comprehension) => &comprehension.type_,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -899,12 +882,13 @@ impl Null {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Call {
     pub loc: Loc,
     pub receiver: Option<Box<Expr>>,
     pub name: &'static str,
     pub arguments: Vec<Expr>,
+    pub type_: Type,
 }
 
 impl Call {
@@ -921,11 +905,12 @@ impl Call {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Unary {
     pub loc: Loc,
     pub opt: Operator,
     pub opr: Box<Expr>,
+    pub type_: Type,
 }
 
 impl Unary {
@@ -943,12 +928,13 @@ impl Unary {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Binary {
     pub loc: Loc,
     pub opt: Operator,
     pub left: Box<Expr>,
     pub right: Box<Expr>,
+    pub type_: Type,
 }
 
 impl Binary {
@@ -980,9 +966,10 @@ impl Binary {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct This {
     pub loc: Loc,
+    pub type_: Type,
 }
 
 impl This {
@@ -1017,6 +1004,7 @@ impl ReadLine {
 pub struct NewClass {
     pub loc: Loc,
     pub name: &'static str,
+    pub type_: Type,
 }
 
 impl NewClass {

@@ -11,6 +11,7 @@ pub mod util;
 pub mod symbol_builder;
 pub mod config;
 pub mod symbol;
+//pub mod type_checker;
 
 use symbol_builder::SymbolBuilder;
 use ast::Program;
@@ -42,9 +43,9 @@ fn main() {
     let mut input = String::new();
     {
         let filename = env::args().nth(1).unwrap_or_else(|| {
-            "in.txt".to_string()
-//            eprintln!("Please specify input filename");
-//            std::process::exit(1);
+//            "in.txt".to_string()
+            eprintln!("Please specify input filename");
+            std::process::exit(1);
         });
         let mut f = File::open(filename).unwrap();
         f.read_to_string(&mut input).unwrap();
@@ -59,20 +60,4 @@ fn main() {
         }
         Err(errors) => for error in errors { println!("{}", error); },
     }
-
-//    let mut parser = parser::Parser::new();
-//
-//    let _ = parser.parse(input)
-//        .map(|program| {
-//            let mut printer = util::IndentPrinter::new();
-//            program.print_to(&mut printer);
-//            printer.flush(&mut io::stdout());
-//            program
-//        })
-//        .map(|program|{
-//            let mut symbol_builder = SymbolBuilder::new();
-//            symbol_builder.build(program)
-//        })
-//        .map_err(|errors| { for error in errors { println!("{}", error); } })
-//        ;
 }

@@ -3,9 +3,10 @@ use super::loc::*;
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::string::ToString;
+use std::default::Default as D;
 
 // ast node owns the scope
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Scope {
     pub symbols: HashMap<&'static str, Symbol>,
     pub kind: ScopeKind,
@@ -13,6 +14,8 @@ pub struct Scope {
 
 #[derive(Debug, Copy, Clone)]
 pub enum ScopeKind {
+    // only for Default::default()
+    InvalidDefaultState,
     Local(*mut Block),
     Class(*mut ClassDef),
     Global,
@@ -61,6 +64,12 @@ impl Scope {
             ScopeKind::Parameter(_) => true,
             _ => false,
         }
+    }
+}
+
+impl D for ScopeKind {
+    fn default() -> Self {
+        ScopeKind::InvalidDefaultState
     }
 }
 
@@ -222,8 +231,8 @@ impl ScopeStack {
         unsafe {
             let scope = self.scopes.pop().unwrap();
             if let ScopeKind::Class(_) = (*scope).kind {
-                // all scopes in the stack are parent of the class
-                self.scopes.clear();
+                // all scopes in the stack except the bottom are parent of the class
+                for _ in 0..self.scopes.len() - 1 { self.scopes.pop(); }
             }
         }
     }
