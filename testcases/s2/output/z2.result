@@ -1,9 +1,10 @@
 GLOBAL SCOPE:
     (1,1) -> class Main
     CLASS SCOPE OF 'Main':
-        (2,7) -> function foo : void
+        (2,7) -> function foo : class : Main->void
         (5,14) -> static function main : void
         FORMAL SCOPE OF 'foo':
+            (2,7) -> variable @this : class : Main
             LOCAL SCOPE:
         FORMAL SCOPE OF 'main':
             LOCAL SCOPE:

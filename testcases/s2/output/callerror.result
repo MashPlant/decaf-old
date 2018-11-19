@@ -4,7 +4,7 @@ GLOBAL SCOPE:
         (2,9) -> variable div : int
         (4,17) -> static function main : void
         (21,16) -> static function add : int->int->int
-        (25,9) -> function sub : int->int->int
+        (25,9) -> function sub : class : Main->int->int->int
         FORMAL SCOPE OF 'main':
             LOCAL SCOPE:
                 (8,15) -> variable a : int[]
@@ -14,6 +14,7 @@ GLOBAL SCOPE:
             (21,31) -> variable @b : int
             LOCAL SCOPE:
         FORMAL SCOPE OF 'sub':
+            (25,9) -> variable @this : class : Main
             (25,17) -> variable @a : int
             (25,24) -> variable @b : int
             LOCAL SCOPE:

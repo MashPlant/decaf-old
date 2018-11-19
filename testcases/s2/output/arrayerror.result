@@ -3,8 +3,10 @@ GLOBAL SCOPE:
     CLASS SCOPE OF 'Main':
         (2,11) -> variable a : int[]
         (3,17) -> static function main : void
-        (7,10) -> function func : void
+        (7,10) -> function func : class : Main->void
         FORMAL SCOPE OF 'main':
             LOCAL SCOPE:
         FORMAL SCOPE OF 'func':
+            (7,10) -> variable @this : class : Main
             LOCAL SCOPE:
+                (10,13) -> variable a : int

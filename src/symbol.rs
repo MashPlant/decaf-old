@@ -34,6 +34,15 @@ impl DerefMut for Scope {
 }
 
 impl Scope {
+    pub fn get_class(&self) -> &ClassDef {
+        unsafe {
+            match self.kind {
+                ScopeKind::Class(class) => &*class,
+                _ => panic!("call get_class on non-class scope"),
+            }
+        }
+    }
+
     pub fn sorted(&self) -> Vec<Symbol> {
         let mut symbols: Vec<Symbol> = self.symbols.iter().map(|(_, symbol)| *symbol).collect();
         symbols.sort_by_key(|x| x.get_loc());

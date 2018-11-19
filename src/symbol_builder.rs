@@ -170,6 +170,15 @@ impl Visitor for SymbolBuilder {
         } else {
             self.scopes.declare(Symbol::Method(method_def as *mut _));
         }
+        if !method_def.static_ {
+            let class = self.scopes.current_scope().get_class();
+            method_def.parameters.insert(0, VarDef {
+                loc: method_def.loc,
+                name: "this",
+                type_: Type { loc: method_def.loc, data: TypeData::Class(class.name, class) },
+                is_parameter: true,
+            });
+        }
         method_def.scope = Scope { symbols: D::default(), kind: ScopeKind::Parameter(method_def) };
         self.scopes.open(&mut method_def.scope);
         for var_def in &mut method_def.parameters {
@@ -187,17 +196,20 @@ impl Visitor for SymbolBuilder {
                 issue!(self, var_def.loc, VoidVar { name: var_def.name });
                 return;
             }
-            if let Some((symbol, scope)) = self.scopes.lookup(var_def.name, true) {
-                if {
-                    let current = self.scopes.current_scope();
-                    current as *const _ == scope || ((*scope).is_parameter() && match current.kind {
-                        ScopeKind::Local(block) => (*block).is_method,
-                        _ => false,
-                    })
-                } {
-                    issue!(self, var_def.loc, ConflictDeclaration { earlier: symbol.get_loc(),name: var_def.name, });
-                }
-            } else {
+            if {
+                if let Some((symbol, scope)) = self.scopes.lookup(var_def.name, true) {
+                    if {
+                        let current = self.scopes.current_scope();
+                        current as *const _ == scope || ((*scope).is_parameter() && match current.kind {
+                            ScopeKind::Local(block) => (*block).is_method,
+                            _ => false,
+                        })
+                    } {
+                        issue!(self, var_def.loc, ConflictDeclaration { earlier: symbol.get_loc(),name: var_def.name, });
+                        false
+                    } else { true }
+                } else { true }
+            } {
                 self.scopes.declare(Symbol::Var(var_def));
                 var_def.is_parameter = self.scopes.current_scope().is_parameter();
             }
