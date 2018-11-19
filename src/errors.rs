@@ -113,3 +113,21 @@ impl IError for NoMainClass {
         format!("no legal Main class named {} was found", MAIN_CLASS)
     }
 }
+
+pub struct VoidArrayElement;
+
+impl IError for VoidArrayElement {
+    fn get_msg(&self) -> String {
+        "array element type must be non-void known type".to_owned()
+    }
+}
+
+pub struct VoidVar {
+    pub name: &'static str,
+}
+
+impl IError for VoidVar {
+    fn get_msg(&self) -> String {
+        format!("cannot declare identifier '{}' as void type", self.name)
+    }
+}

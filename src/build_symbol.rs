@@ -7,6 +7,7 @@ use std::ptr;
 
 struct BuildSymbol {
     errors: Vec<Error>,
+    global_scope: *const HashMap<&'static str, *mut ClassDef>,
     class_scope: *mut HashMap<&'static str, *mut FieldDef>,
     scope_stack: Vec<*mut HashMap<&'static str, *mut VarDef>>,
 }
@@ -24,11 +25,16 @@ impl BuildSymbol {
     unsafe fn check_main(&mut self, class_def: *const ClassDef) -> bool {
         true
     }
+
+    unsafe fn lookup_var(&self, name: &'static str) -> Option<&mut VarDef> {
+        None
+    }
 }
 
 impl Visitor for BuildSymbol {
     fn visit_program(&mut self, program: &mut Program) {
         unsafe {
+            self.global_scope = &program.symbols;
             for class_def in &mut program.classes {
                 program.symbols.entry(class_def.name)
                     .and_modify(|earlier| {
@@ -103,15 +109,20 @@ impl Visitor for BuildSymbol {
     }
 
     fn visit_var_def(&mut self, var_def: &mut VarDef) {
-        self.visit_type(&mut var_def.type_);
-//        varDef.type.accept(this);
-//        if (varDef.type.type.equal(BaseType.VOID)) {
-//            issueError(new BadVarTypeError(varDef.getLocation(), varDef.name));
-//            // for argList
-//            varDef.symbol = new Variable(".error", BaseType.ERROR, varDef
-//                .getLocation());
-//            return;
-//        }
+        unsafe {
+            self.visit_type(&mut var_def.type_);
+            if var_def.type_.is_void() {
+                var_def.type_.data = TypeData::Error;
+                self.errors.push(Error::new(var_def.loc, VoidVar { name: var_def.name }));
+                return;
+            }
+            if !self.scope_stack.is_empty() {
+                // local scope
+                let earlier = self.lookup_var(var_def.name);
+            } else {
+                // class scope
+            }
+        }
 //        Variable v = new Variable(varDef.name, varDef.type.type,
 //        varDef.getLocation());
 //        Symbol sym = table.lookup(varDef.name, true);
@@ -236,6 +247,28 @@ impl Visitor for BuildSymbol {
     }
 
     fn visit_type(&mut self, type_: &mut Type) {
-        unimplemented!()
+        unsafe {
+            let mut is_error = false; // work around with borrow check
+            match &type_.data {
+                TypeData::Class(name) => {
+                    if !(*self.global_scope).contains_key(name) {
+                        is_error = true;
+                        self.errors.push(Error::new(type_.loc, ClassNotFound { name }));
+                    }
+                }
+                TypeData::Array(elem_type) => {
+                    if elem_type.is_error() {
+                        is_error = true;
+                    } else if elem_type.is_void() {
+                        is_error = true;
+                        self.errors.push(Error::new(type_.loc, VoidArrayElement));
+                    }
+                }
+                _ => {}
+            }
+            if is_error {
+                type_.data = TypeData::Error;
+            }
+        }
     }
 }

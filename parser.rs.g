@@ -476,8 +476,8 @@ Foreach
 
 TypeOrVar
     : VAR {
-        || -> Type;
-        $$ = Type::Var;
+        |$1: Token| -> Type;
+        $$ = Type { loc: $1.get_loc(), data: TypeData::Var };
     }
     | Type {
         |$1: Type| -> Type;
@@ -907,26 +907,26 @@ VarDef
 Type
     : INT {
         |$1: Token| -> Type;
-        $$ = Type::Basic("int");
+        $$ = Type { loc: $1.get_loc(), data: TypeData::Basic("int") };
     }
     | VOID {
         |$1: Token| -> Type;
-        $$ = Type::Basic("void");
+        $$ = Type { loc: $1.get_loc(), data: TypeData::Basic("void") };
     }
     | BOOL {
         |$1: Token| -> Type;
-        $$ = Type::Basic("bool");
+        $$ = Type { loc: $1.get_loc(), data: TypeData::Basic("bool") };
     }
     | STRING {
         |$1: Token| -> Type;
-        $$ = Type::Basic("string");
+        $$ = Type { loc: $1.get_loc(), data: TypeData::Basic("string") };
     }
     | CLASS IDENTIFIER  {
         |$1: Token, $2: Token| -> Type;
-        $$ = Type::Class($2.value);
+        $$ = Type { loc: $2.get_loc(), data: TypeData::Class($2.value) };
     }
     | Type '[' ']' {
         |$1: Type| -> Type;
-        $$ = Type::Array(Box::new($1));
+        $$ = Type { loc: $1.loc, data: TypeData::Array(Box::new($1)) };
     }
     ;

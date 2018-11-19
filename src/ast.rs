@@ -3,6 +3,7 @@ use super::loc::*;
 use std::collections::HashMap;
 use std::default::Default as D;
 use std::ptr;
+use std::ops::Deref;
 
 #[derive(Debug)]
 pub struct Program {
@@ -144,8 +145,22 @@ impl VarDef {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct Type {
+    pub loc: Loc,
+    pub data: TypeData,
+}
+
+impl Deref for Type {
+    type Target = TypeData;
+
+    fn deref(&self) -> &TypeData {
+        &self.data
+    }
+}
+
 #[derive(Debug)]
-pub enum Type {
+pub enum TypeData {
     Error,
     Var,
     // int, string, bool, void
@@ -156,40 +171,40 @@ pub enum Type {
     Array(Box<Type>),
 }
 
-impl D for Type {
+impl D for TypeData {
     fn default() -> Self {
-        Type::Error
+        TypeData::Error
     }
 }
 
-impl Type {
+impl TypeData {
     pub fn is_error(&self) -> bool {
         match self {
-            Type::Error => true,
+            TypeData::Error => true,
             _ => false,
         }
     }
 
     pub fn is_void(&self) -> bool {
-        if let Type::Basic(name) = self {
-            name == "void"
+        if let TypeData::Basic(name) = self {
+            return name == &"void";
         }
         false
     }
 
     pub fn print_to(&self, printer: &mut IndentPrinter) {
         match self {
-            Type::Var => printer.print("var"),
-            Type::Basic(name) => printer.print(&(name.to_string() + "type")),
-            Type::Class(name) => {
+            TypeData::Var => printer.print("var"),
+            TypeData::Basic(name) => printer.print(&(name.to_string() + "type")),
+            TypeData::Class(name) => {
                 printer.print("classtype");
                 printer.print(name);
             }
-            Type::Array(name) => {
+            TypeData::Array(name) => {
                 printer.print("arrtype");
                 name.print_to(printer);
             }
-            _ => unimplemented!()
+            _ => unreachable!()
         }
     }
 }
