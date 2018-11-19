@@ -1,10 +1,10 @@
 use super::util::*;
 use super::loc::*;
 use super::symbol::*;
-use std::collections::HashMap;
 use std::default::Default as D;
 use std::ptr;
 use std::ops::Deref;
+use std::cmp::{PartialEq, Eq};
 
 #[derive(Debug)]
 pub struct Program {
@@ -44,7 +44,10 @@ pub struct ClassDef {
     pub fields: Vec<FieldDef>,
     pub sealed: bool,
     // semantic part
+    // to calculate inheritance order and determine cyclic inheritance
     pub order: i32,
+    // to avoid duplicate override check
+    pub checked: bool,
     pub parent_ref: *mut ClassDef,
     pub scope: Scope,
 }
@@ -58,6 +61,7 @@ impl D for ClassDef {
             fields: D::default(),
             sealed: D::default(),
             order: D::default(),
+            checked: D::default(),
             parent_ref: ptr::null_mut(),
             scope: Scope {
                 symbols: D::default(),
@@ -184,10 +188,50 @@ impl Deref for Type {
     }
 }
 
+impl TypeData {
+    // a relationship of is-subclass-of
+    pub fn extends(&self, rhs: &TypeData) -> bool {
+        match (self, rhs) {
+            (TypeData::Error, _) => true,
+            (_, TypeData::Error) => true,
+            (TypeData::Basic(name1), TypeData::Basic(name2)) => name1 == name2,
+            (TypeData::Class(_, class1), TypeData::Class(_, class2)) => {
+                let mut class1 = *class1;
+                let class2 = *class2;
+                while !class1.is_null() {
+                    if class1 == class2 {
+                        return true;
+                    }
+                    class1 = unsafe { (*class1).parent_ref };
+                }
+                false
+            }
+            (TypeData::Array(elem1), TypeData::Array(elem2)) => elem1.data == elem2.data,
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq for TypeData {
+    fn eq(&self, other: &TypeData) -> bool {
+        // in correct usage,  TypeData::Var & TypeData::Null won't be compared here
+        match (self, other) {
+            (TypeData::Error, TypeData::Error) => true,
+            (TypeData::Basic(name1), TypeData::Basic(name2)) => name1 == name2,
+            (TypeData::Class(name1, _), TypeData::Class(name2, _)) => name1 == name2,
+            (TypeData::Array(elem1), TypeData::Array(elem2)) => elem1.data == elem2.data,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for TypeData {}
+
 #[derive(Debug)]
 pub enum TypeData {
     Error,
     Var,
+    Null,
     // int, string, bool, void
     Basic(&'static str),
     // user defined class
@@ -289,14 +333,28 @@ impl Simple {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Block {
     // syntax part
     pub loc: Loc,
     pub statements: Vec<Statement>,
     // semantic part
     pub is_method: bool,
-    pub symbols: HashMap<&'static str, *mut VarDef>,
+    pub scope: Scope,
+}
+
+impl D for Block {
+    fn default() -> Self {
+        Block {
+            loc: D::default(),
+            statements: D::default(),
+            is_method: D::default(),
+            scope: Scope {
+                symbols: D::default(),
+                kind: ScopeKind::Local(ptr::null_mut()),
+            },
+        }
+    }
 }
 
 impl Block {

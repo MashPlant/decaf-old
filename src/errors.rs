@@ -131,3 +131,24 @@ impl IError for VoidVar {
         format!("cannot declare identifier '{}' as void type", self.name)
     }
 }
+
+pub struct OverrideVar {
+    pub name: &'static str,
+}
+
+impl IError for OverrideVar {
+    fn get_msg(&self) -> String {
+        format!("overriding variable is not allowed for var '{}'", self.name)
+    }
+}
+
+pub struct BadOverride {
+    pub method_name: &'static str,
+    pub parent_name: &'static str,
+}
+
+impl IError for BadOverride {
+    fn get_msg(&self) -> String {
+        format!("overriding method '{}' doesn't match the type signature in class '{}'", self.method_name, self.parent_name)
+    }
+}

@@ -5,6 +5,12 @@ use super::config::*;
 use super::symbol::*;
 use std::default::Default as D;
 
+macro_rules! issue {
+    ($rec:expr, $loc: expr, $err: expr) => {
+        $rec.errors.push(Error::new($loc, $err));
+    };
+}
+
 struct BuildSymbol {
     errors: Vec<Error>,
     scopes: ScopeStack,
@@ -18,14 +24,60 @@ unsafe fn calc_order(class_def: &mut ClassDef) -> i32 {
 }
 
 impl BuildSymbol {
-    unsafe fn check_override(&mut self, class_def: &ClassDef) {}
-
-    unsafe fn check_main(&mut self, class_def: *const ClassDef) -> bool {
-        true
+    unsafe fn check_override(&mut self, class_def: &mut ClassDef) {
+        if class_def.checked || class_def.parent_ref.is_null() {
+            return;
+        }
+        let parent = &mut *class_def.parent_ref;
+        self.check_override(parent);
+        let self_scope = &mut class_def.scope;
+        self.scopes.open(&mut parent.scope);
+        // remove all conflicting fields
+        self_scope.retain(|name, symbol| {
+            match self.scopes.lookup(name, true) {
+                Some((parent_symbol, _)) if !parent_symbol.is_class() =>
+                    if (parent_symbol.is_var() && symbol.is_method()) ||
+                        (parent_symbol.is_method() && symbol.is_var()) {
+                        issue!(self, symbol.get_loc(), ConflictDeclaration { earlier: parent_symbol.get_loc(), name });
+                        false
+                    } else if parent_symbol.is_method() {
+                        // here symbol.is_method() must also be true
+                        let parent_symbol = parent_symbol.as_method();
+                        let symbol = symbol.as_method();
+                        if parent_symbol.static_ || symbol.static_ {
+                            issue!(self, symbol.loc, ConflictDeclaration { earlier: parent_symbol.loc, name });
+                            false
+                        } else if !symbol.return_type.extends(&parent_symbol.return_type) {
+                            issue!(self, symbol.loc, BadOverride { method_name: name, parent_name: parent.name });
+                            false
+                        } else {
+                            true
+                        }
+                    } else if parent_symbol.is_var() {
+                        issue!(self, symbol.get_loc(), OverrideVar { name });
+                        false
+                    } else {
+                        true
+                    }
+                _ => true,
+            }
+        });
+        self.scopes.close();
+        class_def.checked = true;
     }
 
-    fn is_current_scope(&self, scope: *const Scope) -> bool {
-        self.scopes.current_scope() as *const Scope == scope
+    unsafe fn check_main(&mut self, class_def: *const ClassDef) -> bool {
+        if class_def.is_null() {
+            return false;
+        }
+        let class_def = &*class_def;
+        match class_def.scope.get(MAIN_METHOD) {
+            Some(main) if main.is_method() => {
+                let main = main.as_method();
+                main.static_ && main.return_type.data == TypeData::Basic("void") && main.parameters.is_empty()
+            }
+            _ => false,
+        }
     }
 }
 
@@ -35,10 +87,10 @@ impl Visitor for BuildSymbol {
             self.scopes.open(&mut program.scope);
             for class_def in &mut program.classes {
                 if let Some(earlier) = self.scopes.lookup_class(class_def.name) {
-                    self.errors.push(Error::new(class_def.loc, ConflictDeclaration {
+                    issue!(self, class_def.loc, ConflictDeclaration {
                         earlier: earlier.get_loc(),
                         name: class_def.name,
-                    }));
+                    });
                 } else {
                     self.scopes.declare(Symbol::Class(class_def));
                 }
@@ -48,14 +100,14 @@ impl Visitor for BuildSymbol {
                     if let Some(parent_ref) = self.scopes.lookup_class(parent) {
                         let parent_ref = parent_ref.as_class();
                         if calc_order(class_def) <= calc_order(parent_ref) {
-                            self.errors.push(Error::new(class_def.loc, CyclicInheritance));
+                            issue!(self, class_def.loc, CyclicInheritance);
                         } else if parent_ref.sealed {
-                            self.errors.push(Error::new(class_def.loc, SealedInheritance))
+                            issue!(self, class_def.loc, SealedInheritance);
                         } else {
                             class_def.parent_ref = parent_ref;
                         }
                     } else {
-                        self.errors.push(Error::new(class_def.loc, ClassNotFound { name: parent }));
+                        issue!(self, class_def.loc, ClassNotFound { name: parent });
                     }
                 }
             }
@@ -65,11 +117,11 @@ impl Visitor for BuildSymbol {
                     program.main = class_def;
                 }
             }
-            for class_def in &program.classes {
+            for class_def in &mut program.classes {
                 self.check_override(class_def);
             }
             if !self.check_main(program.main) {
-                self.errors.push(Error::new(NO_LOC, NoMainClass));
+                issue!(self, NO_LOC, NoMainClass);
             }
         }
     }
@@ -87,160 +139,105 @@ impl Visitor for BuildSymbol {
     }
 
     fn visit_method_def(&mut self, method_def: &mut MethodDef) {
-        unsafe {
-            self.visit_type(&mut method_def.return_type);
-            if let Some(earlier) = self.scopes.lookup(method_def.name, false) {
-                self.errors.push(Error::new(method_def.loc, ConflictDeclaration {
-                    earlier: earlier.get_loc(),
-                    name: method_def.name,
-                }));
-            } else {
-                self.scopes.declare(Symbol::Method(method_def as *mut _));
-            }
-            method_def.scope = Scope { symbols: D::default(), kind: ScopeKind::Parameter(method_def) };
-            self.scopes.open(&mut method_def.scope);
-            for var_def in &mut method_def.parameters {
-                self.visit_var_def(var_def);
-            }
-            method_def.body.is_method = true;
-            self.visit_block(&mut method_def.body);
-            self.scopes.close();
+        self.visit_type(&mut method_def.return_type);
+        if let Some((earlier, _)) = self.scopes.lookup(method_def.name, false) {
+            issue!(self, method_def.loc, ConflictDeclaration {
+                earlier: earlier.get_loc(),
+                name: method_def.name,
+            });
+        } else {
+            self.scopes.declare(Symbol::Method(method_def as *mut _));
         }
+        method_def.scope = Scope { symbols: D::default(), kind: ScopeKind::Parameter(method_def) };
+        self.scopes.open(&mut method_def.scope);
+        for var_def in &mut method_def.parameters {
+            self.visit_var_def(var_def);
+        }
+        method_def.body.is_method = true;
+        self.visit_block(&mut method_def.body);
+        self.scopes.close();
     }
 
     fn visit_var_def(&mut self, var_def: &mut VarDef) {
-
+        unsafe {
+            self.visit_type(&mut var_def.type_);
+            if var_def.type_.is_void() {
+                issue!(self, var_def.loc, VoidVar { name: var_def.name });
+                return;
+            }
+            if let Some((symbol, scope)) = self.scopes.lookup(var_def.name, true) {
+                if {
+                    let current = self.scopes.current_scope();
+                    current as *const _ == scope || ((*scope).is_parameter() && match current.kind {
+                        ScopeKind::Local(block) => (*block).is_method,
+                        _ => false,
+                    })
+                } {
+                    issue!(self, var_def.loc, ConflictDeclaration { earlier: symbol.get_loc(),name: var_def.name, });
+                }
+            } else {
+                self.scopes.declare(Symbol::Var(var_def));
+            }
+        }
     }
 
     fn visit_block(&mut self, block: &mut Block) {
-        unimplemented!()
+        block.scope = Scope { symbols: D::default(), kind: ScopeKind::Local(block) };
+        self.scopes.open(&mut block.scope);
+        for statement in &mut block.statements {
+            self.visit_statement(statement);
+        }
+        self.scopes.close();
     }
 
     fn visit_while(&mut self, while_: &mut While) {
-        unimplemented!()
+        self.visit_statement(&mut while_.body);
     }
 
     fn visit_for(&mut self, for_: &mut For) {
-        unimplemented!()
+        self.visit_statement(&mut for_.body);
     }
 
     fn visit_if(&mut self, if_: &mut If) {
-        unimplemented!()
+        self.visit_statement(&mut if_.on_true);
+        if let Some(on_false) = &mut if_.on_false {
+            self.visit_statement(on_false);
+        }
     }
 
-    fn visit_break(&mut self, break_: &mut Break) {
-        unimplemented!()
-    }
-
-    fn visit_return(&mut self, return_: &mut Return) {
-        unimplemented!()
-    }
-
-    fn visit_object_copy(&mut self, object_copy: &mut ObjectCopy) {
-        unimplemented!()
-    }
-
-    fn visit_foreach(&mut self, foreach: &mut Foreach) {
+    fn visit_foreach(&mut self, _foreach: &mut Foreach) {
         unimplemented!()
     }
 
     fn visit_guarded(&mut self, guarded: &mut Guarded) {
-        unimplemented!()
-    }
-
-    fn visit_new_class(&mut self, new_class: &mut NewClass) {
-        unimplemented!()
-    }
-
-    fn visit_new_array(&mut self, new_array: &mut NewArray) {
-        unimplemented!()
-    }
-
-    fn visit_assign(&mut self, assign: &mut Assign) {
-        unimplemented!()
-    }
-
-    fn visit_const(&mut self, const_: &mut Const) {
-        unimplemented!()
-    }
-
-    fn visit_unary(&mut self, unary: &mut Unary) {
-        unimplemented!()
-    }
-
-    fn visit_call(&mut self, call: &mut Call) {
-        unimplemented!()
-    }
-
-    fn visit_read_int(&mut self, read_int: &mut ReadInt) {
-        unimplemented!()
-    }
-
-    fn visit_read_line(&mut self, read_line: &mut ReadLine) {
-        unimplemented!()
-    }
-
-    fn visit_print(&mut self, print: &mut Print) {
-        unimplemented!()
-    }
-
-    fn visit_this(&mut self, this: &mut This) {
-        unimplemented!()
-    }
-
-    fn visit_type_cast(&mut self, type_cast: &mut TypeCast) {
-        unimplemented!()
-    }
-
-    fn visit_type_test(&mut self, type_test: &mut TypeTest) {
-        unimplemented!()
-    }
-
-    fn visit_indexed(&mut self, indexed: &mut Indexed) {
-        unimplemented!()
-    }
-
-    fn visit_identifier(&mut self, identifier: &mut Identifier) {
-        unimplemented!()
-    }
-
-    fn visit_range(&mut self, range: &mut Range) {
-        unimplemented!()
-    }
-
-    fn visit_default(&mut self, default: &mut Default) {
-        unimplemented!()
-    }
-
-    fn visit_comprehension(&mut self, comprehension: &mut Comprehension) {
-        unimplemented!()
+        for (_, statement) in &mut guarded.guarded {
+            self.visit_statement(statement);
+        }
     }
 
     fn visit_type(&mut self, type_: &mut Type) {
-        unsafe {
-            let mut is_error = false; // work around with borrow check
-            match &mut type_.data {
-                TypeData::Class(name, ref mut class) => {
-                    if let Some(class_symbol) = self.scopes.lookup_class(name) {
-                        *class = class_symbol.as_class();
-                    } else {
-                        is_error = true;
-                        self.errors.push(Error::new(type_.loc, ClassNotFound { name }));
-                    }
+        let mut is_error = false; // work around with borrow check
+        match &mut type_.data {
+            TypeData::Class(name, ref mut class) => {
+                if let Some(class_symbol) = self.scopes.lookup_class(name) {
+                    *class = class_symbol.as_class();
+                } else {
+                    is_error = true;
+                    issue!(self, type_.loc, ClassNotFound { name });
                 }
-                TypeData::Array(elem_type) => {
-                    if elem_type.is_error() {
-                        is_error = true;
-                    } else if elem_type.is_void() {
-                        is_error = true;
-                        self.errors.push(Error::new(type_.loc, VoidArrayElement));
-                    }
+            }
+            TypeData::Array(elem_type) => {
+                if elem_type.is_error() {
+                    is_error = true;
+                } else if elem_type.is_void() {
+                    is_error = true;
+                    issue!(self, type_.loc, VoidArrayElement);
                 }
-                _ => {}
             }
-            if is_error {
-                type_.data = TypeData::Error;
-            }
+            _ => {}
+        }
+        if is_error {
+            type_.data = TypeData::Error;
         }
     }
 }

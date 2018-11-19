@@ -39,6 +39,13 @@ impl Scope {
             _ => false,
         }
     }
+
+    pub fn is_parameter(&self) -> bool {
+        match self.kind {
+            ScopeKind::Parameter(_) => true,
+            _ => false,
+        }
+    }
 }
 
 // refer to a node in ast
@@ -50,11 +57,41 @@ pub enum Symbol {
 }
 
 impl Symbol {
+    pub fn is_class(&self) -> bool {
+        match self {
+            Symbol::Class(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_method(&self) -> bool {
+        match self {
+            Symbol::Method(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_var(&self) -> bool {
+        match self {
+            Symbol::Var(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn as_class(&self) -> &mut ClassDef {
         unsafe {
             match self {
                 Symbol::Class(class) => &mut **class,
                 _ => panic!("call as_class on non-class symbol"),
+            }
+        }
+    }
+
+    pub fn as_method(&self) -> &mut MethodDef {
+        unsafe {
+            match self {
+                Symbol::Method(method) => &mut **method,
+                _ => panic!("call as_method on non-method symbol"),
             }
         }
     }
@@ -86,17 +123,18 @@ pub struct ScopeStack {
 }
 
 impl ScopeStack {
-    pub fn lookup(&self, name: &'static str, recursive: bool) -> Option<Symbol> {
+    pub fn lookup(&self, name: &'static str, recursive: bool) -> Option<(Symbol, *const Scope)> {
         unsafe {
             if recursive {
                 for scope in self.scopes.iter().rev() {
                     if let Some(symbol) = (**scope).get(name) {
-                        return Some(*symbol);
+                        return Some((*symbol, *scope as *const _));
                     }
                 }
                 None
             } else {
-                (**self.scopes.last().unwrap()).get(name).map(|symbol| *symbol)
+                (**self.scopes.last().unwrap()).get(name)
+                    .map(|symbol| (*symbol, *self.scopes.last().unwrap() as *const _))
             }
         }
     }
