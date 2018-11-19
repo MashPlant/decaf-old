@@ -38,7 +38,7 @@ impl Program {
     pub fn print_scope(&self, printer: &mut IndentPrinter) {
         printer.println("GLOBAL SCOPE:");
         printer.inc_indent();
-        for (_, symbol) in &self.scope.symbols {
+        for symbol in self.scope.sorted() {
             printer.println(&symbol.to_string());
         }
         for class in &self.classes {
@@ -103,7 +103,7 @@ impl ClassDef {
     pub fn print_scope(&self, printer: &mut IndentPrinter) {
         printer.println(&format!("CLASS SCOPE OF '{}':", self.name));
         printer.inc_indent();
-        for (_, symbol) in &self.scope.symbols {
+        for symbol in self.scope.sorted() {
             printer.println(&symbol.to_string());
         }
         for field_def in &self.fields {
@@ -187,7 +187,7 @@ impl MethodDef {
     pub fn print_scope(&self, printer: &mut IndentPrinter) {
         printer.println(&format!("FORMAL SCOPE OF '{}':", self.name));
         printer.inc_indent();
-        for (_, symbol) in &self.scope.symbols {
+        for symbol in self.scope.sorted() {
             printer.println(&symbol.to_string());
         }
         printer.println("LOCAL SCOPE:");
@@ -421,7 +421,7 @@ impl Block {
 
     pub fn print_scope(&self, printer: &mut IndentPrinter) {
         printer.inc_indent();
-        for (_, symbol) in &self.scope.symbols {
+        for symbol in self.scope.sorted() {
             printer.println(&symbol.to_string());
         }
         for statement in &self.statements {

@@ -1,1 +1,9 @@
-*** Error at (3,8): field 'a' not found in 'class : Main'
+GLOBAL SCOPE:
+    (1,1) -> class Main
+    CLASS SCOPE OF 'Main':
+        (2,7) -> function foo : void
+        (5,14) -> static function main : void
+        FORMAL SCOPE OF 'foo':
+            LOCAL SCOPE:
+        FORMAL SCOPE OF 'main':
+            LOCAL SCOPE:

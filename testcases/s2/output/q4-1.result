@@ -1,1 +1,1 @@
-*** Error at (11,19): incompatible operands: unknown + int
+*** Error at (11,13): syntax error

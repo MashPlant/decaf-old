@@ -53,7 +53,7 @@ fn main() {
     match compile(input) {
         Ok(program) => {
             let mut printer = util::IndentPrinter::new();
-            program.print_ast(&mut printer);
+            program.print_scope(&mut printer);
             printer.flush(&mut io::stdout());
         }
         Err(errors) => for error in errors { println!("{}", error); },

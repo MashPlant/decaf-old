@@ -9,5 +9,3 @@ GLOBAL SCOPE:
         FORMAL SCOPE OF 'main':
             LOCAL SCOPE:
                 (9,8) -> variable b : int
-                (10,13) -> variable k : int
-                (11,9) -> variable c : int

@@ -1,1 +1,15 @@
-*** Error at (22,13): can not use this in static function
+GLOBAL SCOPE:
+    (1,1) -> class Main
+    CLASS SCOPE OF 'Main':
+        (2,10) -> variable field : bool
+        (4,16) -> variable another : class : Main
+        (6,11) -> function foo : int->int[]
+        (20,17) -> static function main : void
+        FORMAL SCOPE OF 'foo':
+            (6,19) -> variable @y : int
+            LOCAL SCOPE:
+                (7,15) -> variable q : int[]
+                (8,13) -> variable i : int
+        FORMAL SCOPE OF 'main':
+            LOCAL SCOPE:
+                (21,7) -> variable l : int

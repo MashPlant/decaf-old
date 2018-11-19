@@ -1,2 +1,11 @@
-*** Error at (15,4): incompatible operands: string = int[]
-*** Error at (16,4): incompatible operands: string = int
+GLOBAL SCOPE:
+    (1,1) -> class Main
+    CLASS SCOPE OF 'Main':
+        (2,17) -> static function main : void
+        FORMAL SCOPE OF 'main':
+            LOCAL SCOPE:
+                (3,12) -> variable a : int[]
+                (5,7) -> variable b : int
+                (8,7) -> variable c : int
+                (11,7) -> variable d : int
+                (14,10) -> variable e : string

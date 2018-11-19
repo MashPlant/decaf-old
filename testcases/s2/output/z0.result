@@ -1,2 +1,14 @@
-*** Error at (4,10): incompatible operands: string = int
-*** Error at (8,5): incompatible operands: int = string
+GLOBAL SCOPE:
+    (1,1) -> class Main
+    CLASS SCOPE OF 'Main':
+        (2,9) -> variable x : string
+        (3,7) -> function set : int->void
+        (6,6) -> function get : int
+        (11,14) -> static function main : void
+        FORMAL SCOPE OF 'set':
+            LOCAL SCOPE:
+        FORMAL SCOPE OF 'get':
+            LOCAL SCOPE:
+        FORMAL SCOPE OF 'main':
+            LOCAL SCOPE:
+                (12,14) -> variable f : class : Main

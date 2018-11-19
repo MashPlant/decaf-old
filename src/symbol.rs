@@ -34,6 +34,12 @@ impl DerefMut for Scope {
 }
 
 impl Scope {
+    pub fn sorted(&self) -> Vec<Symbol> {
+        let mut symbols: Vec<Symbol> = self.symbols.iter().map(|(_, symbol)| *symbol).collect();
+        symbols.sort_by_key(|x| x.get_loc());
+        symbols
+    }
+
     pub fn is_local(&self) -> bool {
         match self.kind {
             ScopeKind::Local(_) => true,
@@ -68,7 +74,7 @@ impl ToString for Symbol {
                 }
                 Symbol::Method(method) => {
                     let method = &**method;
-                    let mut s = method.loc.to_string() + " -> " + if method.static_ { "static" } else { "" } + "function "
+                    let mut s = method.loc.to_string() + " -> " + if method.static_ { "static " } else { "" } + "function "
                         + method.name + " : ";
                     for parameter in &method.parameters {
                         s += &(parameter.type_.to_string() + "->");

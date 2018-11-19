@@ -3,9 +3,8 @@ GLOBAL SCOPE:
     (13,1) -> class Main
     CLASS SCOPE OF 'Father':
         (2,9) -> variable field : int
-        (4,9) -> function method : class : Father->int->int
+        (4,9) -> function method : int->int
         FORMAL SCOPE OF 'method':
-            (4,9) -> variable @this : class : Father
             (4,20) -> variable @f : int
             LOCAL SCOPE:
     CLASS SCOPE OF 'Main':
