@@ -1,5 +1,6 @@
 use super::util::*;
 use super::loc::*;
+use super::symbol::*;
 use std::collections::HashMap;
 use std::default::Default as D;
 use std::ptr;
@@ -8,7 +9,7 @@ use std::ops::Deref;
 #[derive(Debug)]
 pub struct Program {
     pub classes: Vec<ClassDef>,
-    pub symbols: HashMap<&'static str, *mut ClassDef>,
+    pub scope: Scope,
     pub main: *const ClassDef,
 }
 
@@ -16,7 +17,10 @@ impl D for Program {
     fn default() -> Self {
         Program {
             classes: D::default(),
-            symbols: D::default(),
+            scope: Scope {
+                symbols: D::default(),
+                kind: ScopeKind::Global,
+            },
             main: ptr::null(),
         }
     }
@@ -42,7 +46,7 @@ pub struct ClassDef {
     // semantic part
     pub order: i32,
     pub parent_ref: *mut ClassDef,
-    pub symbols: HashMap<&'static str, *mut FieldDef>,
+    pub scope: Scope,
 }
 
 impl D for ClassDef {
@@ -55,7 +59,11 @@ impl D for ClassDef {
             sealed: D::default(),
             order: D::default(),
             parent_ref: ptr::null_mut(),
-            symbols: D::default(),
+            scope: Scope {
+                symbols: D::default(),
+                // actually no use here, will be re-assigned in build_symbol
+                kind: ScopeKind::Class(ptr::null_mut()),
+            },
         }
     }
 }
@@ -98,7 +106,7 @@ impl FieldDef {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct MethodDef {
     pub loc: Loc,
     pub name: &'static str,
@@ -106,8 +114,25 @@ pub struct MethodDef {
     pub parameters: Vec<VarDef>,
     pub static_: bool,
     pub body: Block,
-    // symbols for parameters
-    pub symbols: HashMap<&'static str, *mut VarDef>,
+    // scope for parameters
+    pub scope: Scope,
+}
+
+impl D for MethodDef {
+    fn default() -> Self {
+        MethodDef {
+            loc: D::default(),
+            name: D::default(),
+            return_type: D::default(),
+            parameters: D::default(),
+            static_: D::default(),
+            body: D::default(),
+            scope: Scope {
+                symbols: D::default(),
+                kind: ScopeKind::Parameter(ptr::null_mut()),
+            },
+        }
+    }
 }
 
 impl MethodDef {
@@ -1004,7 +1029,7 @@ pub trait Visitor {
 
     fn visit_class_def(&mut self, _class_def: &mut ClassDef) {}
 
-    fn visit_field_def(&mut self, _field_def: &mut FieldDef) {}
+    fn visit_method_def(&mut self, _method_def: &mut MethodDef) {}
 
     fn visit_statement(&mut self, statement: &mut Statement) {
         use self::Statement::*;

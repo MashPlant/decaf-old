@@ -3,12 +3,11 @@ use super::loc::*;
 use super::errors::*;
 use super::config::*;
 use super::symbol::*;
-use std::collections::HashMap;
-use std::ptr;
+use std::default::Default as D;
 
 struct BuildSymbol {
     errors: Vec<Error>,
-    stack: ScopeStack,
+    scopes: ScopeStack,
 }
 
 unsafe fn calc_order(class_def: &mut ClassDef) -> i32 {
@@ -25,49 +24,35 @@ impl BuildSymbol {
         true
     }
 
-    unsafe fn lookup_var(&self, name: &'static str) -> Option<&mut VarDef> {
-        for scope in &self.scope_stack.rev() {
-            if let Some(var) = scope.get(name) {
-                return Some(&mut **var);
-            }
-        }
-        None
-    }
-
-    // global scope -> class scope -> [scope stack]
-    // a parameter scope can only be the bottom of scope stack
-    fn is_parameter_scope(&self, scope: *const HashMap<&'static str, *mut VarDef>) -> bool {
-        scope == self.scope_stack[0]
-    }
-
-    fn is_current_scope(&self, scope: *const HashMap<&'static str, *mut VarDef>) -> bool {
-        scope == self.scope_stack.last().unwrap()
+    fn is_current_scope(&self, scope: *const Scope) -> bool {
+        self.scopes.current_scope() as *const Scope == scope
     }
 }
 
 impl Visitor for BuildSymbol {
     fn visit_program(&mut self, program: &mut Program) {
         unsafe {
-            self.global_scope = &program.symbols;
+            self.scopes.open(&mut program.scope);
             for class_def in &mut program.classes {
-                program.symbols.entry(class_def.name)
-                    .and_modify(|earlier| {
-                        self.errors.push(Error::new(class_def.loc, ConflictDeclaration {
-                            earlier: (**earlier).loc,
-                            name: class_def.name,
-                        }));
-                    })
-                    .or_insert(class_def);
+                if let Some(earlier) = self.scopes.lookup_class(class_def.name) {
+                    self.errors.push(Error::new(class_def.loc, ConflictDeclaration {
+                        earlier: earlier.get_loc(),
+                        name: class_def.name,
+                    }));
+                } else {
+                    self.scopes.declare(Symbol::Class(class_def));
+                }
             }
             for class_def in &mut program.classes {
                 if let Some(parent) = class_def.parent {
-                    if let Some(parent_ref) = program.symbols.get(parent) {
-                        if calc_order(class_def) <= calc_order(&mut **parent_ref) {
+                    if let Some(parent_ref) = self.scopes.lookup_class(parent) {
+                        let parent_ref = parent_ref.as_class();
+                        if calc_order(class_def) <= calc_order(parent_ref) {
                             self.errors.push(Error::new(class_def.loc, CyclicInheritance));
-                        } else if (**parent_ref).sealed {
+                        } else if parent_ref.sealed {
                             self.errors.push(Error::new(class_def.loc, SealedInheritance))
                         } else {
-                            class_def.parent_ref = *parent_ref;
+                            class_def.parent_ref = parent_ref;
                         }
                     } else {
                         self.errors.push(Error::new(class_def.loc, ClassNotFound { name: parent }));
@@ -90,35 +75,36 @@ impl Visitor for BuildSymbol {
     }
 
     fn visit_class_def(&mut self, class_def: &mut ClassDef) {
-        self.class_scope = &mut class_def.symbols;
+        class_def.scope = Scope { symbols: D::default(), kind: ScopeKind::Class(class_def) };
+        self.scopes.open(&mut class_def.scope);
         for field_def in &mut class_def.fields {
-            self.visit_field_def(field_def)
+            match field_def {
+                FieldDef::MethodDef(method_def) => self.visit_method_def(method_def),
+                FieldDef::VarDef(var_def) => self.visit_var_def(var_def),
+            };
         }
-        self.class_scope = ptr::null_mut();
+        self.scopes.close();
     }
 
-    fn visit_field_def(&mut self, field_def: &mut FieldDef) {
+    fn visit_method_def(&mut self, method_def: &mut MethodDef) {
         unsafe {
-            let field_def_ptr = field_def as *mut FieldDef;
-            match field_def {
-                FieldDef::MethodDef(method_def) => {
-                    self.visit_type(&mut method_def.return_type);
-                    (*self.class_scope).entry(method_def.name)
-                        .and_modify(|earlier| {
-                            self.errors.push(Error::new(method_def.loc, ConflictDeclaration {
-                                earlier: (**earlier).get_loc(),
-                                name: method_def.name,
-                            }));
-                        })
-                        .or_insert(field_def_ptr);
-                    for var_def in &mut method_def.parameters {
-                        self.visit_var_def(var_def);
-                    }
-                    method_def.body.is_method = true;
-                    self.visit_block(&mut method_def.body);
-                }
-                FieldDef::VarDef(var_def) => self.visit_var_def(var_def),
+            self.visit_type(&mut method_def.return_type);
+            if let Some(earlier) = self.scopes.lookup(method_def.name, false) {
+                self.errors.push(Error::new(method_def.loc, ConflictDeclaration {
+                    earlier: earlier.get_loc(),
+                    name: method_def.name,
+                }));
+            } else {
+                self.scopes.declare(Symbol::Method(method_def));
             }
+            method_def.scope = Scope { symbols: D::default(), kind: ScopeKind::Parameter(method_def) };
+            self.scopes.open(&mut method_def.scope);
+            for var_def in &mut method_def.parameters {
+                self.visit_var_def(var_def);
+            }
+            method_def.body.is_method = true;
+            self.visit_block(&mut method_def.body);
+            self.scopes.close();
         }
     }
 

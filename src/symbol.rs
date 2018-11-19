@@ -4,12 +4,13 @@ use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 
 // ast node owns the scope
+#[derive(Debug)]
 pub struct Scope {
     pub symbols: HashMap<&'static str, Symbol>,
     pub kind: ScopeKind,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum ScopeKind {
     Local(*mut Block),
     Class(*mut ClassDef),
@@ -41,7 +42,7 @@ impl Scope {
 }
 
 // refer to a node in ast
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum Symbol {
     Class(*mut ClassDef),
     Method(*mut MethodDef),
@@ -49,12 +50,31 @@ pub enum Symbol {
 }
 
 impl Symbol {
+    pub fn as_class(&self) -> &mut ClassDef {
+        unsafe {
+            match self {
+                Symbol::Class(class) => &mut **class,
+                _ => panic!("call as_class on non-class symbol"),
+            }
+        }
+    }
+
     pub fn get_name(&self) -> &'static str {
         unsafe {
             match self {
-                Symbol::Class(class) => (*class).name,
-                Symbol::Method(method) => (*method).name,
-                Symbol::Var(var) => (*var).name,
+                Symbol::Class(class) => (**class).name,
+                Symbol::Method(method) => (**method).name,
+                Symbol::Var(var) => (**var).name,
+            }
+        }
+    }
+
+    pub fn get_loc(&self) -> Loc {
+        unsafe {
+            match self {
+                Symbol::Class(class) => (**class).loc,
+                Symbol::Method(method) => (**method).loc,
+                Symbol::Var(var) => (**var).loc,
             }
         }
     }
@@ -98,10 +118,10 @@ impl ScopeStack {
     pub fn open(&mut self, scope: &mut Scope) {
         unsafe {
             match scope.kind {
-                ScopeKind::Global(global) => self.global_scope = scope,
+                ScopeKind::Global => self.global_scope = scope,
                 ScopeKind::Class(class) => {
                     if !class.parent_ref.is_null() {
-                        self.open((*class.parent_ref).scope);
+                        self.open(&mut (*class.parent_ref).scope);
                     }
                 }
                 _ => {}
@@ -118,7 +138,7 @@ impl ScopeStack {
         }
     }
 
-    pub fn current_scope(&mut self) -> &mut Scope {
+    pub fn current_scope(&self) -> &mut Scope {
         unsafe { &mut **self.scopes.last().unwrap() }
     }
 
