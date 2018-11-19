@@ -73,7 +73,7 @@ impl D for ClassDef {
             parent: D::default(),
             fields: D::default(),
             sealed: D::default(),
-            order: D::default(),
+            order: -1,
             checked: D::default(),
             parent_ref: ptr::null_mut(),
             scope: Scope {

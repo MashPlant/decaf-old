@@ -20,7 +20,8 @@ pub struct SymbolBuilder {
 unsafe fn calc_order(class_def: *mut ClassDef) -> i32 {
     if class_def.is_null() { return -1; }
     let class_def = &mut *class_def;
-    if class_def.order == 0 {
+    if class_def.order < 0 {
+        class_def.order = 0;
         class_def.order = calc_order(class_def.parent_ref) + 1;
     }
     class_def.order
@@ -72,7 +73,19 @@ impl SymbolBuilder {
                         if parent_symbol.static_ || symbol.static_ {
                             issue!(self, symbol.loc, ConflictDeclaration { earlier: parent_symbol.loc, name });
                             false
-                        } else if !symbol.return_type.extends(&parent_symbol.return_type) {
+                        } else if !symbol.return_type.extends(&parent_symbol.return_type)
+                            || symbol.parameters.len() != parent_symbol.parameters.len()
+                            || {
+                            let mut unfit = false;
+                            // start from 1, skip this
+                            for i in 1..symbol.parameters.len() {
+                                if !parent_symbol.parameters[i].type_.extends(&symbol.parameters[i].type_) {
+                                    unfit = true;
+                                    break;
+                                }
+                            }
+                            unfit
+                        } {
                             issue!(self, symbol.loc, BadOverride { method_name: name, parent_name: parent.name });
                             false
                         } else {
@@ -138,6 +151,9 @@ impl Visitor for SymbolBuilder {
                 }
             }
             for class_def in &mut program.classes {
+                class_def.scope = Scope { symbols: D::default(), kind: ScopeKind::Class(class_def) };
+            }
+            for class_def in &mut program.classes {
                 self.visit_class_def(class_def);
                 if class_def.name == MAIN_CLASS {
                     program.main = class_def;
@@ -153,7 +169,6 @@ impl Visitor for SymbolBuilder {
     }
 
     fn visit_class_def(&mut self, class_def: &mut ClassDef) {
-        class_def.scope = Scope { symbols: D::default(), kind: ScopeKind::Class(class_def) };
         self.scopes.open(&mut class_def.scope);
         for field_def in &mut class_def.fields {
             match field_def {
