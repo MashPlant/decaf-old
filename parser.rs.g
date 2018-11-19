@@ -901,6 +901,7 @@ VarDef
             loc: $2.get_loc(),
             name: $2.value,
             type_: $1,
+            ..D::default()
         };
     }
     ;

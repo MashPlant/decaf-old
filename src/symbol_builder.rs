@@ -4,6 +4,7 @@ use super::errors::*;
 use super::config::*;
 use super::symbol::*;
 use std::default::Default as D;
+use std::ptr;
 
 macro_rules! issue {
     ($rec:expr, $loc: expr, $err: expr) => {
@@ -11,7 +12,7 @@ macro_rules! issue {
     };
 }
 
-struct BuildSymbol {
+pub struct SymbolBuilder {
     errors: Vec<Error>,
     scopes: ScopeStack,
 }
@@ -23,7 +24,28 @@ unsafe fn calc_order(class_def: &mut ClassDef) -> i32 {
     class_def.order
 }
 
-impl BuildSymbol {
+impl SymbolBuilder {
+    pub fn new() -> SymbolBuilder {
+        SymbolBuilder {
+            errors: Vec::new(),
+            scopes: ScopeStack {
+                global_scope: ptr::null_mut(),
+                scopes: Vec::new(),
+            },
+        }
+    }
+
+    pub fn build(mut self, mut program: Program) -> Result<Program, Vec<Error>> {
+        self.visit_program(&mut program);
+        if self.errors.is_empty() {
+            Ok(program)
+        } else {
+            Err(self.errors)
+        }
+    }
+}
+
+impl SymbolBuilder {
     unsafe fn check_override(&mut self, class_def: &mut ClassDef) {
         if class_def.checked || class_def.parent_ref.is_null() {
             return;
@@ -81,7 +103,7 @@ impl BuildSymbol {
     }
 }
 
-impl Visitor for BuildSymbol {
+impl Visitor for SymbolBuilder {
     fn visit_program(&mut self, program: &mut Program) {
         unsafe {
             self.scopes.open(&mut program.scope);
@@ -177,6 +199,7 @@ impl Visitor for BuildSymbol {
                 }
             } else {
                 self.scopes.declare(Symbol::Var(var_def));
+                var_def.is_parameter = self.scopes.current_scope().is_parameter();
             }
         }
     }

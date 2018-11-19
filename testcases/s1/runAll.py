@@ -12,7 +12,7 @@ def read_txt_file(filename):
 
 
 def main():
-    decafc = os.path.join('..', 'target', 'release', 'decaf')
+    decafc = os.path.join('..', '..', 'target', 'release', 'decaf')
     names = sys.argv[1:]
     if not names:
         names = sorted(os.listdir('.'))
@@ -32,6 +32,7 @@ def main():
         else:
             info = 'ERROR!'
         print('{0:<30}{1}'.format(name, info))
+
 
 if __name__ == '__main__':
     main()

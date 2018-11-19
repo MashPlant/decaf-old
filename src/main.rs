@@ -8,9 +8,13 @@ pub mod errors;
 pub mod loc;
 pub mod parser;
 pub mod util;
-pub mod build_symbol;
+pub mod symbol_builder;
 pub mod config;
 pub mod symbol;
+
+use symbol_builder::SymbolBuilder;
+use ast::Program;
+use errors::Error;
 
 use std::io;
 use std::mem;
@@ -26,6 +30,14 @@ fn string_to_static_str(s: String) -> &'static str {
     }
 }
 
+fn compile(input: &'static str) -> Result<Program, Vec<Error>> {
+    let mut parser = parser::Parser::new();
+    let program = parser.parse(input)?;
+    let symbol_builder = SymbolBuilder::new();
+    let program = symbol_builder.build(program)?;
+    Ok(program)
+}
+
 fn main() {
     let mut input = String::new();
     {
@@ -38,13 +50,28 @@ fn main() {
     }
     let input = string_to_static_str(input);
 
-    let mut parser = parser::Parser::new();
-
-    let _ = parser.parse(input)
-        .map_err(|errors| { for error in errors { println!("{}", error); } })
-        .map(|program| {
+    match compile(input) {
+        Ok(program) => {
             let mut printer = util::IndentPrinter::new();
-            program.print_to(&mut printer);
+            program.print_ast(&mut printer);
             printer.flush(&mut io::stdout());
-        });
+        }
+        Err(errors) => for error in errors { println!("{}", error); },
+    }
+
+//    let mut parser = parser::Parser::new();
+//
+//    let _ = parser.parse(input)
+//        .map(|program| {
+//            let mut printer = util::IndentPrinter::new();
+//            program.print_to(&mut printer);
+//            printer.flush(&mut io::stdout());
+//            program
+//        })
+//        .map(|program|{
+//            let mut symbol_builder = SymbolBuilder::new();
+//            symbol_builder.build(program)
+//        })
+//        .map_err(|errors| { for error in errors { println!("{}", error); } })
+//        ;
 }

@@ -2866,6 +2866,7 @@ impl Parser {
             loc: _2.get_loc(),
             name: _2.value,
             type_: _1,
+            ..D::default()
         };
         SV::_7(_0)
     }

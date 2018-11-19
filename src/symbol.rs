@@ -2,6 +2,7 @@ use super::ast::*;
 use super::loc::*;
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
+use std::string::ToString;
 
 // ast node owns the scope
 #[derive(Debug)]
@@ -54,6 +55,34 @@ pub enum Symbol {
     Class(*mut ClassDef),
     Method(*mut MethodDef),
     Var(*mut VarDef),
+}
+
+impl ToString for Symbol {
+    fn to_string(&self) -> String {
+        unsafe {
+            match self {
+                Symbol::Class(class) => {
+                    let class = &**class;
+                    let s = format!("{} -> class {}", class.loc, class.name);
+                    if (*class).parent_ref.is_null() { s } else { s + " : " + (*class.parent_ref).name }
+                }
+                Symbol::Method(method) => {
+                    let method = &**method;
+                    let mut s = method.loc.to_string() + " -> " + if method.static_ { "static" } else { "" } + "function "
+                        + method.name + " : ";
+                    for parameter in &method.parameters {
+                        s += &(parameter.type_.to_string() + "->");
+                    }
+                    s + &method.return_type.to_string()
+                }
+                Symbol::Var(var) => {
+                    let var = &**var;
+                    var.loc.to_string() + " -> variable " + if var.is_parameter { "@" } else { "" } + var.name
+                        + " : " + &var.type_.to_string()
+                }
+            }
+        }
+    }
 }
 
 impl Symbol {
