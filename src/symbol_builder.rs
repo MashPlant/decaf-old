@@ -42,6 +42,7 @@ impl SymbolBuilder {
         if self.errors.is_empty() {
             Ok(program)
         } else {
+            self.errors.sort_by_key(|x| x.loc);
             Err(self.errors)
         }
     }
