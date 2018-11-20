@@ -149,6 +149,7 @@ fn gen_binary(left: Expr, opt: Token, right: Expr, kind: Operator) -> Expr {
         opt: kind,
         left: Box::new(left),
         right: Box::new(right),
+        type_: D::default(),
     })
 }
 
@@ -157,6 +158,7 @@ fn gen_unary(opt: Token, opr: Expr, kind: Operator) -> Expr {
         loc: opt.get_loc(),
         opt: kind,
         opr: Box::new(opr),
+        type_: D::default(),
     })
 }
 
@@ -478,7 +480,7 @@ Foreach
 TypeOrVar
     : VAR {
         |$1: Token| -> Type;
-        $$ = Type { loc: $1.get_loc(), data: TypeData::Var };
+        $$ = Type::Var;
     }
     | Type {
         |$1: Type| -> Type;
@@ -677,6 +679,7 @@ Expr
             array: Box::new($1),
             lower: Box::new($3),
             upper: Box::new($5),
+            type_: D::default(),
         });
     }
     | Expr '[' Expr ']' DEFAULT Expr {
@@ -686,6 +689,7 @@ Expr
             array: Box::new($1),
             index: Box::new($3),
             default: Box::new($6),
+            type_: D::default(),
         });
     }
     | '[' Expr FOR IDENTIFIER IN Expr ']' {
@@ -696,6 +700,7 @@ Expr
             name: $4.value,
             array: Box::new($6),
             cond: None,
+            type_: D::default(),
         });
     }
     | '[' Expr FOR IDENTIFIER IN Expr IF Expr ']' {
@@ -706,6 +711,7 @@ Expr
             name: $4.value,
             array: Box::new($6),
             cond: Some(Box::new($8)),
+            type_: D::default(),
         });
     }
     | '(' Expr ')' {
@@ -730,21 +736,23 @@ Expr
     }
     | THIS {
         |$1: Token| -> Expr;
-        $$ = Expr::This(This { loc: $1.get_loc(), });
+        $$ = Expr::This(This { loc: $1.get_loc(), type_: D::default(), });
     }
     | NEW IDENTIFIER '(' ')' {
         |$1: Token, $2: Token| -> Expr;
         $$ = Expr::NewClass(NewClass {
             loc: $1.get_loc(),
             name: $2.value,
+            type_: D::default(),
         });
     }
     | NEW Type '[' Expr ']' {
         |$1: Token, $2: Type, $4: Expr| -> Expr;
         $$ = Expr::NewArray(NewArray {
             loc: $1.get_loc(),
-            type_: $2,
+            elem_type: $2,
             len: Box::new($4),
+            type_: D::default(),
         });
     }
     | INSTANCEOF '(' Expr ',' IDENTIFIER ')' {
@@ -761,6 +769,7 @@ Expr
             loc: $3.get_loc(),
             name: $3.value,
             expr: Box::new($5),
+            type_: D::default(),
         });
     }
     ;
@@ -775,6 +784,7 @@ LValue
                 None => None,
             },
             name: $2.value,
+            type_: D::default(),
         });
     }
     | Expr '[' Expr ']' {
@@ -783,6 +793,7 @@ LValue
             loc: $1.get_loc(),
             array: Box::new($1),
             index: Box::new($3),
+            type_: D::default(),
         });
     }
     ;
@@ -809,6 +820,7 @@ Call
             },
             name: $2.value,
             arguments: $4,
+            type_: D::default(),
         });
     }
     ;
@@ -850,6 +862,7 @@ Const
         $$ = Const::ArrayConst(ArrayConst {
             loc: self.get_loc(),
             value: $1,
+            type_: D::default(),
         });
     }
     | NULL {
@@ -909,26 +922,26 @@ VarDef
 Type
     : INT {
         |$1: Token| -> Type;
-        $$ = Type { loc: $1.get_loc(), data: TypeData::Basic("int") };
+        $$ = INT;
     }
     | VOID {
         |$1: Token| -> Type;
-        $$ = Type { loc: $1.get_loc(), data: TypeData::Basic("void") };
+        $$ = VOID;
     }
     | BOOL {
         |$1: Token| -> Type;
-        $$ = Type { loc: $1.get_loc(), data: TypeData::Basic("bool") };
+        $$ = BOOL;
     }
     | STRING {
         |$1: Token| -> Type;
-        $$ = Type { loc: $1.get_loc(), data: TypeData::Basic("string") };
+        $$ = STRING;
     }
     | CLASS IDENTIFIER  {
         |$1: Token, $2: Token| -> Type;
-        $$ = Type { loc: $2.get_loc(), data: TypeData::Class($2.value, ptr::null()) };
+        $$ = Type::Class($2.value, ptr::null());
     }
     | Type '[' ']' {
         |$1: Type| -> Type;
-        $$ = Type { loc: $1.loc, data: TypeData::Array(Box::new($1)) };
+        $$ = Type::Array(Box::new($1));
     }
     ;

@@ -112,7 +112,7 @@ impl SymbolBuilder {
         match class_def.scope.get(MAIN_METHOD) {
             Some(main) if main.is_method() => {
                 let main = main.as_method();
-                main.static_ && main.return_type.data == TypeData::Basic("void") && main.parameters.is_empty()
+                main.static_ && main.return_type == VOID && main.parameters.is_empty()
             }
             _ => false,
         }
@@ -194,7 +194,7 @@ impl Visitor for SymbolBuilder {
             method_def.parameters.insert(0, VarDef {
                 loc: method_def.loc,
                 name: "this",
-                type_: Type { loc: method_def.loc, data: TypeData::Class(class.name, class) },
+                type_: Type::Class(class.name, class) ,
                 is_parameter: true,
             });
         }
@@ -271,8 +271,8 @@ impl Visitor for SymbolBuilder {
 
     fn visit_type(&mut self, type_: &mut Type) {
         let mut is_error = false; // work around with borrow check
-        match &mut type_.data {
-            TypeData::Class(name, ref mut class) => {
+        match type_ {
+            Type::Class(name, ref mut class) => {
                 if let Some(class_symbol) = self.scopes.lookup_class(name) {
                     *class = class_symbol.as_class();
                 } else {
@@ -280,7 +280,7 @@ impl Visitor for SymbolBuilder {
                     issue!(self, type_.loc, ClassNotFound { name });
                 }
             }
-            TypeData::Array(elem_type) => {
+            Type::Array(elem_type) => {
                 if elem_type.is_error() {
                     is_error = true;
                 } else if elem_type.is_void() {
@@ -291,7 +291,7 @@ impl Visitor for SymbolBuilder {
             _ => {}
         }
         if is_error {
-            type_.data = TypeData::Error;
+            *type_ = Type::Error;
         }
     }
 }

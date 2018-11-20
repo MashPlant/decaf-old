@@ -4,6 +4,7 @@ extern crate regex;
 extern crate lazy_static;
 
 pub mod ast;
+pub mod types;
 pub mod errors;
 pub mod loc;
 pub mod parser;

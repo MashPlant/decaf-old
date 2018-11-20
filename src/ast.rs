@@ -1,6 +1,7 @@
 use super::util::*;
 use super::loc::*;
 use super::symbol::*;
+use super::types::*;
 use std::default::Default as D;
 use std::ptr;
 use std::ops::Deref;
@@ -192,112 +193,27 @@ impl VarDef {
 #[derive(Debug, Default)]
 pub struct Type {
     pub loc: Loc,
-    pub data: TypeData,
-}
-
-#[derive(Debug)]
-pub enum TypeData {
-    Error,
-    Var,
-    Null,
-    // int, string, bool, void
-    Basic(&'static str),
-    // user defined class
-    Class(&'static str, *const ClassDef),
-    // type [][]...
-    Array(Box<Type>),
-}
-
-impl D for TypeData {
-    fn default() -> Self {
-        TypeData::Error
-    }
-}
-
-impl ToString for TypeData {
-    fn to_string(&self) -> String {
-        match self {
-            TypeData::Error => "error".to_string(),
-            TypeData::Var => "var".to_string(),
-            TypeData::Null => "null".to_string(),
-            TypeData::Basic(name) => name.to_string(),
-            TypeData::Class(name, _) => "class : ".to_string() + name,
-            TypeData::Array(elem) => elem.to_string() + "[]",
-        }
-    }
+    pub sem: SemanticType,
 }
 
 impl Deref for Type {
-    type Target = TypeData;
+    type Target = SemanticType;
 
-    fn deref(&self) -> &TypeData {
-        &self.data
+    fn deref(&self) -> &SemanticType {
+        &self.sem
     }
 }
 
-impl TypeData {
-    // a relationship of is-subclass-of
-    pub fn extends(&self, rhs: &TypeData) -> bool {
-        match (self, rhs) {
-            (TypeData::Error, _) => true,
-            (_, TypeData::Error) => true,
-            (TypeData::Basic(name1), TypeData::Basic(name2)) => name1 == name2,
-            (TypeData::Class(_, class1), TypeData::Class(_, class2)) => {
-                let mut class1 = *class1;
-                let class2 = *class2;
-                while !class1.is_null() {
-                    if class1 == class2 {
-                        return true;
-                    }
-                    class1 = unsafe { (*class1).parent_ref };
-                }
-                false
-            }
-            (TypeData::Array(elem1), TypeData::Array(elem2)) => elem1.data == elem2.data,
-            _ => false,
-        }
-    }
-}
-
-impl PartialEq for TypeData {
-    fn eq(&self, other: &TypeData) -> bool {
-        // in correct usage,  TypeData::Var & TypeData::Null won't be compared here
-        match (self, other) {
-            (TypeData::Error, TypeData::Error) => true,
-            (TypeData::Basic(name1), TypeData::Basic(name2)) => name1 == name2,
-            (TypeData::Class(name1, _), TypeData::Class(name2, _)) => name1 == name2,
-            (TypeData::Array(elem1), TypeData::Array(elem2)) => elem1.data == elem2.data,
-            _ => false,
-        }
-    }
-}
-
-impl Eq for TypeData {}
-
-impl TypeData {
-    pub fn is_error(&self) -> bool {
-        match self {
-            TypeData::Error => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_void(&self) -> bool {
-        if let TypeData::Basic(name) = self {
-            return name == &"void";
-        }
-        false
-    }
-
+impl Type {
     pub fn print_ast(&self, printer: &mut IndentPrinter) {
-        match self {
-            TypeData::Var => printer.print("var"),
-            TypeData::Basic(name) => printer.print(&(name.to_string() + "type")),
-            TypeData::Class(name, _) => {
+        match self.sem {
+            SemanticType::Var => printer.print("var"),
+            SemanticType::Basic(name) => printer.print(&(name.to_string() + "type")),
+            SemanticType::Class(name, _) => {
                 printer.print("classtype");
                 printer.print(name);
             }
-            TypeData::Array(name) => {
+            SemanticType::Array(name) => {
                 printer.print("arrtype");
                 name.print_ast(printer);
             }
@@ -709,11 +625,11 @@ impl Expr {
             Unary(unary) => &unary.type_,
             Binary(binary) => &binary.type_,
             This(this) => &this.type_,
-            ReadInt(read_int) => &read_int.type_,
-            ReadLine(read_line) => &read_line.type_,
+            ReadInt(read_int) => &INT,
+            ReadLine(read_line) => &STRING,
             NewClass(new_class) => &new_class.type_,
             NewArray(new_array) => &new_array.type_,
-            TypeTest(type_test) => &type_test.type_,
+            TypeTest(type_test) => &BOOL,
             TypeCast(type_cast) => &type_cast.type_,
             Range(range) => &range.type_,
             Default(default) => &default.type_,
@@ -730,16 +646,23 @@ pub enum LValue {
 
 impl LValue {
     pub fn print_ast(&self, printer: &mut IndentPrinter) {
-        match &self {
+        match self {
             LValue::Indexed(indexed) => indexed.print_ast(printer),
             LValue::Identifier(identifier) => identifier.print_ast(printer),
         }
     }
 
     pub fn get_loc(&self) -> Loc {
-        match &self {
+        match self {
             LValue::Indexed(indexed) => indexed.loc,
             LValue::Identifier(identifier) => identifier.loc,
+        }
+    }
+
+    pub fn get_type(&self) -> &Type {
+        match self {
+            LValue::Indexed(indexed) => &indexed.type_,
+            LValue::Identifier(identifier) => &identifier.type_,
         }
     }
 }
@@ -749,6 +672,7 @@ pub struct Indexed {
     pub loc: Loc,
     pub array: Box<Expr>,
     pub index: Box<Expr>,
+    pub type_: Type,
 }
 
 impl Indexed {
@@ -766,6 +690,7 @@ pub struct Identifier {
     pub loc: Loc,
     pub owner: Option<Box<Expr>>,
     pub name: &'static str,
+    pub type_: Type,
 }
 
 impl Identifier {
@@ -803,12 +728,23 @@ impl Const {
 
     pub fn get_loc(&self) -> Loc {
         use self::Const::*;
-        match &self {
+        match self {
             IntConst(int_const) => int_const.loc,
             BoolConst(bool_const) => bool_const.loc,
             StringConst(string_const) => string_const.loc,
             ArrayConst(array_const) => array_const.loc,
             Null(null) => null.loc,
+        }
+    }
+
+    pub fn get_type(&self) -> &SemanticType {
+        use self::Const::*;
+        match self {
+            IntConst(int_const) => &INT,
+            BoolConst(bool_const) => &BOOL,
+            StringConst(string_const) => &STRING,
+            ArrayConst(array_const) => &array_const.type_,
+            Null(null) => &NULL,
         }
     }
 }
@@ -856,6 +792,7 @@ impl StringConst {
 pub struct ArrayConst {
     pub loc: Loc,
     pub value: Vec<Const>,
+    pub type_: SemanticType,
 }
 
 impl ArrayConst {
@@ -882,7 +819,7 @@ impl Null {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Call {
     pub loc: Loc,
     pub receiver: Option<Box<Expr>>,
@@ -905,7 +842,7 @@ impl Call {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Unary {
     pub loc: Loc,
     pub opt: Operator,
@@ -928,7 +865,7 @@ impl Unary {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Binary {
     pub loc: Loc,
     pub opt: Operator,
@@ -966,7 +903,7 @@ impl Binary {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct This {
     pub loc: Loc,
     pub type_: Type,
@@ -1017,8 +954,9 @@ impl NewClass {
 #[derive(Debug)]
 pub struct NewArray {
     pub loc: Loc,
-    pub type_: Type,
+    pub elem_type: Type,
     pub len: Box<Expr>,
+    pub type_: Type,
 }
 
 impl NewArray {
@@ -1054,6 +992,7 @@ pub struct TypeCast {
     pub loc: Loc,
     pub name: &'static str,
     pub expr: Box<Expr>,
+    pub type_: Type,
 }
 
 impl TypeCast {
@@ -1072,6 +1011,7 @@ pub struct Range {
     pub array: Box<Expr>,
     pub lower: Box<Expr>,
     pub upper: Box<Expr>,
+    pub type_: Type,
 }
 
 impl Range {
@@ -1094,6 +1034,7 @@ pub struct Default {
     pub array: Box<Expr>,
     pub index: Box<Expr>,
     pub default: Box<Expr>,
+    pub type_: Type,
 }
 
 impl Default {
@@ -1117,6 +1058,7 @@ pub struct Comprehension {
     pub name: &'static str,
     pub array: Box<Expr>,
     pub cond: Option<Box<Expr>>,
+    pub type_: Type,
 }
 
 impl Comprehension {

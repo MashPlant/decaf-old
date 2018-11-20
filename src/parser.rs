@@ -593,6 +593,7 @@ fn gen_binary(left: Expr, opt: Token, right: Expr, kind: Operator) -> Expr {
         opt: kind,
         left: Box::new(left),
         right: Box::new(right),
+        type_: D::default(),
     })
 }
 
@@ -601,6 +602,7 @@ fn gen_unary(opt: Token, opr: Expr, kind: Operator) -> Expr {
         loc: opt.get_loc(),
         opt: kind,
         opr: Box::new(opr),
+        type_: D::default(),
     })
 }
 
@@ -2486,6 +2488,7 @@ impl Parser {
             array: Box::new(_1),
             lower: Box::new(_3),
             upper: Box::new(_5),
+            type_: D::default(),
         });
         SV::_15(_0)
     }
@@ -2504,6 +2507,7 @@ impl Parser {
             array: Box::new(_1),
             index: Box::new(_3),
             default: Box::new(_6),
+            type_: D::default(),
         });
         SV::_15(_0)
     }
@@ -2524,6 +2528,7 @@ impl Parser {
             name: _4.value,
             array: Box::new(_6),
             cond: None,
+            type_: D::default(),
         });
         SV::_15(_0)
     }
@@ -2546,6 +2551,7 @@ impl Parser {
             name: _4.value,
             array: Box::new(_6),
             cond: Some(Box::new(_8)),
+            type_: D::default(),
         });
         SV::_15(_0)
     }
@@ -2602,7 +2608,7 @@ impl Parser {
 // Semantic values prologue.
         let mut _1 = pop!(self.values_stack, _0);
 
-        let _0 = Expr::This(This { loc: _1.get_loc() });
+        let _0 = Expr::This(This { loc: _1.get_loc(), type_: D::default(), });
         SV::_15(_0)
     }
 
@@ -2616,6 +2622,7 @@ impl Parser {
         let _0 = Expr::NewClass(NewClass {
             loc: _1.get_loc(),
             name: _2.value,
+            type_: D::default(),
         });
         SV::_15(_0)
     }
@@ -2630,8 +2637,9 @@ impl Parser {
 
         let _0 = Expr::NewArray(NewArray {
             loc: _1.get_loc(),
-            type_: _2,
+            elem_type: _2,
             len: Box::new(_4),
+            type_: D::default(),
         });
         SV::_15(_0)
     }
@@ -2665,6 +2673,7 @@ impl Parser {
             loc: _3.get_loc(),
             name: _3.value,
             expr: Box::new(_5),
+            type_: D::default(),
         });
         SV::_15(_0)
     }
@@ -2681,6 +2690,7 @@ impl Parser {
                 None => None,
             },
             name: _2.value,
+            type_: D::default(),
         });
         SV::_20(_0)
     }
@@ -2696,6 +2706,7 @@ impl Parser {
             loc: _1.get_loc(),
             array: Box::new(_1),
             index: Box::new(_3),
+            type_: D::default(),
         });
         SV::_20(_0)
     }
@@ -2733,6 +2744,7 @@ impl Parser {
             },
             name: _2.value,
             arguments: _4,
+            type_: D::default(),
         });
         SV::_15(_0)
     }
@@ -2791,6 +2803,7 @@ impl Parser {
         let _0 = Const::ArrayConst(ArrayConst {
             loc: self.get_loc(),
             value: _1,
+            type_: D::default(),
         });
         SV::_21(_0)
     }
