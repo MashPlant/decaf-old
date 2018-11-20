@@ -113,9 +113,15 @@ impl ClassDef {
                 if let Some(symbol) = (*class).scope.get(name) {
                     return Some(*symbol);
                 }
+                class = (*class).parent_ref;
             }
             None
         }
+    }
+
+    pub fn extends(&self, other: &ClassDef) -> bool {
+        // we don't care about class name actually
+        SemanticType::Object("", self).extends(&SemanticType::Object("", other))
     }
 }
 

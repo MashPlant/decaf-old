@@ -71,20 +71,13 @@ impl Visitor for TypeChecker {
     }
 
     fn visit_assign(&mut self, assign: &mut Assign) {
-//        self.visit_lvalue(&mut assign.dst);
-//        self.visit_expr(&mut assign.src);
-//        if assign.dst != &ERROR && () {
-//
-//        }
-
-
-//        if (!assign.left.type.equal(BaseType.ERROR)
-//            && (assign.left.type.isFuncType() || !assign.expr.type
-//        .compatible(assign.left.type))) {
-//        issueError(new IncompatBinOpError(assign.getLocation(),
-//        assign.left.type.toString(), "=", assign.expr.type
-//        .toString()));
-//        }
+        self.visit_expr(&mut assign.dst);
+        self.visit_expr(&mut assign.src);
+        let dst_type = assign.dst.get_type();
+        let src_type = assign.src.get_type();
+        if dst_type != &ERROR && (dst_type.is_method() || src_type.extends(dst_type)) {
+            issue!(self, assign.loc, IncompatibleBinary{left_type:dst_type.to_string(), opt:"=", right_type:src_type.to_string() })
+        }
     }
 
 
@@ -181,9 +174,12 @@ impl Visitor for TypeChecker {
                                 Some(symbol) => {
                                     match symbol {
                                         Symbol::Var(var) => {
-//                                            if   self.current_class
+                                            id.type_ = (*var).type_.sem.clone();
+                                            if !(*self.current_class).extends(class) {
+                                                issue!(self, id.loc, PrivateFieldAccess { name: id.name, owner_type: owner_type.to_string() });
+                                            }
                                         }
-                                        _ => id.type_ = symbol.get_type();
+                                        _ => id.type_ = symbol.get_type(),
                                     }
                                 }
                                 None => {
@@ -202,27 +198,35 @@ impl Visitor for TypeChecker {
 
                 None => {
                     match self.scopes.lookup_before(id.name, id.loc) {
-                        Symbol::Class(class) => {
-                            if !self.current_id_used_for_ref {
-                                issue!(self, id.loc, UndeclaredVar { name: id.name });
-                                id.type_ = ERROR;
-                            } else { id.type_ = SemanticType::Object((*class).name, class); }
-                        }
-                        Symbol::Method(method) => id.type_ = SemanticType::Method(method),
-                        Symbol::Var(var) => {
-                            id.type_ = (*var).type_.sem.clone();
-                            if (*self.current_method).static_ {
-                                issue!(self, id.loc, RefInStatic {
+                        Some(symbol) => {
+                            match symbol {
+                                Symbol::Class(class) => {
+                                    if !self.current_id_used_for_ref {
+                                        issue!(self, id.loc, UndeclaredVar { name: id.name });
+                                        id.type_ = ERROR;
+                                    } else { id.type_ = SemanticType::Object((*class).name, class); }
+                                }
+                                Symbol::Method(method) => id.type_ = SemanticType::Method(method),
+                                Symbol::Var(var) => {
+                                    id.type_ = (*var).type_.sem.clone();
+                                    if (*self.current_method).static_ {
+                                        issue!(self, id.loc, RefInStatic {
                                     field: id.name,
                                     method: (*self.current_method).name
                                 });
-                            } else {
-                                // add a virtual `this`, it doesn't need visit
-                                *owner_ptr = Some(Box::new(Expr::This(This {
-                                    loc: id.loc,
-                                    type_: SemanticType::Object((*self.current_class).name, self.current_class),
-                                })));
+                                    } else {
+                                        // add a virtual `this`, it doesn't need visit
+                                        *owner_ptr = Some(Box::new(Expr::This(This {
+                                            loc: id.loc,
+                                            type_: SemanticType::Object((*self.current_class).name, self.current_class),
+                                        })));
+                                    }
+                                }
                             }
+                        }
+                        None => {
+                            issue!(self, id.loc, UndeclaredVar { name: id.name });
+                            id.type_ = ERROR;
                         }
                     }
                     self.current_id_used_for_ref = false;

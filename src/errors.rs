@@ -226,12 +226,12 @@ impl IError for BadFieldAccess {
 
 pub struct PrivateFieldAccess {
     pub name: &'static str,
-    pub owner: &'static str,
+    pub owner_type: String,
 }
 
 impl IError for PrivateFieldAccess {
     fn get_msg(&self) -> String {
-        format!("field '{}' of '{}' not accessible here", self.name, self.owner)
+        format!("field '{}' of '{}' not accessible here", self.name, self.owner_type)
     }
 }
 

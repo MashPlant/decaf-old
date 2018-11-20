@@ -68,6 +68,7 @@ impl ToString for SemanticType {
                 }
                 s + &method.return_type.to_string()
             }
+            _ => unreachable!()
         }
     }
 }
@@ -105,7 +106,14 @@ impl SemanticType {
 
     pub fn is_object(&self) -> bool {
         match self {
-            SemanticType::Object(_) => true,
+            SemanticType::Object(_, _) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_method(&self) -> bool {
+        match self {
+            SemanticType::Method(_) => true,
             _ => false,
         }
     }
