@@ -12,7 +12,7 @@ pub mod util;
 pub mod symbol_builder;
 pub mod config;
 pub mod symbol;
-//pub mod type_checker;
+pub mod type_checker;
 
 use symbol_builder::SymbolBuilder;
 use ast::Program;

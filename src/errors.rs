@@ -152,3 +152,14 @@ impl IError for BadOverride {
         format!("overriding method '{}' doesn't match the type signature in class '{}'", self.method_name, self.parent_name)
     }
 }
+
+pub struct IncompatibleUnary {
+    pub opt: &'static str,
+    pub type_: String,
+}
+
+impl IError for IncompatibleUnary {
+    fn get_msg(&self) -> String {
+        format!("incompatible operand: {} {}", self.opt, self.type_)
+    }
+}

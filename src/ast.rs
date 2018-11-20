@@ -5,7 +5,6 @@ use super::types::*;
 use std::default::Default as D;
 use std::ptr;
 use std::ops::Deref;
-use std::string::ToString;
 
 #[derive(Debug)]
 pub struct Program {
@@ -530,25 +529,32 @@ impl Skip {
     }
 }
 
-#[derive(Debug)]
-pub enum Operator {
-    Neg,
-    Not,
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Mod,
-    And,
-    Or,
-    Eq,
-    Ne,
-    Lt,
-    Le,
-    Gt,
-    Ge,
-    Repeat,
-    Concat,
+#[derive(Debug, Copy, Clone)]
+pub enum Operator { Neg, Not, Add, Sub, Mul, Div, Mod, And, Or, Eq, Ne, Lt, Le, Gt, Ge, Repeat, Concat }
+
+impl Operator {
+    fn to_str(&self) -> &'static str {
+        use self::Operator::*;
+        match self {
+            Neg => "-",
+            Not => "!",
+            Add => "+",
+            Sub => "-",
+            Mul => "*",
+            Div => "/",
+            Mod => "%",
+            And => "&&",
+            Or => "||",
+            Eq => "==",
+            Ne => "!=",
+            Lt => "<",
+            Le => "<=",
+            Gt => ">",
+            Ge => ">=",
+            Repeat => "%%",
+            Concat => "++"
+        }
+    }
 }
 
 #[derive(Debug)]
