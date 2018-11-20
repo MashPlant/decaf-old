@@ -194,38 +194,11 @@ pub struct Type {
     pub sem: SemanticType,
 }
 
-//impl Clone for Type {
-//    fn clone(&self) -> Self {
-//        Type {
-//            loc: self.loc,
-//            sem: self.sem.clone(),
-//        }
-//    }
-//}
-
 impl Deref for Type {
     type Target = SemanticType;
 
     fn deref(&self) -> &SemanticType {
         &self.sem
-    }
-}
-
-impl Type {
-    pub fn print_ast(&self, printer: &mut IndentPrinter) {
-        match &self.sem {
-            SemanticType::Var => printer.print("var"),
-            SemanticType::Basic(name) => printer.print(&(name.to_string() + "type")),
-            SemanticType::Class(name, _) => {
-                printer.print("classtype");
-                printer.print(name);
-            }
-            SemanticType::Array(name) => {
-                printer.print("arrtype");
-                name.print_ast(printer);
-            }
-            _ => unreachable!()
-        }
     }
 }
 

@@ -48,6 +48,29 @@ impl SymbolBuilder {
             Err(self.errors)
         }
     }
+
+    fn visit_semantic_type(&mut self, type_: &mut SemanticType, loc: Loc) {
+        if match type_ {
+            SemanticType::Class(name, ref mut class) =>
+                if let Some(class_symbol) = self.scopes.lookup_class(name) {
+                    *class = class_symbol.as_class();
+                    false
+                } else {
+                    issue!(self, loc, ClassNotFound { name });
+                    true
+                }
+            SemanticType::Array(elem_type) => {
+                self.visit_semantic_type(elem_type, loc);
+                if elem_type.is_error() {
+                    true
+                } else if elem_type.is_void() {
+                    issue!(self, loc, VoidArrayElement);
+                    true
+                } else { false }
+            }
+            _ => false,
+        } { *type_ = ERROR; }
+    }
 }
 
 impl SymbolBuilder {
@@ -257,26 +280,6 @@ impl Visitor for SymbolBuilder {
     }
 
     fn visit_type(&mut self, type_: &mut Type) {
-        let mut is_error = false; // work around with borrow check
-        match &mut type_.sem {
-            SemanticType::Class(name, ref mut class) => {
-                if let Some(class_symbol) = self.scopes.lookup_class(name) {
-                    *class = class_symbol.as_class();
-                } else {
-                    is_error = true;
-                    issue!(self, type_.loc, ClassNotFound { name });
-                }
-            }
-            SemanticType::Array(elem_type) => {
-                if elem_type.is_error() {
-                    is_error = true;
-                } else if elem_type.is_void() {
-                    is_error = true;
-                    issue!(self, type_.loc, VoidArrayElement);
-                }
-            }
-            _ => {}
-        }
-        if is_error { type_.sem = ERROR; }
+        self.visit_semantic_type(&mut type_.sem, type_.loc);
     }
 }

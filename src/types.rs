@@ -1,4 +1,4 @@
-use super::ast::{Type, ClassDef};
+use super::ast::ClassDef;
 use super::util::*;
 use std::default::Default as D;
 
@@ -70,7 +70,7 @@ impl SemanticType {
                 }
                 false
             }
-            (SemanticType::Array(elem1), SemanticType::Array(elem2)) => elem1.sem == elem2.sem,
+            (SemanticType::Array(elem1), SemanticType::Array(elem2)) => elem1 == elem2,
             _ => false,
         }
     }
@@ -90,7 +90,7 @@ impl SemanticType {
     }
 
     pub fn print_ast(&self, printer: &mut IndentPrinter) {
-        match &self.sem {
+        match self {
             SemanticType::Var => printer.print("var"),
             SemanticType::Basic(name) => printer.print(&(name.to_string() + "type")),
             SemanticType::Class(name, _) => {
@@ -113,7 +113,7 @@ impl PartialEq for SemanticType {
             (SemanticType::Error, SemanticType::Error) => true,
             (SemanticType::Basic(name1), SemanticType::Basic(name2)) => name1 == name2,
             (SemanticType::Class(name1, _), SemanticType::Class(name2, _)) => name1 == name2,
-            (SemanticType::Array(elem1), SemanticType::Array(elem2)) => elem1.sem == elem2.sem,
+            (SemanticType::Array(elem1), SemanticType::Array(elem2)) => elem1 == elem2,
             _ => false,
         }
     }

@@ -2935,7 +2935,7 @@ impl Parser {
         self.values_stack.pop();
         let mut _1 = pop!(self.values_stack, _9);
 
-        let _0 = Type { loc: _1.loc, sem: SemanticType::Array(Box::new(_1)) };
+        let _0 = Type { loc: _1.loc, sem: SemanticType::Array(Box::new(_1.sem)) };
         SV::_9(_0)
     }
 }

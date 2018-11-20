@@ -946,6 +946,6 @@ Type
     }
     | Type '[' ']' {
         |$1: Type| -> Type;
-        $$ = Type { loc: $1.loc, sem: SemanticType::Array(Box::new($1)) };
+        $$ = Type { loc: $1.loc, sem: SemanticType::Array(Box::new($1.sem)) };
     }
     ;
