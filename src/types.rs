@@ -10,12 +10,14 @@ pub enum SemanticType {
     Null,
     // int, string, bool, void
     Basic(&'static str),
-    // user defined class
-    Class(&'static str, *const ClassDef),
+    // a class object
+    Object(&'static str, *const ClassDef),
     // type [][]...
     Array(Box<SemanticType>),
     // refer to a method, only possible in semantic analysis
     Method(*const MethodDef),
+    // a class, e.g., the type of `Main` in Main.f()
+    Class(*const ClassDef),
 }
 
 impl Clone for SemanticType {
@@ -25,9 +27,10 @@ impl Clone for SemanticType {
             SemanticType::Var => SemanticType::Var,
             SemanticType::Null => SemanticType::Null,
             SemanticType::Basic(name) => SemanticType::Basic(name),
-            SemanticType::Class(name, class) => SemanticType::Class(name, *class),
+            SemanticType::Object(name, class) => SemanticType::Object(name, *class),
             SemanticType::Array(elem) => SemanticType::Array(elem.clone()),
             SemanticType::Method(method) => SemanticType::Method(*method),
+            SemanticType::Class(class) => SemanticType::Class(*class),
         }
     }
 }
@@ -53,8 +56,18 @@ impl ToString for SemanticType {
             SemanticType::Var => "var".to_string(),
             SemanticType::Null => "null".to_string(),
             SemanticType::Basic(name) => name.to_string(),
-            SemanticType::Class(name, _) => "class : ".to_string() + name,
+            SemanticType::Object(name, _) => "class : ".to_string() + name,
             SemanticType::Array(elem) => elem.to_string() + "[]",
+            SemanticType::Method(method) => {
+                // TODO remove the duplicate code
+                let method = unsafe { &**method };
+                let mut s = method.loc.to_string() + " -> " + if method.static_ { "static " } else { "" } + "function "
+                    + method.name + " : ";
+                for parameter in &method.parameters {
+                    s += &(parameter.type_.to_string() + "->");
+                }
+                s + &method.return_type.to_string()
+            }
         }
     }
 }
@@ -66,7 +79,7 @@ impl SemanticType {
             (SemanticType::Error, _) => true,
             (_, SemanticType::Error) => true,
             (SemanticType::Basic(name1), SemanticType::Basic(name2)) => name1 == name2,
-            (SemanticType::Class(_, class1), SemanticType::Class(_, class2)) => {
+            (SemanticType::Object(_, class1), SemanticType::Object(_, class2)) => {
                 let mut class1 = *class1;
                 let class2 = *class2;
                 while !class1.is_null() {
@@ -83,24 +96,25 @@ impl SemanticType {
     }
 
     pub fn is_error(&self) -> bool {
-        match self {
-            SemanticType::Error => true,
-            _ => false,
-        }
+        self == &ERROR
     }
 
     pub fn is_void(&self) -> bool {
-        if let SemanticType::Basic(name) = self {
-            return name == &"void";
+        self == &VOID
+    }
+
+    pub fn is_object(&self) -> bool {
+        match self {
+            SemanticType::Object(_) => true,
+            _ => false,
         }
-        false
     }
 
     pub fn print_ast(&self, printer: &mut IndentPrinter) {
         match self {
             SemanticType::Var => printer.print("var"),
             SemanticType::Basic(name) => printer.print(&(name.to_string() + "type")),
-            SemanticType::Class(name, _) => {
+            SemanticType::Object(name, _) => {
                 printer.print("classtype");
                 printer.print(name);
             }
@@ -119,7 +133,7 @@ impl PartialEq for SemanticType {
         match (self, other) {
             (SemanticType::Error, SemanticType::Error) => true,
             (SemanticType::Basic(name1), SemanticType::Basic(name2)) => name1 == name2,
-            (SemanticType::Class(name1, _), SemanticType::Class(name2, _)) => name1 == name2,
+            (SemanticType::Object(_, class1), SemanticType::Object(_, class2)) => class1 == class2,
             (SemanticType::Array(elem1), SemanticType::Array(elem2)) => elem1 == elem2,
             _ => false,
         }

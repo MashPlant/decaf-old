@@ -51,7 +51,7 @@ impl SymbolBuilder {
 
     fn visit_semantic_type(&mut self, type_: &mut SemanticType, loc: Loc) {
         if match type_ { // work around with borrow check
-            SemanticType::Class(name, ref mut class) =>
+            SemanticType::Object(name, ref mut class) =>
                 if let Some(class_symbol) = self.scopes.lookup_class(name) {
                     *class = class_symbol.as_class();
                     false
@@ -210,7 +210,7 @@ impl Visitor for SymbolBuilder {
             method_def.parameters.insert(0, VarDef {
                 loc: method_def.loc,
                 name: "this",
-                type_: Type { loc: method_def.loc, sem: SemanticType::Class(class.name, class) },
+                type_: Type { loc: method_def.loc, sem: SemanticType::Object(class.name, class) },
                 is_parameter: true,
             });
         }

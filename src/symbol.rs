@@ -173,7 +173,7 @@ impl Symbol {
     pub fn get_type(&self) -> SemanticType {
         unsafe {
             match self {
-                Symbol::Class(class) => SemanticType::Class((**class).name, *class),
+                Symbol::Class(class) => SemanticType::Object((**class).name, *class),
                 Symbol::Method(method) => SemanticType::Method(*method),
                 Symbol::Var(var) => (**var).type_.sem.clone(),
             }

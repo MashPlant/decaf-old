@@ -15,6 +15,7 @@ pub struct TypeChecker {
     loop_counter: i32,
     current_method: *const MethodDef,
     current_class: *const ClassDef,
+    current_id_used_for_ref: bool,
 }
 
 impl TypeChecker {
@@ -156,91 +157,129 @@ impl Visitor for TypeChecker {
         }
     }
 
-    fn visit_identifier(&mut self, identifier: &mut Identifier) {
+    fn visit_identifier(&mut self, id: &mut Identifier) {
+        // not found(no owner) or sole ClassName => UndeclaredVar
+        // refer to field in static function => RefInStatic
+        // <not object>.a (Main.a, 1.a, func.a) => BadFieldAssess
+        // access a field that doesn't belong to self & parent => PrivateFieldAccess
+        // given owner but not found object.a => NoSuchField
+
+        // actually a ClassName in the looking-up process is bound to occur an error
+        // wither UndeclaredVar or BadFieldAssess
+
         unsafe {
-            match &mut identifier.owner {
+            let owner_ptr = &mut id.owner as *mut _; // work with borrow check
+            match &mut id.owner {
                 Some(owner) => {
-//                    if let Expr::Identifier(owner) = owner {
-//
-//                    }
-                }
-                None => {
-                    match self.scopes.lookup_before(identifier.name, identifier.loc) {
-                        Some(symbol) => {
-                            match symbol {
-                                Symbol::Class(class) => {
-                                    identifier.type_ = SemanticType::Class((*class).name, class);
-                                    if identifier.use_for_ref {
-                                        identifier.is_class = true
-                                    } else {
-                                        // e.g. x = ClassName
-                                        issue!(self, identifier.loc, UndeclaredVar { name: identifier.name });
-                                        identifier.type_ = ERROR;
+                    self.current_id_used_for_ref = true;
+                    self.visit_expr(owner);
+                    let owner_type = owner.get_type();
+                    match owner_type {
+                        SemanticType::Object(_, class) => {
+                            let class = &**class;
+                            match class.lookup(id.name) {
+                                Some(symbol) => {
+                                    match symbol {
+                                        Symbol::Var(var) => {
+//                                            if   self.current_class
+                                        }
+                                        _ => id.type_ = symbol.get_type();
                                     }
                                 }
-                                Symbol::Method(method) => identifier.type_ = SemanticType::Method(method),
-                                Symbol::Var(var) => {
-                                    identifier.type_ = var.type_.sem.clone();
-                                    if (*self.current_method).static_ {
-                                        issue!(self, identifier.loc, RefInStatic {
-                                            field: identifier.name,
-                                            method: (*self.current_method).name
-                                        });
-                                    } else {
-                                        // add a virtual `this`, it doesn't need visit
-                                        identifier.owner = Some(Box::new(Expr::This(This {
-                                            loc: identifier.loc,
-                                            type_: SemanticType::Class((*self.current_class).name, self.current_class),
-                                        })));
-                                    }
+                                None => {
+                                    issue!(self, id.loc, NoSuchField { name: id.name, owner_type: owner_type.to_string() });
+                                    id.type_ = ERROR;
                                 }
                             }
                         }
-                        None => {
-                            issue!(self, identifier.loc, UndeclaredVar { name: identifier.name });
-                            identifier.type_ = ERROR;
+                        SemanticType::Error => id.type_ = ERROR,
+                        _ => {
+                            issue!(self, id.loc, BadFieldAccess{name: id.name, owner_type: owner_type.to_string() });
+                            id.type_ = ERROR;
                         }
                     }
                 }
-            }
-        }
-        /*
-            ident.owner.usedForRef = true;
-            ident.owner.accept(this);
-            if (!ident.owner.type.equal(BaseType.ERROR)) {
-                if (ident.owner.isClass || !ident.owner.type.isClassType()) {
-                    issueError(new NotClassFieldError(ident.getLocation(),
-                            ident.name, ident.owner.type.toString()));
-                    ident.type = BaseType.ERROR;
-                } else {
-                    ClassScope cs = ((ClassType) ident.owner.type)
-                            .getClassScope();
-                    Symbol v = cs.lookupVisible(ident.name);
-                    if (v == null) {
-                        issueError(new FieldNotFoundError(ident.getLocation(),
-                                ident.name, ident.owner.type.toString()));
-                        ident.type = BaseType.ERROR;
-                    } else if (v.isVariable()) {
-                        ClassType thisType = ((ClassScope) table
-                                .lookForScope(Scope.Kind.CLASS)).getOwner()
-                                .getType();
-                        ident.type = v.getType();
-                        if (!thisType.compatible(ident.owner.type)) {
-                            issueError(new FieldNotAccessError(ident
-                                    .getLocation(), ident.name,
-                                    ident.owner.type.toString()));
-                        } else {
-                            ident.symbol = (Variable) v;
-                            ident.lvKind = Tree.LValue.Kind.MEMBER_VAR;
+
+                None => {
+                    match self.scopes.lookup_before(id.name, id.loc) {
+                        Symbol::Class(class) => {
+                            if !self.current_id_used_for_ref {
+                                issue!(self, id.loc, UndeclaredVar { name: id.name });
+                                id.type_ = ERROR;
+                            } else { id.type_ = SemanticType::Object((*class).name, class); }
                         }
-                    } else {
-                        ident.type = v.getType();
+                        Symbol::Method(method) => id.type_ = SemanticType::Method(method),
+                        Symbol::Var(var) => {
+                            id.type_ = (*var).type_.sem.clone();
+                            if (*self.current_method).static_ {
+                                issue!(self, id.loc, RefInStatic {
+                                    field: id.name,
+                                    method: (*self.current_method).name
+                                });
+                            } else {
+                                // add a virtual `this`, it doesn't need visit
+                                *owner_ptr = Some(Box::new(Expr::This(This {
+                                    loc: id.loc,
+                                    type_: SemanticType::Object((*self.current_class).name, self.current_class),
+                                })));
+                            }
+                        }
                     }
+                    self.current_id_used_for_ref = false;
                 }
-            } else {
-                ident.type = BaseType.ERROR;
             }
         }
-        */
+
+//        unsafe {
+//            /
+//            // use owner_ptr to assign a virtual `this` to owner
+//            let owner_ptr = &mut id.owner as *mut _;
+//            match &mut id.owner {
+//                Some(owner) => {
+//
+////                    if let Expr::Identifier(owner) = owner {
+////
+////                    }
+//                }
+//                None => {
+//                    match self.scopes.lookup_before(id.name, id.loc) {
+//                        Some(symbol) => {
+//                            match symbol {
+//                                Symbol::Class(class) => {
+//                                    id.type_ = SemanticType::Class((*class).name, class);
+//                                    if id.use_for_ref {
+//                                        id.is_class = true
+//                                    } else {
+//                                        // e.g. x = ClassName
+//                                        issue!(self, id.loc, UndeclaredVar { name: id.name });
+//                                        id.type_ = ERROR;
+//                                    }
+//                                }
+//                                Symbol::Method(method) => id.type_ = SemanticType::Method(method),
+//                                Symbol::Var(var) => {
+//                                    id.type_ = (*var).type_.sem.clone();
+//                                    if (*self.current_method).static_ {
+//                                        issue!(self, id.loc, RefInStatic {
+//                                            field: id.name,
+//                                            method: (*self.current_method).name
+//                                        });
+//                                    } else {
+//                                        // add a virtual `this`, it doesn't need visit
+//                                        *owner_ptr = Some(Box::new(Expr::This(This {
+//                                            loc: id.loc,
+//                                            type_: SemanticType::Class((*self.current_class).name, self.current_class),
+//                                        })));
+//                                    }
+//                                }
+//                            }
+//                        }
+//                        None => {
+//                            issue!(self, id.loc, UndeclaredVar { name: id.name });
+//                            id.type_ = ERROR;
+//                        }
+//                    }
+//                }
+//            }
+//        }
     }
 }

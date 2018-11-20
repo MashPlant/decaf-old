@@ -578,7 +578,7 @@ ExprList
 
 Simple
     : LValue '=' Expr {
-        |$1: LValue, $2: Token, $3: Expr| -> Simple;
+        |$1: Expr, $2: Token, $3: Expr| -> Simple;
         $$ = Simple::Assign(Assign {
             loc: $2.get_loc(),
             dst: $1,
@@ -605,8 +605,8 @@ Simple
 
 Expr
     : LValue {
-        |$1: LValue| -> Expr;
-        $$ = Expr::LValue($1);
+        |$1: Expr| -> Expr;
+        $$ = $1;
     }
     | Call {
         |$1: Expr| -> Expr;
@@ -780,8 +780,8 @@ Expr
 
 LValue
     : MaybeReceiver IDENTIFIER {
-        |$1: Option<Expr>, $2: Token| -> LValue;
-        $$ = LValue::Identifier(Identifier {
+        |$1: Option<Expr>, $2: Token| -> Expr;
+        $$ = Expr::Identifier(Identifier {
             loc: $2.get_loc(),
             owner: match $1 {
                 Some(expr) => Some(Box::new(expr)),
@@ -793,8 +793,8 @@ LValue
         });
     }
     | Expr '[' Expr ']' {
-        |$1: Expr, $3: Expr| -> LValue;
-        $$ = LValue::Indexed(Indexed {
+        |$1: Expr, $3: Expr| -> Expr;
+        $$ = Expr::Indexed(Indexed {
             loc: $1.get_loc(),
             array: Box::new($1),
             index: Box::new($3),

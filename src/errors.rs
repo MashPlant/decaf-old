@@ -213,13 +213,35 @@ impl IError for RefInStatic {
     }
 }
 
-pub struct AccessField {
+pub struct BadFieldAccess {
+    pub name: &'static str,
+    pub owner_type: String,
+}
+
+impl IError for BadFieldAccess {
+    fn get_msg(&self) -> String {
+        format!("cannot access field '{}' from '{}'", self.name, self.owner_type)
+    }
+}
+
+pub struct PrivateFieldAccess {
     pub name: &'static str,
     pub owner: &'static str,
 }
 
-impl IError for AccessField {
+impl IError for PrivateFieldAccess {
     fn get_msg(&self) -> String {
-        format!("cannot access field '{}' from '{}'", self.name, self.owner)
+        format!("field '{}' of '{}' not accessible here", self.name, self.owner)
+    }
+}
+
+pub struct NoSuchField {
+    pub name: &'static str,
+    pub owner_type: String,
+}
+
+impl IError for NoSuchField {
+    fn get_msg(&self) -> String {
+        format!("field '{}' not found in '{}'", self.name, self.owner_type)
     }
 }

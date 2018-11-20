@@ -28,9 +28,8 @@ enum SV {
     _17(Option<Expr>),
     _18(GuardedList),
     _19(ExprList),
-    _20(LValue),
-    _21(Const),
-    _22(ConstList),
+    _20(Const),
+    _21(ConstList),
 }
 
 // Lex rules.
@@ -2263,7 +2262,7 @@ impl Parser {
 // Semantic values prologue.
         let mut _3 = pop!(self.values_stack, _15);
         let mut _2 = pop!(self.values_stack, _0);
-        let mut _1 = pop!(self.values_stack, _20);
+        let mut _1 = pop!(self.values_stack, _15);
 
         let _0 = Simple::Assign(Assign {
             loc: _2.get_loc(),
@@ -2306,9 +2305,9 @@ impl Parser {
 
     fn _handler59(&mut self) -> SV {
 // Semantic values prologue.
-        let mut _1 = pop!(self.values_stack, _20);
+        let mut _1 = pop!(self.values_stack, _15);
 
-        let _0 = Expr::LValue(_1);
+        let _0 = _1;
         SV::_15(_0)
     }
 
@@ -2322,7 +2321,7 @@ impl Parser {
 
     fn _handler61(&mut self) -> SV {
 // Semantic values prologue.
-        let mut _1 = pop!(self.values_stack, _21);
+        let mut _1 = pop!(self.values_stack, _20);
 
         let _0 = Expr::Const(_1);
         SV::_15(_0)
@@ -2687,7 +2686,7 @@ impl Parser {
         let mut _2 = pop!(self.values_stack, _0);
         let mut _1 = pop!(self.values_stack, _17);
 
-        let _0 = LValue::Identifier(Identifier {
+        let _0 = Expr::Identifier(Identifier {
             loc: _2.get_loc(),
             owner: match _1 {
                 Some(expr) => Some(Box::new(expr)),
@@ -2697,7 +2696,7 @@ impl Parser {
             type_: D::default(),
             ..D::default()
         });
-        SV::_20(_0)
+        SV::_15(_0)
     }
 
     fn _handler92(&mut self) -> SV {
@@ -2707,13 +2706,13 @@ impl Parser {
         self.values_stack.pop();
         let mut _1 = pop!(self.values_stack, _15);
 
-        let _0 = LValue::Indexed(Indexed {
+        let _0 = Expr::Indexed(Indexed {
             loc: _1.get_loc(),
             array: Box::new(_1),
             index: Box::new(_3),
             type_: D::default(),
         });
-        SV::_20(_0)
+        SV::_15(_0)
     }
 
     fn _handler93(&mut self) -> SV {
@@ -2765,7 +2764,7 @@ impl Parser {
                 0
             }),
         });
-        SV::_21(_0)
+        SV::_20(_0)
     }
 
     fn _handler97(&mut self) -> SV {
@@ -2776,7 +2775,7 @@ impl Parser {
             loc: _1.get_loc(),
             value: true,
         });
-        SV::_21(_0)
+        SV::_20(_0)
     }
 
     fn _handler98(&mut self) -> SV {
@@ -2787,7 +2786,7 @@ impl Parser {
             loc: _1.get_loc(),
             value: false,
         });
-        SV::_21(_0)
+        SV::_20(_0)
     }
 
     fn _handler99(&mut self) -> SV {
@@ -2798,19 +2797,19 @@ impl Parser {
             loc: Loc(self.tokenizer.string_builder.1, self.tokenizer.string_builder.2),
             value: self.tokenizer.string_builder.0.clone(),
         });
-        SV::_21(_0)
+        SV::_20(_0)
     }
 
     fn _handler100(&mut self) -> SV {
 // Semantic values prologue.
-        let mut _1 = pop!(self.values_stack, _22);
+        let mut _1 = pop!(self.values_stack, _21);
 
         let _0 = Const::ArrayConst(ArrayConst {
             loc: self.get_loc(),
             value: _1,
             type_: D::default(),
         });
-        SV::_21(_0)
+        SV::_20(_0)
     }
 
     fn _handler101(&mut self) -> SV {
@@ -2818,17 +2817,17 @@ impl Parser {
         let mut _1 = pop!(self.values_stack, _0);
 
         let _0 = Const::Null(Null { loc: _1.get_loc() });
-        SV::_21(_0)
+        SV::_20(_0)
     }
 
     fn _handler102(&mut self) -> SV {
 // Semantic values prologue.
         self.values_stack.pop();
-        let mut _2 = pop!(self.values_stack, _22);
+        let mut _2 = pop!(self.values_stack, _21);
         self.values_stack.pop();
 
         let _0 = _2;
-        SV::_22(_0)
+        SV::_21(_0)
     }
 
     fn _handler103(&mut self) -> SV {
@@ -2837,26 +2836,26 @@ impl Parser {
         self.values_stack.pop();
 
         let _0 = Vec::new();
-        SV::_22(_0)
+        SV::_21(_0)
     }
 
     fn _handler104(&mut self) -> SV {
 // Semantic values prologue.
-        let mut _3 = pop!(self.values_stack, _21);
+        let mut _3 = pop!(self.values_stack, _20);
         self.values_stack.pop();
-        let mut _1 = pop!(self.values_stack, _22);
+        let mut _1 = pop!(self.values_stack, _21);
 
         _1.push(_3);
         let _0 = _1;
-        SV::_22(_0)
+        SV::_21(_0)
     }
 
     fn _handler105(&mut self) -> SV {
 // Semantic values prologue.
-        let mut _1 = pop!(self.values_stack, _21);
+        let mut _1 = pop!(self.values_stack, _20);
 
         let _0 = vec![_1];
-        SV::_22(_0)
+        SV::_21(_0)
     }
 
     fn _handler106(&mut self) -> SV {
@@ -2926,7 +2925,7 @@ impl Parser {
         let mut _2 = pop!(self.values_stack, _0);
         let mut _1 = pop!(self.values_stack, _0);
 
-        let _0 = Type { loc: _2.get_loc(), sem: SemanticType::Class(_2.value, ptr::null()) };
+        let _0 = Type { loc: _2.get_loc(), sem: SemanticType::Object(_2.value, ptr::null()) };
         SV::_9(_0)
     }
 

@@ -105,6 +105,18 @@ impl ClassDef {
         }
         printer.dec_indent();
     }
+
+    pub fn lookup(&self, name: &'static str) -> Option<Symbol> {
+        unsafe {
+            let mut class = self as *const ClassDef;
+            while !class.is_null() {
+                if let Some(symbol) = (*class).scope.get(name) {
+                    return Some(*symbol);
+                }
+            }
+            None
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -468,7 +480,7 @@ impl Guarded {
 #[derive(Debug)]
 pub struct Assign {
     pub loc: Loc,
-    pub dst: LValue,
+    pub dst: Expr,
     pub src: Expr,
 }
 
@@ -541,7 +553,8 @@ impl Operator {
 
 #[derive(Debug)]
 pub enum Expr {
-    LValue(LValue),
+    Identifier(Identifier),
+    Indexed(Indexed),
     Const(Const),
     Call(Call),
     Unary(Unary),
@@ -562,7 +575,8 @@ impl Expr {
     pub fn print_ast(&self, printer: &mut IndentPrinter) {
         use self::Expr::*;
         match &self {
-            LValue(lvalue) => lvalue.print_ast(printer),
+            Identifier(identifier) => identifier.print_ast(printer),
+            Indexed(indexed) => indexed.print_ast(printer),
             Const(const_) => const_.print_ast(printer),
             Call(call) => call.print_ast(printer),
             Unary(unary) => unary.print_ast(printer),
@@ -583,7 +597,8 @@ impl Expr {
     pub fn get_loc(&self) -> Loc {
         use self::Expr::*;
         match &self {
-            LValue(lvalue) => lvalue.get_loc(),
+            Identifier(identifier) => identifier.loc,
+            Indexed(indexed) => indexed.loc,
             Const(const_) => const_.get_loc(),
             Call(call) => call.loc,
             Unary(unary) => unary.loc,
@@ -604,7 +619,8 @@ impl Expr {
     pub fn get_type(&self) -> &SemanticType {
         use self::Expr::*;
         match &self {
-            LValue(lvalue) => lvalue.get_type(),
+            Identifier(identifier) => &identifier.type_,
+            Indexed(indexed) => &indexed.type_,
             Const(const_) => const_.get_type(),
             Call(call) => &call.type_,
             Unary(unary) => &unary.type_,
@@ -619,35 +635,6 @@ impl Expr {
             Range(range) => &range.type_,
             Default(default) => &default.type_,
             Comprehension(comprehension) => &comprehension.type_,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum LValue {
-    Indexed(Indexed),
-    Identifier(Identifier),
-}
-
-impl LValue {
-    pub fn print_ast(&self, printer: &mut IndentPrinter) {
-        match self {
-            LValue::Indexed(indexed) => indexed.print_ast(printer),
-            LValue::Identifier(identifier) => identifier.print_ast(printer),
-        }
-    }
-
-    pub fn get_loc(&self) -> Loc {
-        match self {
-            LValue::Indexed(indexed) => indexed.loc,
-            LValue::Identifier(identifier) => identifier.loc,
-        }
-    }
-
-    pub fn get_type(&self) -> &SemanticType {
-        match self {
-            LValue::Indexed(indexed) => &indexed.type_,
-            LValue::Identifier(identifier) => &identifier.type_,
         }
     }
 }
@@ -1131,7 +1118,8 @@ pub trait Visitor {
     fn visit_expr(&mut self, expr: &mut Expr) {
         use self::Expr::*;
         match expr {
-            LValue(lvalue) => self.visit_lvalue(lvalue),
+            Identifier(identifier) => self.visit_identifier(identifier),
+            Indexed(indexed) => self.visit_indexed(indexed),
             Const(const_) => self.visit_const(const_),
             Call(call) => self.visit_call(call),
             Unary(unary) => self.visit_unary(unary),
@@ -1147,13 +1135,6 @@ pub trait Visitor {
             Default(default) => self.visit_default(default),
             Comprehension(comprehension) => self.visit_comprehension(comprehension),
         };
-    }
-
-    fn visit_lvalue(&mut self, lvalue: &mut LValue) {
-        match lvalue {
-            LValue::Identifier(identifier) => self.visit_identifier(identifier),
-            LValue::Indexed(indexed) => self.visit_indexed(indexed),
-        }
     }
 
     fn visit_const(&mut self, _const_: &mut Const) {}
