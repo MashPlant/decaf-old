@@ -1,2 +1,2 @@
-thread 'main' panicked at 'not yet implemented', src/symbol_builder.rs:263:9
+thread 'main' panicked at 'not yet implemented', src/symbol_builder.rs:264:9
 note: Run with `RUST_BACKTRACE=1` for a backtrace.

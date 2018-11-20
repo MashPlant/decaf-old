@@ -571,6 +571,7 @@ use std::mem;
 use std::ptr;
 
 use super::ast::*;
+use super::types::*;
 use super::loc::*;
 use super::errors::*;
 use super::util;
@@ -2103,9 +2104,12 @@ impl Parser {
         let mut _1 = pop!(self.values_stack, _0);
 
         let _0 = Statement::Foreach(Foreach {
-            loc: _1.get_loc(),
-            type_: _3,
-            name: _4.value,
+            var_def: VarDef {
+                loc: _1.get_loc(),
+                type_: _3,
+                name: _4.value,
+                is_parameter: false,
+            },
             array: _6,
             cond: _7,
             body: Box::new(_9),
@@ -2117,7 +2121,7 @@ impl Parser {
 // Semantic values prologue.
         let mut _1 = pop!(self.values_stack, _0);
 
-        let _0 = Type { loc: _1.get_loc(), data: TypeData::Var };
+        let _0 = Type { loc: _1.get_loc(), sem: VAR };
         SV::_9(_0)
     }
 
@@ -2608,7 +2612,7 @@ impl Parser {
 // Semantic values prologue.
         let mut _1 = pop!(self.values_stack, _0);
 
-        let _0 = Expr::This(This { loc: _1.get_loc(), type_: D::default(), });
+        let _0 = Expr::This(This { loc: _1.get_loc(), type_: D::default() });
         SV::_15(_0)
     }
 
@@ -2888,7 +2892,7 @@ impl Parser {
 // Semantic values prologue.
         let mut _1 = pop!(self.values_stack, _0);
 
-        let _0 = Type { loc: _1.get_loc(), data: TypeData::Basic("int") };
+        let _0 = Type { loc: _1.get_loc(), sem: INT };
         SV::_9(_0)
     }
 
@@ -2896,7 +2900,7 @@ impl Parser {
 // Semantic values prologue.
         let mut _1 = pop!(self.values_stack, _0);
 
-        let _0 = Type { loc: _1.get_loc(), data: TypeData::Basic("void") };
+        let _0 = Type { loc: _1.get_loc(), sem: VOID };
         SV::_9(_0)
     }
 
@@ -2904,7 +2908,7 @@ impl Parser {
 // Semantic values prologue.
         let mut _1 = pop!(self.values_stack, _0);
 
-        let _0 = Type { loc: _1.get_loc(), data: TypeData::Basic("bool") };
+        let _0 = Type { loc: _1.get_loc(), sem: BOOL };
         SV::_9(_0)
     }
 
@@ -2912,7 +2916,7 @@ impl Parser {
 // Semantic values prologue.
         let mut _1 = pop!(self.values_stack, _0);
 
-        let _0 = Type { loc: _1.get_loc(), data: TypeData::Basic("string") };
+        let _0 = Type { loc: _1.get_loc(), sem: STRING };
         SV::_9(_0)
     }
 
@@ -2921,7 +2925,7 @@ impl Parser {
         let mut _2 = pop!(self.values_stack, _0);
         let mut _1 = pop!(self.values_stack, _0);
 
-        let _0 = Type { loc: _2.get_loc(), data: TypeData::Class(_2.value, ptr::null()) };
+        let _0 = Type { loc: _2.get_loc(), sem: SemanticType::Class(_2.value, ptr::null()) };
         SV::_9(_0)
     }
 
@@ -2931,7 +2935,7 @@ impl Parser {
         self.values_stack.pop();
         let mut _1 = pop!(self.values_stack, _9);
 
-        let _0 = Type { loc: _1.loc, data: TypeData::Array(Box::new(_1)) };
+        let _0 = Type { loc: _1.loc, sem: SemanticType::Array(Box::new(_1)) };
         SV::_9(_0)
     }
 }

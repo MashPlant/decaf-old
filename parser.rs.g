@@ -127,6 +127,7 @@ use std::mem;
 use std::ptr;
 
 use super::ast::*;
+use super::types::*;
 use super::loc::*;
 use super::errors::*;
 use super::util;
@@ -467,9 +468,12 @@ Foreach
     : FOREACH '(' TypeOrVar IDENTIFIER IN Expr MaybeForeachCond ')' Statement {
         |$1: Token, $3: Type, $4: Token, $6: Expr, $7: Option<Expr>, $9: Statement| -> Statement;
         $$ = Statement::Foreach(Foreach {
-            loc: $1.get_loc(),
-            type_: $3,
-            name: $4.value,
+            var_def: VarDef {
+                loc: $1.get_loc(),
+                type_: $3,
+                name: $4.value,
+                is_parameter: false,
+            },
             array: $6,
             cond: $7,
             body: Box::new($9),
@@ -480,7 +484,7 @@ Foreach
 TypeOrVar
     : VAR {
         |$1: Token| -> Type;
-        $$ = Type::Var;
+        $$ = Type { loc: $1.get_loc(), sem: VAR };
     }
     | Type {
         |$1: Type| -> Type;
@@ -922,26 +926,26 @@ VarDef
 Type
     : INT {
         |$1: Token| -> Type;
-        $$ = INT;
+        $$ = Type { loc: $1.get_loc(), sem: INT };
     }
     | VOID {
         |$1: Token| -> Type;
-        $$ = VOID;
+        $$ = Type { loc: $1.get_loc(), sem: VOID };
     }
     | BOOL {
         |$1: Token| -> Type;
-        $$ = BOOL;
+        $$ = Type { loc: $1.get_loc(), sem: BOOL };
     }
     | STRING {
         |$1: Token| -> Type;
-        $$ = STRING;
+        $$ = Type { loc: $1.get_loc(), sem: STRING };
     }
     | CLASS IDENTIFIER  {
         |$1: Token, $2: Token| -> Type;
-        $$ = Type::Class($2.value, ptr::null());
+        $$ = Type { loc: $2.get_loc(), sem: SemanticType::Class($2.value, ptr::null()) };
     }
     | Type '[' ']' {
         |$1: Type| -> Type;
-        $$ = Type::Array(Box::new($1));
+        $$ = Type { loc: $1.loc, sem: SemanticType::Array(Box::new($1)) };
     }
     ;

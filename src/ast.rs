@@ -5,7 +5,6 @@ use super::types::*;
 use std::default::Default as D;
 use std::ptr;
 use std::ops::Deref;
-use std::cmp::{PartialEq, Eq};
 use std::string::ToString;
 
 #[derive(Debug)]
@@ -19,7 +18,7 @@ impl D for Program {
     fn default() -> Self {
         Program {
             classes: D::default(),
-            scope: D::default(),
+            scope: Scope { symbols: D::default(), kind: ScopeKind::Global },
             main: ptr::null(),
         }
     }
@@ -206,7 +205,7 @@ impl Deref for Type {
 
 impl Type {
     pub fn print_ast(&self, printer: &mut IndentPrinter) {
-        match self.sem {
+        match &self.sem {
             SemanticType::Var => printer.print("var"),
             SemanticType::Basic(name) => printer.print(&(name.to_string() + "type")),
             SemanticType::Class(name, _) => {
@@ -277,7 +276,7 @@ impl Simple {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Block {
     // syntax part
     pub loc: Loc,
@@ -436,9 +435,7 @@ impl ObjectCopy {
 
 #[derive(Debug)]
 pub struct Foreach {
-    pub loc: Loc,
-    pub type_: Type,
-    pub name: &'static str,
+    pub var_def: VarDef,
     pub array: Expr,
     pub cond: Option<Expr>,
     pub body: Box<Statement>,
@@ -449,8 +446,8 @@ impl Foreach {
         printer.println("foreach");
         printer.inc_indent();
         printer.print("varbind");
-        printer.print(self.name);
-        self.type_.print_ast(printer);
+        printer.print(self.var_def.name);
+        self.var_def.type_.print_ast(printer);
         printer.newline();
         self.array.print_ast(printer);
         match &self.cond {
@@ -616,7 +613,7 @@ impl Expr {
         }
     }
 
-    pub fn get_type(&self) -> &Type {
+    pub fn get_type(&self) -> &SemanticType {
         use self::Expr::*;
         match &self {
             LValue(lvalue) => lvalue.get_type(),
@@ -625,11 +622,11 @@ impl Expr {
             Unary(unary) => &unary.type_,
             Binary(binary) => &binary.type_,
             This(this) => &this.type_,
-            ReadInt(read_int) => &INT,
-            ReadLine(read_line) => &STRING,
+            ReadInt(_) => &INT,
+            ReadLine(_) => &STRING,
             NewClass(new_class) => &new_class.type_,
             NewArray(new_array) => &new_array.type_,
-            TypeTest(type_test) => &BOOL,
+            TypeTest(_) => &BOOL,
             TypeCast(type_cast) => &type_cast.type_,
             Range(range) => &range.type_,
             Default(default) => &default.type_,
@@ -659,7 +656,7 @@ impl LValue {
         }
     }
 
-    pub fn get_type(&self) -> &Type {
+    pub fn get_type(&self) -> &SemanticType {
         match self {
             LValue::Indexed(indexed) => &indexed.type_,
             LValue::Identifier(identifier) => &identifier.type_,
@@ -672,7 +669,7 @@ pub struct Indexed {
     pub loc: Loc,
     pub array: Box<Expr>,
     pub index: Box<Expr>,
-    pub type_: Type,
+    pub type_: SemanticType,
 }
 
 impl Indexed {
@@ -690,7 +687,7 @@ pub struct Identifier {
     pub loc: Loc,
     pub owner: Option<Box<Expr>>,
     pub name: &'static str,
-    pub type_: Type,
+    pub type_: SemanticType,
 }
 
 impl Identifier {
@@ -740,11 +737,11 @@ impl Const {
     pub fn get_type(&self) -> &SemanticType {
         use self::Const::*;
         match self {
-            IntConst(int_const) => &INT,
-            BoolConst(bool_const) => &BOOL,
-            StringConst(string_const) => &STRING,
+            IntConst(_) => &INT,
+            BoolConst(_) => &BOOL,
+            StringConst(_) => &STRING,
             ArrayConst(array_const) => &array_const.type_,
-            Null(null) => &NULL,
+            Null(_) => &NULL,
         }
     }
 }
@@ -825,7 +822,7 @@ pub struct Call {
     pub receiver: Option<Box<Expr>>,
     pub name: &'static str,
     pub arguments: Vec<Expr>,
-    pub type_: Type,
+    pub type_: SemanticType,
 }
 
 impl Call {
@@ -847,7 +844,7 @@ pub struct Unary {
     pub loc: Loc,
     pub opt: Operator,
     pub opr: Box<Expr>,
-    pub type_: Type,
+    pub type_: SemanticType,
 }
 
 impl Unary {
@@ -871,7 +868,7 @@ pub struct Binary {
     pub opt: Operator,
     pub left: Box<Expr>,
     pub right: Box<Expr>,
-    pub type_: Type,
+    pub type_: SemanticType,
 }
 
 impl Binary {
@@ -906,7 +903,7 @@ impl Binary {
 #[derive(Debug)]
 pub struct This {
     pub loc: Loc,
-    pub type_: Type,
+    pub type_: SemanticType,
 }
 
 impl This {
@@ -941,7 +938,7 @@ impl ReadLine {
 pub struct NewClass {
     pub loc: Loc,
     pub name: &'static str,
-    pub type_: Type,
+    pub type_: SemanticType,
 }
 
 impl NewClass {
@@ -956,13 +953,13 @@ pub struct NewArray {
     pub loc: Loc,
     pub elem_type: Type,
     pub len: Box<Expr>,
-    pub type_: Type,
+    pub type_: SemanticType,
 }
 
 impl NewArray {
     pub fn print_ast(&self, printer: &mut IndentPrinter) {
         printer.print("newarray");
-        self.type_.print_ast(printer);
+        self.elem_type.print_ast(printer);
         printer.newline();
         printer.inc_indent();
         self.len.print_ast(printer);
@@ -992,7 +989,7 @@ pub struct TypeCast {
     pub loc: Loc,
     pub name: &'static str,
     pub expr: Box<Expr>,
-    pub type_: Type,
+    pub type_: SemanticType,
 }
 
 impl TypeCast {
@@ -1011,7 +1008,7 @@ pub struct Range {
     pub array: Box<Expr>,
     pub lower: Box<Expr>,
     pub upper: Box<Expr>,
-    pub type_: Type,
+    pub type_: SemanticType,
 }
 
 impl Range {
@@ -1034,7 +1031,7 @@ pub struct Default {
     pub array: Box<Expr>,
     pub index: Box<Expr>,
     pub default: Box<Expr>,
-    pub type_: Type,
+    pub type_: SemanticType,
 }
 
 impl Default {
@@ -1058,7 +1055,7 @@ pub struct Comprehension {
     pub name: &'static str,
     pub array: Box<Expr>,
     pub cond: Option<Box<Expr>>,
-    pub type_: Type,
+    pub type_: SemanticType,
 }
 
 impl Comprehension {

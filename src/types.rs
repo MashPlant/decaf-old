@@ -60,7 +60,7 @@ impl SemanticType {
                 }
                 false
             }
-            (SemanticType::Array(elem1), SemanticType::Array(elem2)) => elem1 == elem2,
+            (SemanticType::Array(elem1), SemanticType::Array(elem2)) => elem1.sem == elem2.sem,
             _ => false,
         }
     }
@@ -87,7 +87,7 @@ impl PartialEq for SemanticType {
             (SemanticType::Error, SemanticType::Error) => true,
             (SemanticType::Basic(name1), SemanticType::Basic(name2)) => name1 == name2,
             (SemanticType::Class(name1, _), SemanticType::Class(name2, _)) => name1 == name2,
-            (SemanticType::Array(elem1), SemanticType::Array(elem2)) => elem1 == elem2,
+            (SemanticType::Array(elem1), SemanticType::Array(elem2)) => elem1.sem == elem2.sem,
             _ => false,
         }
     }
