@@ -2,6 +2,7 @@ use super::ast::*;
 use super::types::*;
 use super::errors::*;
 use super::symbol::*;
+use std::ptr;
 
 macro_rules! issue {
     ($rec:expr, $loc: expr, $err: expr) => {
@@ -19,6 +20,30 @@ pub struct TypeChecker {
 }
 
 impl TypeChecker {
+    pub fn new() -> TypeChecker {
+        TypeChecker {
+            errors: Vec::new(),
+            scopes: ScopeStack {
+                global_scope: ptr::null_mut(),
+                scopes: Vec::new(),
+            },
+            loop_counter: 0,
+            current_method: ptr::null(),
+            current_class: ptr::null(),
+            current_id_used_for_ref: false,
+        }
+    }
+
+    pub fn check(mut self, mut program: Program) -> Result<Program, Vec<Error>> {
+        self.visit_program(&mut program);
+        if self.errors.is_empty() {
+            Ok(program)
+        } else {
+            self.errors.sort_by_key(|x| x.loc);
+            Err(self.errors)
+        }
+    }
+
     fn check_bool(&mut self, expr: &mut Expr) {
         self.visit_expr(expr);
         let t = expr.get_type();

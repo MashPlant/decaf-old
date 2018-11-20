@@ -15,6 +15,7 @@ pub mod symbol;
 pub mod type_checker;
 
 use symbol_builder::SymbolBuilder;
+use type_checker::TypeChecker;
 use ast::Program;
 use errors::Error;
 
@@ -37,6 +38,8 @@ fn compile(input: &'static str) -> Result<Program, Vec<Error>> {
     let program = parser.parse(input)?;
     let symbol_builder = SymbolBuilder::new();
     let program = symbol_builder.build(program)?;
+    let type_checker = TypeChecker::new();
+    let program = type_checker.check(program)?;
     Ok(program)
 }
 
