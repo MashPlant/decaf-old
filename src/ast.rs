@@ -1087,6 +1087,13 @@ pub trait Visitor {
 
     fn visit_method_def(&mut self, _method_def: &mut MethodDef) {}
 
+    fn visit_field_def(&mut self, field_def: &mut FieldDef) {
+        match field_def {
+            FieldDef::MethodDef(method_def) => self.visit_method_def(method_def),
+            FieldDef::VarDef(var_def) => self.visit_var_def(var_def),
+        };
+    }
+
     fn visit_statement(&mut self, statement: &mut Statement) {
         use self::Statement::*;
         match statement {

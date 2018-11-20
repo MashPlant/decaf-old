@@ -163,3 +163,11 @@ impl IError for IncompatibleUnary {
         format!("incompatible operand: {} {}", self.opt, self.type_)
     }
 }
+
+pub struct TestNotBool;
+
+impl IError for TestNotBool {
+    fn get_msg(&self) -> String {
+        "test expression must have bool type".to_string()
+    }
+}

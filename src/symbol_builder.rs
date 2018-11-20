@@ -52,9 +52,7 @@ impl SymbolBuilder {
 
 impl SymbolBuilder {
     unsafe fn check_override(&mut self, class_def: &mut ClassDef) {
-        if class_def.checked || class_def.parent_ref.is_null() {
-            return;
-        }
+        if class_def.checked || class_def.parent_ref.is_null() { return; }
         let parent = &mut *class_def.parent_ref;
         self.check_override(parent);
         let self_scope = &mut class_def.scope;
@@ -106,9 +104,7 @@ impl SymbolBuilder {
     }
 
     unsafe fn check_main(&mut self, class_def: *const ClassDef) -> bool {
-        if class_def.is_null() {
-            return false;
-        }
+        if class_def.is_null() { return false; }
         let class_def = &*class_def;
         match class_def.scope.get(MAIN_METHOD) {
             Some(main) if main.is_method() => {
@@ -134,6 +130,7 @@ impl Visitor for SymbolBuilder {
                     self.scopes.declare(Symbol::Class(class_def));
                 }
             }
+
             for class_def in &mut program.classes {
                 if let Some(parent) = class_def.parent {
                     if let Some(parent_ref) = self.scopes.lookup_class(parent) {
@@ -151,32 +148,27 @@ impl Visitor for SymbolBuilder {
                     }
                 }
             }
+
             for class_def in &mut program.classes {
                 class_def.scope = Scope { symbols: D::default(), kind: ScopeKind::Class(class_def) };
             }
+
             for class_def in &mut program.classes {
                 self.visit_class_def(class_def);
                 if class_def.name == MAIN_CLASS {
                     program.main = class_def;
                 }
             }
-            for class_def in &mut program.classes {
-                self.check_override(class_def);
-            }
-            if !self.check_main(program.main) {
-                issue!(self, NO_LOC, NoMainClass);
-            }
+
+            for class_def in &mut program.classes { self.check_override(class_def); }
+
+            if !self.check_main(program.main) { issue!(self, NO_LOC, NoMainClass); }
         }
     }
 
     fn visit_class_def(&mut self, class_def: &mut ClassDef) {
         self.scopes.open(&mut class_def.scope);
-        for field_def in &mut class_def.fields {
-            match field_def {
-                FieldDef::MethodDef(method_def) => self.visit_method_def(method_def),
-                FieldDef::VarDef(var_def) => self.visit_var_def(var_def),
-            };
-        }
+        for field_def in &mut class_def.fields { self.visit_field_def(field_def) }
         self.scopes.close();
     }
 
@@ -239,9 +231,7 @@ impl Visitor for SymbolBuilder {
     fn visit_block(&mut self, block: &mut Block) {
         block.scope = Scope { symbols: D::default(), kind: ScopeKind::Local(block) };
         self.scopes.open(&mut block.scope);
-        for statement in &mut block.statements {
-            self.visit_statement(statement);
-        }
+        for statement in &mut block.statements { self.visit_statement(statement); }
         self.scopes.close();
     }
 
@@ -255,9 +245,7 @@ impl Visitor for SymbolBuilder {
 
     fn visit_if(&mut self, if_: &mut If) {
         self.visit_statement(&mut if_.on_true);
-        if let Some(on_false) = &mut if_.on_false {
-            self.visit_statement(on_false);
-        }
+        if let Some(on_false) = &mut if_.on_false { self.visit_statement(on_false); }
     }
 
     fn visit_foreach(&mut self, _foreach: &mut Foreach) {
@@ -265,9 +253,7 @@ impl Visitor for SymbolBuilder {
     }
 
     fn visit_guarded(&mut self, guarded: &mut Guarded) {
-        for (_, statement) in &mut guarded.guarded {
-            self.visit_statement(statement);
-        }
+        for (_, statement) in &mut guarded.guarded { self.visit_statement(statement); }
     }
 
     fn visit_type(&mut self, type_: &mut Type) {
@@ -291,8 +277,6 @@ impl Visitor for SymbolBuilder {
             }
             _ => {}
         }
-        if is_error {
-            type_.sem = ERROR;
-        }
+        if is_error { type_.sem = ERROR; }
     }
 }
