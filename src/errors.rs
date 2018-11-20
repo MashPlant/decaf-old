@@ -183,3 +183,43 @@ impl IError for IncompatibleBinary {
         format!("incompatible operands: {} {} {}", self.left_type, self.opt, self.right_type)
     }
 }
+
+pub struct BreakOutOfLoop;
+
+impl IError for BreakOutOfLoop {
+    fn get_msg(&self) -> String {
+        "'break' is only allowed inside a loop".to_string()
+    }
+}
+
+pub struct UndeclaredVar {
+    pub name: &'static str,
+}
+
+impl IError for UndeclaredVar {
+    fn get_msg(&self) -> String {
+        format!("undeclared variable '{}'", self.name)
+    }
+}
+
+pub struct RefInStatic {
+    pub field: &'static str,
+    pub method: &'static str,
+}
+
+impl IError for RefInStatic {
+    fn get_msg(&self) -> String {
+        format!("can not reference a non-static field '{}' from static method '{}'", self.field, self.method)
+    }
+}
+
+pub struct AccessField {
+    pub name: &'static str,
+    pub owner: &'static str,
+}
+
+impl IError for AccessField {
+    fn get_msg(&self) -> String {
+        format!("cannot access field '{}' from '{}'", self.name, self.owner)
+    }
+}

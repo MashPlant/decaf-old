@@ -9,26 +9,15 @@ macro_rules! issue {
     };
 }
 
-#[derive(Debug, Copy, Clone)]
-pub enum Loop {
-    While(*const While),
-    For(*const For),
-    Foreach(*const Foreach),
-}
-
 pub struct TypeChecker {
     errors: Vec<Error>,
     scopes: ScopeStack,
-    loops: Vec<Loop>,
+    loop_counter: i32,
     current_method: *const MethodDef,
+    current_class: *const ClassDef,
 }
 
 impl TypeChecker {
-    //    fn check_binary(&mut self, left: &mut Expr, right: &mut Expr, op: Operator) -> Type {
-//        self.visit_expr(left);
-//        self.visit_expr(right);
-////        if left.get
-//    }
     fn check_bool(&mut self, expr: &mut Expr) {
         self.visit_expr(expr);
         let t = expr.get_type();
@@ -50,6 +39,7 @@ impl Visitor for TypeChecker {
     }
 
     fn visit_class_def(&mut self, class_def: &mut ClassDef) {
+        self.current_class = class_def;
         self.scopes.open(&mut class_def.scope);
         for field_def in &mut class_def.fields { self.visit_field_def(field_def) }
         self.scopes.close();
@@ -70,10 +60,32 @@ impl Visitor for TypeChecker {
 
     fn visit_while(&mut self, while_: &mut While) {
         self.check_bool(&mut while_.cond);
-        self.loops.push(Loop::While(while_));
+        self.loop_counter += 1;
         self.visit_statement(&mut while_.body);
-        self.loops.pop();
+        self.loop_counter -= 1;
     }
+
+    fn visit_break(&mut self, break_: &mut Break) {
+        if self.loop_counter == 0 { issue!(self, break_.loc, BreakOutOfLoop); }
+    }
+
+    fn visit_assign(&mut self, assign: &mut Assign) {
+//        self.visit_lvalue(&mut assign.dst);
+//        self.visit_expr(&mut assign.src);
+//        if assign.dst != &ERROR && () {
+//
+//        }
+
+
+//        if (!assign.left.type.equal(BaseType.ERROR)
+//            && (assign.left.type.isFuncType() || !assign.expr.type
+//        .compatible(assign.left.type))) {
+//        issueError(new IncompatBinOpError(assign.getLocation(),
+//        assign.left.type.toString(), "=", assign.expr.type
+//        .toString()));
+//        }
+    }
+
 
     fn visit_unary(&mut self, unary: &mut Unary) {
         self.visit_expr(&mut unary.opr);
@@ -142,5 +154,93 @@ impl Visitor for TypeChecker {
                 right_type: right_t.to_string(),
             });
         }
+    }
+
+    fn visit_identifier(&mut self, identifier: &mut Identifier) {
+        unsafe {
+            match &mut identifier.owner {
+                Some(owner) => {
+//                    if let Expr::Identifier(owner) = owner {
+//
+//                    }
+                }
+                None => {
+                    match self.scopes.lookup_before(identifier.name, identifier.loc) {
+                        Some(symbol) => {
+                            match symbol {
+                                Symbol::Class(class) => {
+                                    identifier.type_ = SemanticType::Class((*class).name, class);
+                                    if identifier.use_for_ref {
+                                        identifier.is_class = true
+                                    } else {
+                                        // e.g. x = ClassName
+                                        issue!(self, identifier.loc, UndeclaredVar { name: identifier.name });
+                                        identifier.type_ = ERROR;
+                                    }
+                                }
+                                Symbol::Method(method) => identifier.type_ = SemanticType::Method(method),
+                                Symbol::Var(var) => {
+                                    identifier.type_ = var.type_.sem.clone();
+                                    if (*self.current_method).static_ {
+                                        issue!(self, identifier.loc, RefInStatic {
+                                            field: identifier.name,
+                                            method: (*self.current_method).name
+                                        });
+                                    } else {
+                                        // add a virtual `this`, it doesn't need visit
+                                        identifier.owner = Some(Box::new(Expr::This(This {
+                                            loc: identifier.loc,
+                                            type_: SemanticType::Class((*self.current_class).name, self.current_class),
+                                        })));
+                                    }
+                                }
+                            }
+                        }
+                        None => {
+                            issue!(self, identifier.loc, UndeclaredVar { name: identifier.name });
+                            identifier.type_ = ERROR;
+                        }
+                    }
+                }
+            }
+        }
+        /*
+            ident.owner.usedForRef = true;
+            ident.owner.accept(this);
+            if (!ident.owner.type.equal(BaseType.ERROR)) {
+                if (ident.owner.isClass || !ident.owner.type.isClassType()) {
+                    issueError(new NotClassFieldError(ident.getLocation(),
+                            ident.name, ident.owner.type.toString()));
+                    ident.type = BaseType.ERROR;
+                } else {
+                    ClassScope cs = ((ClassType) ident.owner.type)
+                            .getClassScope();
+                    Symbol v = cs.lookupVisible(ident.name);
+                    if (v == null) {
+                        issueError(new FieldNotFoundError(ident.getLocation(),
+                                ident.name, ident.owner.type.toString()));
+                        ident.type = BaseType.ERROR;
+                    } else if (v.isVariable()) {
+                        ClassType thisType = ((ClassScope) table
+                                .lookForScope(Scope.Kind.CLASS)).getOwner()
+                                .getType();
+                        ident.type = v.getType();
+                        if (!thisType.compatible(ident.owner.type)) {
+                            issueError(new FieldNotAccessError(ident
+                                    .getLocation(), ident.name,
+                                    ident.owner.type.toString()));
+                        } else {
+                            ident.symbol = (Variable) v;
+                            ident.lvKind = Tree.LValue.Kind.MEMBER_VAR;
+                        }
+                    } else {
+                        ident.type = v.getType();
+                    }
+                }
+            } else {
+                ident.type = BaseType.ERROR;
+            }
+        }
+        */
     }
 }

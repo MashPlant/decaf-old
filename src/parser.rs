@@ -2695,6 +2695,7 @@ impl Parser {
             },
             name: _2.value,
             type_: D::default(),
+            ..D::default()
         });
         SV::_20(_0)
     }

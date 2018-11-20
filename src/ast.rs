@@ -670,12 +670,16 @@ impl Indexed {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Identifier {
     pub loc: Loc,
     pub owner: Option<Box<Expr>>,
     pub name: &'static str,
     pub type_: SemanticType,
+    // an identifier can be a class name
+    // but if used individually(without field ref), treat it as a UndeclaredVar error
+    pub is_class: bool,
+    pub use_for_ref: bool,
 }
 
 impl Identifier {
@@ -1145,7 +1149,12 @@ pub trait Visitor {
         };
     }
 
-    fn visit_lvalue(&mut self, _lvalue: &mut LValue) {}
+    fn visit_lvalue(&mut self, lvalue: &mut LValue) {
+        match lvalue {
+            LValue::Identifier(identifier) => self.visit_identifier(identifier),
+            LValue::Indexed(indexed) => self.visit_indexed(indexed),
+        }
+    }
 
     fn visit_const(&mut self, _const_: &mut Const) {}
 

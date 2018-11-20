@@ -50,7 +50,7 @@ impl SymbolBuilder {
     }
 
     fn visit_semantic_type(&mut self, type_: &mut SemanticType, loc: Loc) {
-        if match type_ {
+        if match type_ { // work around with borrow check
             SemanticType::Class(name, ref mut class) =>
                 if let Some(class_symbol) = self.scopes.lookup_class(name) {
                     *class = class_symbol.as_class();

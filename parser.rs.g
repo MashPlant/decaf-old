@@ -789,6 +789,7 @@ LValue
             },
             name: $2.value,
             type_: D::default(),
+            ..D::default()
         });
     }
     | Expr '[' Expr ']' {

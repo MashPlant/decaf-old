@@ -1,5 +1,6 @@
 use super::ast::*;
 use super::loc::*;
+use super::types::*;
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::string::ToString;
@@ -165,6 +166,16 @@ impl Symbol {
                 Symbol::Class(class) => (**class).loc,
                 Symbol::Method(method) => (**method).loc,
                 Symbol::Var(var) => (**var).loc,
+            }
+        }
+    }
+
+    pub fn get_type(&self) -> SemanticType {
+        unsafe {
+            match self {
+                Symbol::Class(class) => SemanticType::Class((**class).name, *class),
+                Symbol::Method(method) => SemanticType::Method(*method),
+                Symbol::Var(var) => (**var).type_.sem.clone(),
             }
         }
     }

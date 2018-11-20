@@ -1,4 +1,4 @@
-use super::ast::ClassDef;
+use super::ast::{ClassDef, MethodDef};
 use super::util::*;
 use std::default::Default as D;
 
@@ -14,13 +14,20 @@ pub enum SemanticType {
     Class(&'static str, *const ClassDef),
     // type [][]...
     Array(Box<SemanticType>),
+    // refer to a method, only possible in semantic analysis
+    Method(*const MethodDef),
 }
 
 impl Clone for SemanticType {
     fn clone(&self) -> Self {
         match &self {
+            SemanticType::Error => SemanticType::Error,
+            SemanticType::Var => SemanticType::Var,
+            SemanticType::Null => SemanticType::Null,
+            SemanticType::Basic(name) => SemanticType::Basic(name),
+            SemanticType::Class(name, class) => SemanticType::Class(name, *class),
             SemanticType::Array(elem) => SemanticType::Array(elem.clone()),
-            _ => SemanticType::Error,
+            SemanticType::Method(method) => SemanticType::Method(*method),
         }
     }
 }
