@@ -55,7 +55,7 @@ impl Visitor for TypeChecker {
         self.scopes.close();
     }
 
-    fn visit_method_def(&mut self, method_def_: & mut MethodDef) {
+    fn visit_method_def(&mut self, method_def_: &mut MethodDef) {
         self.current_method = method_def_;
         self.scopes.open(&mut method_def_.scope);
         self.visit_block(&mut method_def_.body);
@@ -100,6 +100,47 @@ impl Visitor for TypeChecker {
     }
 
     fn visit_binary(&mut self, binary: &mut Binary) {
-        unimplemented!()
+        self.visit_expr(&mut binary.left);
+        self.visit_expr(&mut binary.right);
+        let (left, right) = (&*binary.left, &*binary.right);
+        let (left_t, right_t) = (left.get_type(), right.get_type());
+        if left_t == &ERROR || right_t == &ERROR {
+            match binary.opt {
+                Operator::Add | Operator::Sub | Operator::Mul | Operator::Div => binary.type_ = left_t.clone(),
+                Operator::Mod => binary.type_ = INT,
+                Operator::Repeat | Operator::Concat => unimplemented!(),
+                _ => binary.type_ = BOOL,
+            }
+            return;
+        }
+        // TODO move repeat & concat out from binary operator(both in java & rust version)
+        if {
+            !match binary.opt {
+                Operator::Add | Operator::Sub | Operator::Mul | Operator::Div | Operator::Mod => {
+                    binary.type_ = left_t.clone();
+                    left_t == &INT && right_t == &INT
+                }
+                Operator::Lt | Operator::Le | Operator::Gt | Operator::Ge => {
+                    binary.type_ = BOOL;
+                    left_t == &INT && right_t == &INT
+                }
+                Operator::Eq | Operator::Ne => {
+                    binary.type_ = BOOL;
+                    left_t == right_t
+                }
+                Operator::And | Operator::Or => {
+                    binary.type_ = BOOL;
+                    left_t == &BOOL && right_t == &BOOL
+                }
+                Operator::Repeat | Operator::Concat => unimplemented!(),
+                _ => unreachable!(),
+            }
+        } {
+            issue!(self, binary.loc, IncompatibleBinary {
+                left_type: left_t.to_string(),
+                opt: binary.opt.to_str(),
+                right_type: right_t.to_string(),
+            });
+        }
     }
 }

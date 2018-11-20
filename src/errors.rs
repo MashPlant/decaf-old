@@ -171,3 +171,15 @@ impl IError for TestNotBool {
         "test expression must have bool type".to_string()
     }
 }
+
+pub struct IncompatibleBinary {
+    pub left_type: String,
+    pub opt: &'static str,
+    pub right_type: String,
+}
+
+impl IError for IncompatibleBinary {
+    fn get_msg(&self) -> String {
+        format!("incompatible operands: {} {} {}", self.left_type, self.opt, self.right_type)
+    }
+}

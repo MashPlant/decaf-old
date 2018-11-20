@@ -1,4 +1,5 @@
 use super::ast::{Type, ClassDef};
+use super::util::*;
 use std::default::Default as D;
 
 // the struct SemanticType in ast.rs is syntactic type(so it have field `loc`)
@@ -12,7 +13,16 @@ pub enum SemanticType {
     // user defined class
     Class(&'static str, *const ClassDef),
     // type [][]...
-    Array(Box<Type>),
+    Array(Box<SemanticType>),
+}
+
+impl Clone for SemanticType {
+    fn clone(&self) -> Self {
+        match &self {
+            SemanticType::Array(elem) => SemanticType::Array(elem.clone()),
+            _ => SemanticType::Error,
+        }
+    }
 }
 
 pub const ERROR: SemanticType = SemanticType::Error;
@@ -77,6 +87,22 @@ impl SemanticType {
             return name == &"void";
         }
         false
+    }
+
+    pub fn print_ast(&self, printer: &mut IndentPrinter) {
+        match &self.sem {
+            SemanticType::Var => printer.print("var"),
+            SemanticType::Basic(name) => printer.print(&(name.to_string() + "type")),
+            SemanticType::Class(name, _) => {
+                printer.print("classtype");
+                printer.print(name);
+            }
+            SemanticType::Array(name) => {
+                printer.print("arrtype");
+                name.print_ast(printer);
+            }
+            _ => unreachable!()
+        }
     }
 }
 

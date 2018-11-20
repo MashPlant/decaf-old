@@ -194,6 +194,15 @@ pub struct Type {
     pub sem: SemanticType,
 }
 
+//impl Clone for Type {
+//    fn clone(&self) -> Self {
+//        Type {
+//            loc: self.loc,
+//            sem: self.sem.clone(),
+//        }
+//    }
+//}
+
 impl Deref for Type {
     type Target = SemanticType;
 
@@ -533,7 +542,7 @@ impl Skip {
 pub enum Operator { Neg, Not, Add, Sub, Mul, Div, Mod, And, Or, Eq, Ne, Lt, Le, Gt, Ge, Repeat, Concat }
 
 impl Operator {
-    fn to_str(&self) -> &'static str {
+    pub fn to_str(&self) -> &'static str {
         use self::Operator::*;
         match self {
             Neg => "-",
