@@ -245,7 +245,8 @@ impl Visitor for SymbolBuilder {
                     } else { true }
                 } else { true }
             } {
-                self.scopes.declare(Symbol::Var(var_def));
+                let current =  self.scopes.current_scope() as *const _;
+                self.scopes.declare(Symbol::Var(var_def, current));
                 var_def.is_parameter = self.scopes.current_scope().is_parameter();
             }
         }

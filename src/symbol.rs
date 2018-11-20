@@ -66,6 +66,13 @@ impl Scope {
             _ => false,
         }
     }
+
+    pub fn is_class(&self) -> bool {
+        match self.kind {
+            ScopeKind::Class(_) => true,
+            _ => false,
+        }
+    }
 }
 
 impl D for ScopeKind {
@@ -79,7 +86,7 @@ impl D for ScopeKind {
 pub enum Symbol {
     Class(*mut ClassDef),
     Method(*mut MethodDef),
-    Var(*mut VarDef),
+    Var(*mut VarDef, *const Scope),
 }
 
 impl ToString for Symbol {
@@ -100,7 +107,7 @@ impl ToString for Symbol {
                     }
                     s + &method.return_type.to_string()
                 }
-                Symbol::Var(var) => {
+                Symbol::Var(var, _) => {
                     let var = &**var;
                     var.loc.to_string() + " -> variable " + if var.is_parameter { "@" } else { "" } + var.name
                         + " : " + &var.type_.to_string()
@@ -127,7 +134,7 @@ impl Symbol {
 
     pub fn is_var(&self) -> bool {
         match self {
-            Symbol::Var(_) => true,
+            Symbol::Var(_, _) => true,
             _ => false,
         }
     }
@@ -155,7 +162,7 @@ impl Symbol {
             match self {
                 Symbol::Class(class) => (**class).name,
                 Symbol::Method(method) => (**method).name,
-                Symbol::Var(var) => (**var).name,
+                Symbol::Var(var, _) => (**var).name,
             }
         }
     }
@@ -165,7 +172,7 @@ impl Symbol {
             match self {
                 Symbol::Class(class) => (**class).loc,
                 Symbol::Method(method) => (**method).loc,
-                Symbol::Var(var) => (**var).loc,
+                Symbol::Var(var, _) => (**var).loc,
             }
         }
     }
@@ -175,7 +182,7 @@ impl Symbol {
             match self {
                 Symbol::Class(class) => SemanticType::Object((**class).name, *class),
                 Symbol::Method(method) => SemanticType::Method(*method),
-                Symbol::Var(var) => (**var).type_.sem.clone(),
+                Symbol::Var(var, _) => (**var).type_.sem.clone(),
             }
         }
     }

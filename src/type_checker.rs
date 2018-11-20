@@ -100,7 +100,7 @@ impl Visitor for TypeChecker {
         self.visit_expr(&mut assign.src);
         let dst_type = assign.dst.get_type();
         let src_type = assign.src.get_type();
-        if dst_type != &ERROR && (dst_type.is_method() || src_type.extends(dst_type)) {
+        if dst_type != &ERROR && (dst_type.is_method() || !src_type.extends(dst_type)) {
             issue!(self, assign.loc, IncompatibleBinary{left_type:dst_type.to_string(), opt:"=", right_type:src_type.to_string() })
         }
     }
@@ -198,7 +198,7 @@ impl Visitor for TypeChecker {
                             match class.lookup(id.name) {
                                 Some(symbol) => {
                                     match symbol {
-                                        Symbol::Var(var) => {
+                                        Symbol::Var(var, _) => {
                                             id.type_ = (*var).type_.sem.clone();
                                             if !(*self.current_class).extends(class) {
                                                 issue!(self, id.loc, PrivateFieldAccess { name: id.name, owner_type: owner_type.to_string() });
@@ -232,9 +232,9 @@ impl Visitor for TypeChecker {
                                     } else { id.type_ = SemanticType::Object((*class).name, class); }
                                 }
                                 Symbol::Method(method) => id.type_ = SemanticType::Method(method),
-                                Symbol::Var(var) => {
+                                Symbol::Var(var, scope) => {
                                     id.type_ = (*var).type_.sem.clone();
-                                    if (*self.current_method).static_ {
+                                    if (*scope).is_class() && (*self.current_method).static_ {
                                         issue!(self, id.loc, RefInStatic {
                                     field: id.name,
                                     method: (*self.current_method).name

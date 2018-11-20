@@ -1091,7 +1091,14 @@ pub trait Visitor {
         };
     }
 
-    fn visit_simple(&mut self, _simple: &mut Simple) {}
+    fn visit_simple(&mut self, simple: &mut Simple) {
+        match simple {
+            Simple::Assign(assign) => self.visit_assign(assign),
+            Simple::VarAssign(_) => unimplemented!(),
+            Simple::Expr(expr) => self.visit_expr(expr),
+            Simple::Skip(skip) => self.visit_skip(skip),
+        }
+    }
 
     fn visit_var_def(&mut self, _var_def: &mut VarDef) {}
 
