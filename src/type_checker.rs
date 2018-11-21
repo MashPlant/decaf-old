@@ -145,27 +145,25 @@ impl Visitor for TypeChecker {
             return;
         }
         // TODO move repeat & concat out from binary operator(both in java & rust version)
-        if {
-            !match binary.opt {
-                Operator::Add | Operator::Sub | Operator::Mul | Operator::Div | Operator::Mod => {
-                    binary.type_ = left_t.clone();
-                    left_t == &INT && right_t == &INT
-                }
-                Operator::Lt | Operator::Le | Operator::Gt | Operator::Ge => {
-                    binary.type_ = BOOL;
-                    left_t == &INT && right_t == &INT
-                }
-                Operator::Eq | Operator::Ne => {
-                    binary.type_ = BOOL;
-                    left_t == right_t
-                }
-                Operator::And | Operator::Or => {
-                    binary.type_ = BOOL;
-                    left_t == &BOOL && right_t == &BOOL
-                }
-                Operator::Repeat | Operator::Concat => unimplemented!(),
-                _ => unreachable!(),
+        if !match binary.opt {
+            Operator::Add | Operator::Sub | Operator::Mul | Operator::Div | Operator::Mod => {
+                binary.type_ = left_t.clone();
+                left_t == &INT && right_t == &INT
             }
+            Operator::Lt | Operator::Le | Operator::Gt | Operator::Ge => {
+                binary.type_ = BOOL;
+                left_t == &INT && right_t == &INT
+            }
+            Operator::Eq | Operator::Ne => {
+                binary.type_ = BOOL;
+                left_t == right_t
+            }
+            Operator::And | Operator::Or => {
+                binary.type_ = BOOL;
+                left_t == &BOOL && right_t == &BOOL
+            }
+            Operator::Repeat | Operator::Concat => unimplemented!(),
+            _ => unreachable!(),
         } {
             issue!(self, binary.loc, IncompatibleBinary {
                 left_type: left_t.to_string(),
@@ -195,6 +193,7 @@ impl Visitor for TypeChecker {
                     match owner_type {
                         SemanticType::Object(_, class) => {
                             let class = &**class;
+                            // lookup through inheritance chain
                             match class.lookup(id.name) {
                                 Some(symbol) => {
                                     match symbol {
@@ -220,7 +219,6 @@ impl Visitor for TypeChecker {
                         }
                     }
                 }
-
                 None => {
                     match self.scopes.lookup_before(id.name, id.loc) {
                         Some(symbol) => {
@@ -236,9 +234,9 @@ impl Visitor for TypeChecker {
                                     id.type_ = (*var).type_.sem.clone();
                                     if (*scope).is_class() && (*self.current_method).static_ {
                                         issue!(self, id.loc, RefInStatic {
-                                    field: id.name,
-                                    method: (*self.current_method).name
-                                });
+                                            field: id.name,
+                                            method: (*self.current_method).name
+                                        });
                                     } else {
                                         // add a virtual `this`, it doesn't need visit
                                         *owner_ptr = Some(Box::new(Expr::This(This {
@@ -258,57 +256,5 @@ impl Visitor for TypeChecker {
                 }
             }
         }
-
-//        unsafe {
-//            /
-//            // use owner_ptr to assign a virtual `this` to owner
-//            let owner_ptr = &mut id.owner as *mut _;
-//            match &mut id.owner {
-//                Some(owner) => {
-//
-////                    if let Expr::Identifier(owner) = owner {
-////
-////                    }
-//                }
-//                None => {
-//                    match self.scopes.lookup_before(id.name, id.loc) {
-//                        Some(symbol) => {
-//                            match symbol {
-//                                Symbol::Class(class) => {
-//                                    id.type_ = SemanticType::Class((*class).name, class);
-//                                    if id.use_for_ref {
-//                                        id.is_class = true
-//                                    } else {
-//                                        // e.g. x = ClassName
-//                                        issue!(self, id.loc, UndeclaredVar { name: id.name });
-//                                        id.type_ = ERROR;
-//                                    }
-//                                }
-//                                Symbol::Method(method) => id.type_ = SemanticType::Method(method),
-//                                Symbol::Var(var) => {
-//                                    id.type_ = (*var).type_.sem.clone();
-//                                    if (*self.current_method).static_ {
-//                                        issue!(self, id.loc, RefInStatic {
-//                                            field: id.name,
-//                                            method: (*self.current_method).name
-//                                        });
-//                                    } else {
-//                                        // add a virtual `this`, it doesn't need visit
-//                                        *owner_ptr = Some(Box::new(Expr::This(This {
-//                                            loc: id.loc,
-//                                            type_: SemanticType::Class((*self.current_class).name, self.current_class),
-//                                        })));
-//                                    }
-//                                }
-//                            }
-//                        }
-//                        None => {
-//                            issue!(self, id.loc, UndeclaredVar { name: id.name });
-//                            id.type_ = ERROR;
-//                        }
-//                    }
-//                }
-//            }
-//        }
     }
 }
