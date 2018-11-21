@@ -61,9 +61,9 @@ impl SymbolBuilder {
                 }
             SemanticType::Array(elem_type) => {
                 self.visit_semantic_type(elem_type, loc);
-                if elem_type.is_error() {
+                if elem_type == &ERROR {
                     true
-                } else if elem_type.is_void() {
+                } else if elem_type == &VOID {
                     issue!(self, loc, VoidArrayElement);
                     true
                 } else { false }
@@ -227,7 +227,7 @@ impl Visitor for SymbolBuilder {
     fn visit_var_def(&mut self, var_def: &mut VarDef) {
         unsafe {
             self.visit_type(&mut var_def.type_);
-            if var_def.type_.is_void() {
+            if var_def.type_ == &VOID {
                 issue!(self, var_def.loc, VoidVar { name: var_def.name });
                 return;
             }

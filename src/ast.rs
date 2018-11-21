@@ -120,8 +120,23 @@ impl ClassDef {
     }
 
     pub fn extends(&self, other: &ClassDef) -> bool {
-        // we don't care about class name actually
-        SemanticType::Object("", self).extends(&SemanticType::Object("", other))
+        let mut class = self as *const _;
+        let other = other as *const ClassDef;
+        while !class.is_null() {
+            if class == other {
+                return true;
+            }
+            class = unsafe { (*class).parent_ref };
+        }
+        false
+    }
+
+    pub fn get_class_type(&self) -> SemanticType {
+        SemanticType::Class(self)
+    }
+
+    pub fn get_object_type(&self) -> SemanticType {
+        SemanticType::Object(self.name, self)
     }
 }
 
@@ -804,9 +819,9 @@ impl Null {
 #[derive(Debug)]
 pub struct Call {
     pub loc: Loc,
-    pub receiver: Option<Box<Expr>>,
+    pub rec: Option<Box<Expr>>,
     pub name: &'static str,
-    pub arguments: Vec<Expr>,
+    pub args: Vec<Expr>,
     pub type_: SemanticType,
 }
 
@@ -815,11 +830,11 @@ impl Call {
         printer.print("call");
         printer.println(self.name);
         printer.inc_indent();
-        match &self.receiver {
+        match &self.rec {
             Some(receiver) => receiver.print_ast(printer),
             None => printer.println("<empty>"),
         };
-        for expr in &self.arguments { expr.print_ast(printer); }
+        for expr in &self.args { expr.print_ast(printer); }
         printer.dec_indent();
     }
 }

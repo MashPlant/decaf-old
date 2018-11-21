@@ -80,28 +80,10 @@ impl SemanticType {
             (SemanticType::Error, _) => true,
             (_, SemanticType::Error) => true,
             (SemanticType::Basic(name1), SemanticType::Basic(name2)) => name1 == name2,
-            (SemanticType::Object(_, class1), SemanticType::Object(_, class2)) => {
-                let mut class1 = *class1;
-                let class2 = *class2;
-                while !class1.is_null() {
-                    if class1 == class2 {
-                        return true;
-                    }
-                    class1 = unsafe { (*class1).parent_ref };
-                }
-                false
-            }
+            (SemanticType::Object(_, class1), SemanticType::Object(_, class2)) => class1.extends(class2),
             (SemanticType::Array(elem1), SemanticType::Array(elem2)) => elem1 == elem2,
             _ => false,
         }
-    }
-
-    pub fn is_error(&self) -> bool {
-        self == &ERROR
-    }
-
-    pub fn is_void(&self) -> bool {
-        self == &VOID
     }
 
     pub fn is_object(&self) -> bool {
@@ -114,6 +96,13 @@ impl SemanticType {
     pub fn is_method(&self) -> bool {
         match self {
             SemanticType::Method(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_array(&self) -> bool {
+        match self {
+            SemanticType::Array(_) => true,
             _ => false,
         }
     }

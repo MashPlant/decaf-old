@@ -51,6 +51,10 @@ impl TypeChecker {
             issue!(self, expr.get_loc(), TestNotBool);
         }
     }
+
+    fn check_call(&mut self, call_: &mut Call, method: Option<Symbol>) {
+
+    }
 }
 
 fn require_type(type_: &SemanticType, target: &SemanticType) -> bool {
@@ -104,7 +108,6 @@ impl Visitor for TypeChecker {
             issue!(self, assign.loc, IncompatibleBinary{left_type:dst_type.to_string(), opt:"=", right_type:src_type.to_string() })
         }
     }
-
 
     fn visit_unary(&mut self, unary: &mut Unary) {
         self.visit_expr(&mut unary.opr);
@@ -171,6 +174,62 @@ impl Visitor for TypeChecker {
                 right_type: right_t.to_string(),
             });
         }
+    }
+
+    fn visit_call(&mut self, call_: &mut Call) {
+//        let rec_t = match &call_.receiver {
+//            Some(expr) => expr.get_type(),
+//            None => self.current_class,
+//        };
+        match &mut call_.rec {
+            Some(receiver) => {
+                self.current_id_used_for_ref = true;
+                self.visit_expr(receiver);
+                let rec_t = receiver.get_type();
+                if rec_t == &ERROR {
+                    call_.type_ = ERROR;
+                    return;
+                }
+                // check array length call
+                // quite a dirty implementation
+                if call_.name == "length" {
+                    if rec_t.is_array() {
+                        if !call_.args.is_empty() {
+                            issue!(self, call_.loc, LengthWithArgument { count: call_.arguments.len() as i32 });
+                        }
+                        call_.type_ = INT;
+                    } else if !rec_t.is_object() {
+                        issue!(self, call_.loc, BadLength);
+                        call_.type_ = ERROR;
+                    }
+                }
+                if !rec_t.is_object() {
+                    issue!(self, call_.loc, BadFieldAccess{name: call_.name, owner_type: rec_t.to_string() });
+                    call_.type_ = ERROR;
+                    return;
+                }
+//                self.check_call(call_,  rec_t. )
+            }
+            None => {}
+        }
+        /*
+        if (callExpr.receiver == null) {
+            ClassScope cs = (ClassScope) table.lookForScope(Kind.CLASS);
+            checkCallExpr(callExpr, cs.lookupVisible(callExpr.method));
+            return;
+        }
+
+        if (!callExpr.receiver.type.isClassType()) {
+            issueError(new NotClassFieldError(callExpr.getLocation(),
+                    callExpr.method, callExpr.receiver.type.toString()));
+            callExpr.type = BaseType.ERROR;
+            return;
+        }
+
+        ClassScope cs = ((ClassType) callExpr.receiver.type)
+                .getClassScope();
+        checkCallExpr(callExpr, cs.lookupVisible(callExpr.method));
+        */
     }
 
     fn visit_identifier(&mut self, id: &mut Identifier) {

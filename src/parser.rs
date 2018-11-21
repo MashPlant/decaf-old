@@ -2742,12 +2742,12 @@ impl Parser {
 
         let _0 = Expr::Call(Call {
             loc: _2.get_loc(),
-            receiver: match _1 {
+            rec: match _1 {
                 Some(expr) => Some(Box::new(expr)),
                 None => None,
             },
             name: _2.value,
-            arguments: _4,
+            args: _4,
             type_: D::default(),
         });
         SV::_15(_0)

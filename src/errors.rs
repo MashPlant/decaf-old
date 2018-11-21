@@ -245,3 +245,21 @@ impl IError for NoSuchField {
         format!("field '{}' not found in '{}'", self.name, self.owner_type)
     }
 }
+
+pub struct LengthWithArgument {
+    pub count: i32,
+}
+
+impl IError for LengthWithArgument {
+    fn get_msg(&self) -> String {
+        format!("function 'length' expects 0 argument(s) but {} given", self.count)
+    }
+}
+
+pub struct BadLength;
+
+impl IError for BadLength {
+    fn get_msg(&self) -> String {
+        "'length' can only be applied to arrays".to_string()
+    }
+}
