@@ -130,6 +130,8 @@ use super::loc::*;
 use super::errors::*;
 use super::util;
 
+type Str = &'static str;
+
 impl Parser {
     fn get_loc(&self) -> Loc {
         Loc(self.tokenizer.token_start_line, self.tokenizer.token_start_column + 1)
@@ -218,7 +220,7 @@ ClassList
 
 ClassDef
     : MaybeSealed CLASS IDENTIFIER MaybeExtends  '{' FieldList '}' {
-        |$1: Flag, $2: Token, $3: Token, $4: Option<&'static str>, $6: FieldList| -> ClassDef;
+        |$1: Flag, $2: Token, $3: Token, $4: Option<Str>, $6: FieldList| -> ClassDef;
         $$ = ClassDef {
             loc: $2.get_loc(),
             name: $3.value,
@@ -243,11 +245,11 @@ MaybeSealed
 
 MaybeExtends
     : EXTENDS IDENTIFIER {
-        |$2: Token| -> Option<&'static str>;
+        |$2: Token| -> Option<Str>;
         $$ = Some($2.value);
     }
     | /* empty */ {
-        || -> Option<&'static str>;
+        || -> Option<Str>;
         $$ = None;
     }
     ;
