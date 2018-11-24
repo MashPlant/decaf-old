@@ -1,31 +1,22 @@
+class Cow {
+    int height;
+    int weight;
+
+    void Init(int w, int h) {
+        weight = w;
+        height = h;
+    }
+
+    void Moo() {
+        Print ( this.height, " ", this.weight, "\n" );
+    }
+}
+
 class Main {
     static void main() {
-        int a;
-        int b;
-        bool d;
-        string s;
-        a = 1;
-        b = 2;
-        c = 1;
-        d = 1;
-        s = d;
-        a = b + s;
-        b = a - d;
-        c = c * d;
-        d = d / d;
-        a = a % d;
-        d = !a;
-        d = d && b;
-        d = d || c;
-        Main = 1;
-        a = Main + 1;
-        d = a > d;
-        d = a >= d;
-        d = b < d;
-        d = d <= d;
-        d = a != d;
-        d = b == d;
-        while (a);
-        for (;b;);
+        class Cow betsy;
+        betsy = new Cow();
+        betsy.Init(100, 122);
+        betsy.Moo();
     }
 }

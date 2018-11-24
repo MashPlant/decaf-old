@@ -94,10 +94,10 @@ impl TypeChecker {
                 let arg_t = call_.args[i].get_type();
                 if arg_t != &ERROR && !arg_t.extends(&method.params[i].type_.sem) {
                   issue!(self, call_.args[i].get_loc(), WrongArgType {
-                                        loc: i as i32,
-                                        arg_t: arg_t.to_string(),
-                                        param_t: method.params[i].type_.sem.to_string()
-                                    });
+                      loc: i as i32,
+                      arg_t: arg_t.to_string(),
+                      param_t: method.params[i].type_.sem.to_string()
+                  });
                 }
               }
             }
