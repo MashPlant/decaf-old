@@ -47,18 +47,12 @@ impl TypeChecker {
     fn check_bool(&mut self, expr: &mut Expr) {
         self.visit_expr(expr);
         let t = expr.get_type();
-        if !require_type(t, &BOOL) {
+        if !t.error_or(&BOOL) {
             issue!(self, expr.get_loc(), TestNotBool);
         }
     }
 
-    fn check_call(&mut self, call_: &mut Call, method: Option<Symbol>) {
-
-    }
-}
-
-fn require_type(type_: &SemanticType, target: &SemanticType) -> bool {
-    type_ == &ERROR || type_ == target
+    fn check_call(&mut self, call_: &mut Call, method: Option<Symbol>) {}
 }
 
 impl Visitor for TypeChecker {
@@ -114,7 +108,7 @@ impl Visitor for TypeChecker {
         let opr = unary.opr.get_type();
         match unary.opt {
             Operator::Neg => {
-                if require_type(opr, &INT) {
+                if opr.error_or(&INT) {
                     unary.type_ = INT;
                 } else {
                     issue!(self, unary.loc, IncompatibleUnary { opt: "-", type_: opr.to_string() });
@@ -122,7 +116,7 @@ impl Visitor for TypeChecker {
                 }
             }
             Operator::Not => {
-                if !require_type(opr, &BOOL) {
+                if !opr.error_or(&BOOL) {
                     issue!(self, unary.loc, IncompatibleUnary { opt: "!", type_: opr.to_string() });
                     unary.type_ = ERROR;
                 }
@@ -140,14 +134,12 @@ impl Visitor for TypeChecker {
         let (left_t, right_t) = (left.get_type(), right.get_type());
         if left_t == &ERROR || right_t == &ERROR {
             match binary.opt {
-                Operator::Add | Operator::Sub | Operator::Mul | Operator::Div => binary.type_ = left_t.clone(),
-                Operator::Mod => binary.type_ = INT,
+                Operator::Add | Operator::Sub | Operator::Mul | Operator::Div | Operator::Mod => binary.type_ = left_t.clone(),
                 Operator::Repeat | Operator::Concat => unimplemented!(),
                 _ => binary.type_ = BOOL,
             }
             return;
         }
-        // TODO move repeat & concat out from binary operator(both in java & rust version)
         if !match binary.opt {
             Operator::Add | Operator::Sub | Operator::Mul | Operator::Div | Operator::Mod => {
                 binary.type_ = left_t.clone();
@@ -195,7 +187,7 @@ impl Visitor for TypeChecker {
                 if call_.name == "length" {
                     if rec_t.is_array() {
                         if !call_.args.is_empty() {
-                            issue!(self, call_.loc, LengthWithArgument { count: call_.arguments.len() as i32 });
+                            issue!(self, call_.loc, LengthWithArgument { count: call_.args.len() as i32 });
                         }
                         call_.type_ = INT;
                     } else if !rec_t.is_object() {

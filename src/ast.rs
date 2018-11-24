@@ -119,9 +119,8 @@ impl ClassDef {
         }
     }
 
-    pub fn extends(&self, other: &ClassDef) -> bool {
-        let mut class = self as *const _;
-        let other = other as *const ClassDef;
+    pub fn extends(&self, other: *const ClassDef) -> bool {
+        let mut class = self as *const ClassDef;
         while !class.is_null() {
             if class == other {
                 return true;
