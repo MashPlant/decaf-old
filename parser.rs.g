@@ -1,5 +1,3 @@
-// syntax-cli -g parser/parser.rs.g -m lalr1 -o parser/src/lib.rs --validate
-
 %lex
 
 %x S
@@ -944,7 +942,7 @@ Type
     }
     | CLASS IDENTIFIER  {
         |$1: Token, $2: Token| -> Type;
-        $$ = Type { loc: $2.get_loc(), sem: SemanticType::Class($2.value, ptr::null()) };
+        $$ = Type { loc: $2.get_loc(), sem: SemanticType::Object($2.value, ptr::null()) };
     }
     | Type '[' ']' {
         |$1: Type| -> Type;

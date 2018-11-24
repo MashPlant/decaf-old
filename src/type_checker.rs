@@ -86,12 +86,13 @@ impl TypeChecker {
               }
             };
             for expr in &mut call_.args { self.visit_expr(expr); }
+            let this_offset = if method.static_ { 0 } else { 1 };
             let argc = call_.args.len();
-            if argc != method.params.len() {
+            if argc != method.params.len() - this_offset {
               issue!(self, call_.loc, WrongArgc { name: call_.name, expect: method.params.len() as i32, actual: argc as i32 });
             } else {
-              for i in 0..argc {
-                let arg_t = call_.args[i].get_type();
+              for i in this_offset..argc + this_offset {
+                let arg_t = call_.args[i - this_offset].get_type();
                 if arg_t != &ERROR && !arg_t.extends(&method.params[i].type_.sem) {
                   issue!(self, call_.args[i].get_loc(), WrongArgType {
                       loc: i as i32,
@@ -130,10 +131,10 @@ impl Visitor for TypeChecker {
     self.scopes.close();
   }
 
-  fn visit_method_def(&mut self, method_def_: &mut MethodDef) {
-    self.current_method = method_def_;
-    self.scopes.open(&mut method_def_.scope);
-    self.visit_block(&mut method_def_.body);
+  fn visit_method_def(&mut self, method_def: &mut MethodDef) {
+    self.current_method = method_def;
+    self.scopes.open(&mut method_def.scope);
+    self.visit_block(&mut method_def.body);
     self.scopes.close();
   }
 
@@ -159,7 +160,8 @@ impl Visitor for TypeChecker {
     self.visit_expr(&mut assign.src);
     let dst_type = assign.dst.get_type();
     let src_type = assign.src.get_type();
-    if dst_type != &ERROR && (dst_type.is_method() || !src_type.extends(dst_type)) {
+    // error check is contained in extends
+    if dst_type.is_method() || !src_type.extends(dst_type) {
       issue!(self, assign.loc, IncompatibleBinary{left_t:dst_type.to_string(), opt:"=", right_t:src_type.to_string() })
     }
   }
@@ -258,8 +260,8 @@ impl Visitor for TypeChecker {
           call_.type_ = ERROR;
           return;
         }
-        let symbol = self.scopes.lookup(call_.name, true);
-        unsafe { self.check_call(call_, symbol.map(|x| x.0)); }
+        let symbol = owner_t.get_class().lookup(call_.name);
+        unsafe { self.check_call(call_, symbol); }
       }
       None => unsafe {
         let symbol = (*self.current_class).lookup(call_.name);

@@ -114,6 +114,16 @@ impl SemanticType {
     }
   }
 
+  pub fn get_class(&self) -> &ClassDef {
+    unsafe {
+      match self {
+        SemanticType::Object(_, class) => &**class,
+        SemanticType::Class(class) => &**class,
+        _ => panic!("call get_class on non-class & non-object type"),
+      }
+    }
+  }
+
   pub fn error_or(&self, require: &SemanticType) -> bool {
     self == &ERROR || self == require
   }
