@@ -278,8 +278,8 @@ MethodDef
         $$ = MethodDef {
             loc: $3.get_loc(),
             name: $3.value,
-            return_type: $2,
-            parameters: $5,
+            ret_t: $2,
+            params: $5,
             static_: true,
             body: $7,
             ..D::default()
@@ -290,8 +290,8 @@ MethodDef
         $$ = MethodDef {
             loc: $2.get_loc(),
             name: $2.value,
-            return_type: $1,
-            parameters: $4,
+            ret_t: $1,
+            params: $4,
             static_: false,
             body: $6,
             ..D::default()
@@ -819,13 +819,14 @@ Call
         |$1: Option<Expr>, $2: Token, $4: ExprList| -> Expr;
         $$ = Expr::Call(Call {
             loc: $2.get_loc(),
-            receiver: match $1 {
+            owner: match $1 {
                 Some(expr) => Some(Box::new(expr)),
                 None => None,
             },
             name: $2.value,
             arguments: $4,
             type_: D::default(),
+            method: ptr::null(),
         });
     }
     ;

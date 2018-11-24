@@ -52,7 +52,130 @@ impl TypeChecker {
         }
     }
 
-    fn check_call(&mut self, call_: &mut Call, method: Option<Symbol>) {}
+    unsafe fn check_call(&mut self, call_: &mut Call, symbol: Option<(Symbol, *const Scope)>) {
+        let owner_t = match &call_.owner {
+            Some(owner) => owner.get_type().clone(),
+            None => (*self.current_class).get_object_type(),
+        };
+        match symbol {
+            Some((symbol, _)) => {
+                match symbol {
+                    Symbol::Method(method) => {
+                        let method = &*method;
+                        call_.method = method;
+                        call_.type_ = method.ret_t.sem.clone();
+                        match &call_.owner {
+                            Some(_) => {
+                                if owner_t.is_class() && !method.static_ {
+                                    // call a instance method through class reference
+                                    issue!(self, call_.loc, BadFieldAccess { name: call_.name, owner_t: owner_t.to_string() });
+                                }
+                                if method.static_ {
+                                    call_.owner = None;
+                                }
+                            }
+                            None => {
+                                match ((*self.current_method).static_, method.static_) {
+                                    (true, false) => issue!(self, call_.loc, RefInStatic { field: method.name, method: (*self.current_method).name }),
+                                    (false, false) => call_.owner = Some(Box::new(Expr::This(This {
+                                        loc: call_.loc,
+                                        type_: (*self.current_class).get_object_type(),
+                                    }))),
+                                    _ => {}
+                                }
+                            }
+                        };
+                        for expr in &mut call_.args { self.visit_expr(expr); }
+                        let argc = call_.args.len();
+                        if argc != method.params.len() {
+                            issue!(self, call_.loc, WrongArgc { name: call_.name, expect: method.params.len() as i32, actual: argc as i32 });
+                        } else {
+                            for i in 0..argc {
+                                let arg_t = call_.args[i].get_type();
+                                if arg_t != &ERROR && !arg_t.extends(&method.params[i].type_.sem) {
+                                    issue!(self, call_.args[i].get_loc(), WrongArgType {
+                                        loc: i as i32,
+                                        arg_t: arg_t.to_string(),
+                                        param_t: method.params[i].type_.sem.to_string()
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    _ => {
+                        issue!(self, call_.loc, NotMethod { name: call_.name, owner_t: owner_t.to_string() });
+                        call_.type_ = ERROR;
+                    }
+                }
+            }
+            None => {
+                issue!(self, call_.loc, NoSuchField { name: call_.name, owner_t: owner_t.to_string() });
+                call_.type_ = ERROR;
+            }
+        };
+        /*
+        Type receiverType = callExpr.receiver == null ? ((ClassScope) table
+                .lookForScope(Scope.Kind.CLASS)).getOwner().getType()
+                : callExpr.receiver.type;
+        if (f == null) {
+            issueError(new FieldNotFoundError(callExpr.getLocation(),
+                    callExpr.method, receiverType.toString()));
+            callExpr.type = BaseType.ERROR;
+        } else if (!f.isFunction()) {
+            issueError(new NotClassMethodError(callExpr.getLocation(),
+                    callExpr.method, receiverType.toString()));
+            callExpr.type = BaseType.ERROR;
+        } else {
+            Function func = (Function) f;
+            callExpr.symbol = func;
+            callExpr.type = func.getReturnType();
+            if (callExpr.receiver == null && currentFunction.isStatik()
+                    && !func.isStatik()) {
+                issueError(new RefNonStaticError(callExpr.getLocation(),
+                        currentFunction.getName(), func.getName()));
+            }
+            if (!func.isStatik() && callExpr.receiver != null
+                    && callExpr.receiver.isClass) {
+                issueError(new NotClassFieldError(callExpr.getLocation(),
+                        callExpr.method, callExpr.receiver.type.toString()));
+            }
+            if (func.isStatik()) {
+                callExpr.receiver = null;
+            } else {
+                if (callExpr.receiver == null && !currentFunction.isStatik()) {
+                    callExpr.receiver = new Tree.ThisExpr(callExpr.getLocation());
+                    callExpr.receiver.accept(this);
+                }
+            }
+            for (Tree.Expr e : callExpr.actuals) {
+                e.accept(this);
+            }
+            List<Type> argList = func.getType().getArgList();
+            int argCount = func.isStatik() ? callExpr.actuals.size()
+                    : callExpr.actuals.size() + 1;
+            if (argList.size() != argCount) {
+                issueError(new BadArgCountError(callExpr.getLocation(),
+                        callExpr.method, func.isStatik() ? argList.size()
+                        : argList.size() - 1, callExpr.actuals.size()));
+            } else {
+                Iterator<Type> iter1 = argList.iterator();
+                if (!func.isStatik()) {
+                    iter1.next();
+                }
+                Iterator<Tree.Expr> iter2 = callExpr.actuals.iterator();
+                for (int i = 1; iter1.hasNext(); i++) {
+                    Type t1 = iter1.next();
+                    Tree.Expr e = iter2.next();
+                    Type t2 = e.type;
+                    if (!t2.equal(BaseType.ERROR) && !t2.compatible(t1)) {
+                        issueError(new BadArgTypeError(e.getLocation(), i,
+                                t2.toString(), t1.toString()));
+                    }
+                }
+            }
+        }
+        */
+    }
 }
 
 impl Visitor for TypeChecker {
@@ -99,7 +222,7 @@ impl Visitor for TypeChecker {
         let dst_type = assign.dst.get_type();
         let src_type = assign.src.get_type();
         if dst_type != &ERROR && (dst_type.is_method() || !src_type.extends(dst_type)) {
-            issue!(self, assign.loc, IncompatibleBinary{left_type:dst_type.to_string(), opt:"=", right_type:src_type.to_string() })
+            issue!(self, assign.loc, IncompatibleBinary{left_t:dst_type.to_string(), opt:"=", right_t:src_type.to_string() })
         }
     }
 
@@ -161,46 +284,44 @@ impl Visitor for TypeChecker {
             _ => unreachable!(),
         } {
             issue!(self, binary.loc, IncompatibleBinary {
-                left_type: left_t.to_string(),
+                left_t: left_t.to_string(),
                 opt: binary.opt.to_str(),
-                right_type: right_t.to_string(),
+                right_t: right_t.to_string(),
             });
         }
     }
 
     fn visit_call(&mut self, call_: &mut Call) {
-//        let rec_t = match &call_.receiver {
-//            Some(expr) => expr.get_type(),
-//            None => self.current_class,
-//        };
-        match &mut call_.rec {
-            Some(receiver) => {
+        let call_ptr = call_ as *mut Call;
+        match unsafe { &mut (*call_ptr).owner } {
+            Some(owner) => {
                 self.current_id_used_for_ref = true;
-                self.visit_expr(receiver);
-                let rec_t = receiver.get_type();
-                if rec_t == &ERROR {
+                self.visit_expr(owner);
+                let owner_t = owner.get_type();
+                if owner_t == &ERROR {
                     call_.type_ = ERROR;
                     return;
                 }
                 // check array length call
                 // quite a dirty implementation
                 if call_.name == "length" {
-                    if rec_t.is_array() {
+                    if owner_t.is_array() {
                         if !call_.args.is_empty() {
                             issue!(self, call_.loc, LengthWithArgument { count: call_.args.len() as i32 });
                         }
                         call_.type_ = INT;
-                    } else if !rec_t.is_object() {
+                    } else if !owner_t.is_object() {
                         issue!(self, call_.loc, BadLength);
                         call_.type_ = ERROR;
                     }
                 }
-                if !rec_t.is_object() {
-                    issue!(self, call_.loc, BadFieldAccess{name: call_.name, owner_type: rec_t.to_string() });
+                if !owner_t.is_object() {
+                    issue!(self, call_.loc, BadFieldAccess{name: call_.name, owner_t: owner_t.to_string() });
                     call_.type_ = ERROR;
                     return;
                 }
-//                self.check_call(call_,  rec_t. )
+                let symbol =  self.scopes.lookup(call_.name, true);
+                unsafe { self.check_call(call_, symbol); }
             }
             None => {}
         }
@@ -240,8 +361,8 @@ impl Visitor for TypeChecker {
                 Some(owner) => {
                     self.current_id_used_for_ref = true;
                     self.visit_expr(owner);
-                    let owner_type = owner.get_type();
-                    match owner_type {
+                    let owner_t = owner.get_type();
+                    match owner_t {
                         SemanticType::Object(_, class) => {
                             let class = &**class;
                             // lookup through inheritance chain
@@ -251,21 +372,21 @@ impl Visitor for TypeChecker {
                                         Symbol::Var(var, _) => {
                                             id.type_ = (*var).type_.sem.clone();
                                             if !(*self.current_class).extends(class) {
-                                                issue!(self, id.loc, PrivateFieldAccess { name: id.name, owner_type: owner_type.to_string() });
+                                                issue!(self, id.loc, PrivateFieldAccess { name: id.name, owner_t: owner_t.to_string() });
                                             }
                                         }
                                         _ => id.type_ = symbol.get_type(),
                                     }
                                 }
                                 None => {
-                                    issue!(self, id.loc, NoSuchField { name: id.name, owner_type: owner_type.to_string() });
+                                    issue!(self, id.loc, NoSuchField { name: id.name, owner_t: owner_t.to_string() });
                                     id.type_ = ERROR;
                                 }
                             }
                         }
                         SemanticType::Error => id.type_ = ERROR,
                         _ => {
-                            issue!(self, id.loc, BadFieldAccess{name: id.name, owner_type: owner_type.to_string() });
+                            issue!(self, id.loc, BadFieldAccess{name: id.name, owner_t: owner_t.to_string() });
                             id.type_ = ERROR;
                         }
                     }
@@ -278,7 +399,7 @@ impl Visitor for TypeChecker {
                                     if !self.current_id_used_for_ref {
                                         issue!(self, id.loc, UndeclaredVar { name: id.name });
                                         id.type_ = ERROR;
-                                    } else { id.type_ = SemanticType::Object((*class).name, class); }
+                                    } else { id.type_ = SemanticType::Class(class); }
                                 }
                                 Symbol::Method(method) => id.type_ = SemanticType::Method(method),
                                 Symbol::Var(var, scope) => {

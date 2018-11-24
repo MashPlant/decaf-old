@@ -143,13 +143,13 @@ impl IError for OverrideVar {
 }
 
 pub struct BadOverride {
-    pub method_name: &'static str,
-    pub parent_name: &'static str,
+    pub method: &'static str,
+    pub parent: &'static str,
 }
 
 impl IError for BadOverride {
     fn get_msg(&self) -> String {
-        format!("overriding method '{}' doesn't match the type signature in class '{}'", self.method_name, self.parent_name)
+        format!("overriding method '{}' doesn't match the type signature in class '{}'", self.method, self.parent)
     }
 }
 
@@ -173,14 +173,14 @@ impl IError for TestNotBool {
 }
 
 pub struct IncompatibleBinary {
-    pub left_type: String,
+    pub left_t: String,
     pub opt: &'static str,
-    pub right_type: String,
+    pub right_t: String,
 }
 
 impl IError for IncompatibleBinary {
     fn get_msg(&self) -> String {
-        format!("incompatible operands: {} {} {}", self.left_type, self.opt, self.right_type)
+        format!("incompatible operands: {} {} {}", self.left_t, self.opt, self.right_t)
     }
 }
 
@@ -215,34 +215,34 @@ impl IError for RefInStatic {
 
 pub struct BadFieldAccess {
     pub name: &'static str,
-    pub owner_type: String,
+    pub owner_t: String,
 }
 
 impl IError for BadFieldAccess {
     fn get_msg(&self) -> String {
-        format!("cannot access field '{}' from '{}'", self.name, self.owner_type)
+        format!("cannot access field '{}' from '{}'", self.name, self.owner_t)
     }
 }
 
 pub struct PrivateFieldAccess {
     pub name: &'static str,
-    pub owner_type: String,
+    pub owner_t: String,
 }
 
 impl IError for PrivateFieldAccess {
     fn get_msg(&self) -> String {
-        format!("field '{}' of '{}' not accessible here", self.name, self.owner_type)
+        format!("field '{}' of '{}' not accessible here", self.name, self.owner_t)
     }
 }
 
 pub struct NoSuchField {
     pub name: &'static str,
-    pub owner_type: String,
+    pub owner_t: String,
 }
 
 impl IError for NoSuchField {
     fn get_msg(&self) -> String {
-        format!("field '{}' not found in '{}'", self.name, self.owner_type)
+        format!("field '{}' not found in '{}'", self.name, self.owner_t)
     }
 }
 
@@ -261,5 +261,41 @@ pub struct BadLength;
 impl IError for BadLength {
     fn get_msg(&self) -> String {
         "'length' can only be applied to arrays".to_string()
+    }
+}
+
+// want a method, found only a field
+pub struct NotMethod {
+    pub name: &'static str,
+    pub owner_t: String,
+}
+
+impl IError for NotMethod {
+    fn get_msg(&self) -> String {
+        format!("'{}' is not a method in class '{}'", self.name, self.owner_t)
+    }
+}
+
+pub struct WrongArgc {
+    pub name: &'static str,
+    pub expect: i32,
+    pub actual: i32,
+}
+
+impl IError for WrongArgc {
+    fn get_msg(&self) -> String {
+        format!("function '{}' expects {} argument(s) but {} given", self.name, self.expect, self.actual)
+    }
+}
+
+pub struct WrongArgType {
+    pub loc: i32,
+    pub arg_t: String,
+    pub param_t: String,
+}
+
+impl IError for WrongArgType {
+    fn get_msg(&self) -> String {
+        format!("incompatible argument {}: {} given, {} expected", self.loc, self.arg_t, self.param_t)
     }
 }

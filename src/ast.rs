@@ -165,8 +165,8 @@ impl FieldDef {
 pub struct MethodDef {
     pub loc: Loc,
     pub name: &'static str,
-    pub return_type: Type,
-    pub parameters: Vec<VarDef>,
+    pub ret_t: Type,
+    pub params: Vec<VarDef>,
     pub static_: bool,
     pub body: Block,
     // scope for parameters
@@ -178,12 +178,12 @@ impl MethodDef {
         if self.static_ { printer.print("static"); }
         printer.print("func");
         printer.print(self.name);
-        self.return_type.print_ast(printer);
+        self.ret_t.print_ast(printer);
         printer.newline();
         printer.inc_indent();
         printer.println("formals");
         printer.inc_indent();
-        for parameter in &self.parameters {
+        for parameter in &self.params {
             parameter.print_ast(printer);
         }
         printer.dec_indent();
@@ -683,10 +683,6 @@ pub struct Identifier {
     pub owner: Option<Box<Expr>>,
     pub name: &'static str,
     pub type_: SemanticType,
-    // an identifier can be a class name
-    // but if used individually(without field ref), treat it as a UndeclaredVar error
-    pub is_class: bool,
-    pub use_for_ref: bool,
 }
 
 impl Identifier {
@@ -818,10 +814,11 @@ impl Null {
 #[derive(Debug)]
 pub struct Call {
     pub loc: Loc,
-    pub rec: Option<Box<Expr>>,
+    pub owner: Option<Box<Expr>>,
     pub name: &'static str,
     pub args: Vec<Expr>,
     pub type_: SemanticType,
+    pub method: *const MethodDef,
 }
 
 impl Call {
@@ -829,7 +826,7 @@ impl Call {
         printer.print("call");
         printer.println(self.name);
         printer.inc_indent();
-        match &self.rec {
+        match &self.owner {
             Some(receiver) => receiver.print_ast(printer),
             None => printer.println("<empty>"),
         };

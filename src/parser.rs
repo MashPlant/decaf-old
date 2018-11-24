@@ -1790,8 +1790,8 @@ impl Parser {
         let _0 = MethodDef {
             loc: _3.get_loc(),
             name: _3.value,
-            return_type: _2,
-            parameters: _5,
+            ret_t: _2,
+            params: _5,
             static_: true,
             body: _7,
             ..D::default()
@@ -1811,8 +1811,8 @@ impl Parser {
         let _0 = MethodDef {
             loc: _2.get_loc(),
             name: _2.value,
-            return_type: _1,
-            parameters: _4,
+            ret_t: _1,
+            params: _4,
             static_: false,
             body: _6,
             ..D::default()
@@ -2742,13 +2742,14 @@ impl Parser {
 
         let _0 = Expr::Call(Call {
             loc: _2.get_loc(),
-            rec: match _1 {
+            owner: match _1 {
                 Some(expr) => Some(Box::new(expr)),
                 None => None,
             },
             name: _2.value,
             args: _4,
             type_: D::default(),
+            method: ptr::null(),
         });
         SV::_15(_0)
     }

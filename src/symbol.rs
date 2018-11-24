@@ -102,10 +102,10 @@ impl ToString for Symbol {
                     let method = &**method;
                     let mut s = method.loc.to_string() + " -> " + if method.static_ { "static " } else { "" } + "function "
                         + method.name + " : ";
-                    for parameter in &method.parameters {
+                    for parameter in &method.params {
                         s += &(parameter.type_.to_string() + "->");
                     }
-                    s + &method.return_type.to_string()
+                    s + &method.ret_t.to_string()
                 }
                 Symbol::Var(var, _) => {
                     let var = &**var;

@@ -63,10 +63,10 @@ impl ToString for SemanticType {
                 let method = unsafe { &**method };
                 let mut s = method.loc.to_string() + " -> " + if method.static_ { "static " } else { "" } + "function "
                     + method.name + " : ";
-                for parameter in &method.parameters {
+                for parameter in &method.params {
                     s += &(parameter.type_.to_string() + "->");
                 }
-                s + &method.return_type.to_string()
+                s + &method.ret_t.to_string()
             }
             _ => unreachable!()
         }
@@ -82,6 +82,13 @@ impl SemanticType {
             (SemanticType::Basic(name1), SemanticType::Basic(name2)) => name1 == name2,
             (SemanticType::Object(_, class1), SemanticType::Object(_, class2)) => unsafe { (&**class1).extends(*class2) },
             (SemanticType::Array(elem1), SemanticType::Array(elem2)) => elem1 == elem2,
+            _ => false,
+        }
+    }
+
+    pub fn is_class(&self) -> bool {
+        match self {
+            SemanticType::Class(_) => true,
             _ => false,
         }
     }

@@ -95,20 +95,20 @@ impl SymbolBuilder {
                         if parent_symbol.static_ || symbol.static_ {
                             issue!(self, symbol.loc, ConflictDeclaration { earlier: parent_symbol.loc, name });
                             false
-                        } else if !symbol.return_type.extends(&parent_symbol.return_type)
-                            || symbol.parameters.len() != parent_symbol.parameters.len()
+                        } else if !symbol.ret_t.extends(&parent_symbol.ret_t)
+                            || symbol.params.len() != parent_symbol.params.len()
                             || {
                             let mut unfit = false;
                             // start from 1, skip this
-                            for i in 1..symbol.parameters.len() {
-                                if !parent_symbol.parameters[i].type_.extends(&symbol.parameters[i].type_) {
+                            for i in 1..symbol.params.len() {
+                                if !parent_symbol.params[i].type_.extends(&symbol.params[i].type_) {
                                     unfit = true;
                                     break;
                                 }
                             }
                             unfit
                         } {
-                            issue!(self, symbol.loc, BadOverride { method_name: name, parent_name: parent.name });
+                            issue!(self, symbol.loc, BadOverride { method: name, parent: parent.name });
                             false
                         } else {
                             true
@@ -132,7 +132,7 @@ impl SymbolBuilder {
         match class_def.scope.get(MAIN_METHOD) {
             Some(main) if main.is_method() => {
                 let main = main.as_method();
-                main.static_ && main.return_type.sem == VOID && main.parameters.is_empty()
+                main.static_ && main.ret_t.sem == VOID && main.params.is_empty()
             }
             _ => false,
         }
@@ -196,7 +196,7 @@ impl Visitor for SymbolBuilder {
     }
 
     fn visit_method_def(&mut self, method_def: &mut MethodDef) {
-        self.visit_type(&mut method_def.return_type);
+        self.visit_type(&mut method_def.ret_t);
         if let Some((earlier, _)) = self.scopes.lookup(method_def.name, false) {
             issue!(self, method_def.loc, ConflictDeclaration {
                 earlier: earlier.get_loc(),
@@ -207,7 +207,7 @@ impl Visitor for SymbolBuilder {
         }
         if !method_def.static_ {
             let class = self.scopes.current_scope().get_class();
-            method_def.parameters.insert(0, VarDef {
+            method_def.params.insert(0, VarDef {
                 loc: method_def.loc,
                 name: "this",
                 type_: Type { loc: method_def.loc, sem: SemanticType::Object(class.name, class) },
@@ -216,7 +216,7 @@ impl Visitor for SymbolBuilder {
         }
         method_def.scope = Scope { symbols: D::default(), kind: ScopeKind::Parameter(method_def) };
         self.scopes.open(&mut method_def.scope);
-        for var_def in &mut method_def.parameters {
+        for var_def in &mut method_def.params {
             self.visit_var_def(var_def);
         }
         method_def.body.is_method = true;
