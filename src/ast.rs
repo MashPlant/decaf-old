@@ -168,6 +168,7 @@ pub struct MethodDef {
   pub ret_t: Type,
   pub params: Vec<VarDef>,
   pub static_: bool,
+  // body contains the scope of stack variables
   pub body: Block,
   // scope for parameters
   pub scope: Scope,
@@ -208,7 +209,7 @@ pub struct VarDef {
   pub loc: Loc,
   pub name: &'static str,
   pub type_: Type,
-  pub is_parameter: bool,
+  pub is_param: bool,
 }
 
 impl VarDef {
@@ -244,7 +245,7 @@ pub enum Statement {
   Return(Return),
   Print(Print),
   Break(Break),
-  ObjectCopy(ObjectCopy),
+  SCopy(SCopy),
   Foreach(Foreach),
   Guarded(Guarded),
   Block(Block),
@@ -262,7 +263,7 @@ impl Statement {
       Return(return_) => return_.print_ast(printer),
       Print(print) => print.print_ast(printer),
       Break(break_) => break_.print_ast(printer),
-      ObjectCopy(object_copy) => object_copy.print_ast(printer),
+      SCopy(object_copy) => object_copy.print_ast(printer),
       Foreach(foreach) => foreach.print_ast(printer),
       Guarded(guarded) => guarded.print_ast(printer),
       Block(block) => block.print_ast(printer),
@@ -327,8 +328,8 @@ impl Block {
 pub struct If {
   pub loc: Loc,
   pub cond: Expr,
-  pub on_true: Box<Statement>,
-  pub on_false: Option<Box<Statement>>,
+  pub on_true: Block,
+  pub on_false: Option<Block>,
 }
 
 impl If {
@@ -351,7 +352,7 @@ impl If {
 pub struct While {
   pub loc: Loc,
   pub cond: Expr,
-  pub body: Box<Statement>,
+  pub body: Block,
 }
 
 impl While {
@@ -371,7 +372,7 @@ pub struct For {
   pub init: Simple,
   pub cond: Expr,
   pub update: Simple,
-  pub body: Box<Statement>,
+  pub body: Block,
 }
 
 impl For {
@@ -381,6 +382,32 @@ impl For {
     self.init.print_ast(printer);
     self.cond.print_ast(printer);
     self.update.print_ast(printer);
+    self.body.print_ast(printer);
+    printer.dec_indent();
+  }
+}
+
+#[derive(Debug)]
+pub struct Foreach {
+  pub var_def: VarDef,
+  pub array: Expr,
+  pub cond: Option<Expr>,
+  pub body: Block,
+}
+
+impl Foreach {
+  pub fn print_ast(&self, printer: &mut IndentPrinter) {
+    printer.println("foreach");
+    printer.inc_indent();
+    printer.print("varbind");
+    printer.print(self.var_def.name);
+    self.var_def.type_.print_ast(printer);
+    printer.newline();
+    self.array.print_ast(printer);
+    match &self.cond {
+      Some(cond) => cond.print_ast(printer),
+      None => printer.println("boolconst true"),
+    }
     self.body.print_ast(printer);
     printer.dec_indent();
   }
@@ -430,13 +457,13 @@ impl Break {
 }
 
 #[derive(Debug)]
-pub struct ObjectCopy {
+pub struct SCopy {
   pub loc: Loc,
   pub dst: &'static str,
   pub src: Expr,
 }
 
-impl ObjectCopy {
+impl SCopy {
   pub fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.println("scopy");
     printer.inc_indent();
@@ -447,35 +474,9 @@ impl ObjectCopy {
 }
 
 #[derive(Debug)]
-pub struct Foreach {
-  pub var_def: VarDef,
-  pub array: Expr,
-  pub cond: Option<Expr>,
-  pub body: Box<Statement>,
-}
-
-impl Foreach {
-  pub fn print_ast(&self, printer: &mut IndentPrinter) {
-    printer.println("foreach");
-    printer.inc_indent();
-    printer.print("varbind");
-    printer.print(self.var_def.name);
-    self.var_def.type_.print_ast(printer);
-    printer.newline();
-    self.array.print_ast(printer);
-    match &self.cond {
-      Some(cond) => cond.print_ast(printer),
-      None => printer.println("boolconst true"),
-    }
-    self.body.print_ast(printer);
-    printer.dec_indent();
-  }
-}
-
-#[derive(Debug)]
 pub struct Guarded {
   pub loc: Loc,
-  pub guarded: Vec<(Expr, Statement)>,
+  pub guarded: Vec<(Expr, Block)>,
 }
 
 impl Guarded {
@@ -485,11 +486,11 @@ impl Guarded {
     if self.guarded.is_empty() {
       printer.println("<empty>");
     } else {
-      for (e, s) in &self.guarded {
+      for (e, b) in &self.guarded {
         printer.println("guard");
         printer.inc_indent();
         e.print_ast(printer);
-        s.print_ast(printer);
+        b.print_ast(printer);
         printer.dec_indent();
       }
     }
@@ -1095,7 +1096,7 @@ pub trait Visitor {
       Return(return_) => self.visit_return(return_),
       Print(print) => self.visit_print(print),
       Break(break_) => self.visit_break(break_),
-      ObjectCopy(object_copy) => self.visit_object_copy(object_copy),
+      SCopy(object_copy) => self.visit_object_copy(object_copy),
       Foreach(foreach) => self.visit_foreach(foreach),
       Guarded(guarded) => self.visit_guarded(guarded),
       Block(block) => self.visit_block(block),
@@ -1127,7 +1128,7 @@ pub trait Visitor {
 
   fn visit_return(&mut self, _return: &mut Return) {}
 
-  fn visit_object_copy(&mut self, _object_copy: &mut ObjectCopy) {}
+  fn visit_object_copy(&mut self, _object_copy: &mut SCopy) {}
 
   fn visit_foreach(&mut self, _foreach: &mut Foreach) {}
 

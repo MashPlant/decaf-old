@@ -147,7 +147,7 @@ impl Visitor for TypeChecker {
   fn visit_while(&mut self, while_: &mut While) {
     self.check_bool(&mut while_.cond);
     self.loop_counter += 1;
-    self.visit_statement(&mut while_.body);
+    self.visit_block(&mut while_.body);
     self.loop_counter -= 1;
   }
 

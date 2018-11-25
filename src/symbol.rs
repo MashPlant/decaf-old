@@ -109,7 +109,7 @@ impl ToString for Symbol {
                 }
                 Symbol::Var(var, _) => {
                     let var = &**var;
-                    var.loc.to_string() + " -> variable " + if var.is_parameter { "@" } else { "" } + var.name
+                    var.loc.to_string() + " -> variable " + if var.is_param { "@" } else { "" } + var.name
                         + " : " + &var.type_.to_string()
                 }
             }

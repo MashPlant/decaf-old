@@ -211,7 +211,7 @@ impl Visitor for SymbolBuilder {
         loc: method_def.loc,
         name: "this",
         type_: Type { loc: method_def.loc, sem: SemanticType::Object(class.name, class) },
-        is_parameter: true,
+        is_param: true,
       });
     }
     method_def.scope = Scope { symbols: D::default(), kind: ScopeKind::Parameter(method_def) };
@@ -247,7 +247,7 @@ impl Visitor for SymbolBuilder {
       } {
         let current = self.scopes.current_scope() as *const _;
         self.scopes.declare(Symbol::Var(var_def, current));
-        var_def.is_parameter = self.scopes.current_scope().is_parameter();
+        var_def.is_param = self.scopes.current_scope().is_parameter();
       }
     }
   }
@@ -260,16 +260,16 @@ impl Visitor for SymbolBuilder {
   }
 
   fn visit_while(&mut self, while_: &mut While) {
-    self.visit_statement(&mut while_.body);
+    self.visit_block(&mut while_.body);
   }
 
   fn visit_for(&mut self, for_: &mut For) {
-    self.visit_statement(&mut for_.body);
+    self.visit_block(&mut for_.body);
   }
 
   fn visit_if(&mut self, if_: &mut If) {
-    self.visit_statement(&mut if_.on_true);
-    if let Some(on_false) = &mut if_.on_false { self.visit_statement(on_false); }
+    self.visit_block(&mut if_.on_true);
+    if let Some(on_false) = &mut if_.on_false { self.visit_block(on_false); }
   }
 
   fn visit_foreach(&mut self, _foreach: &mut Foreach) {
@@ -277,7 +277,7 @@ impl Visitor for SymbolBuilder {
   }
 
   fn visit_guarded(&mut self, guarded: &mut Guarded) {
-    for (_, statement) in &mut guarded.guarded { self.visit_statement(statement); }
+    for (_, statement) in &mut guarded.guarded { self.visit_block(statement); }
   }
 
   fn visit_type(&mut self, type_: &mut Type) {

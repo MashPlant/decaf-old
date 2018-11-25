@@ -123,6 +123,7 @@
 use std::process;
 use std::mem;
 use std::ptr;
+use std::default::Default as D;
 
 use super::ast::*;
 use super::types::*;
@@ -188,7 +189,7 @@ type VarDefList = Vec<VarDef>;
 type StatementList = Vec<Statement>;
 type ExprList = Vec<Expr>;
 type ConstList = Vec<Const>;
-type GuardedList = Vec<(Expr, Statement)>;
+type GuardedList = Vec<(Expr, Block)>;
 type Flag = bool;
 
 %}
@@ -301,7 +302,6 @@ MethodDef
 
 VarDefListOrEmpty
     : VarDefList {
-        |$1: VarDefList| -> VarDefList;
         $$ = $1;
     }
     | /* empty */ {
@@ -355,39 +355,30 @@ Statement
         $$ = Statement::Simple($1);
     }
     | If {
-        |$1: Statement| -> Statement;
         $$ = $1;
     }
     | While {
-        |$1: Statement| -> Statement;
         $$ = $1;
     }
     | For {
-        |$1: Statement| -> Statement;
         $$ = $1;
     }
     | Return ';' {
-        |$1: Statement| -> Statement;
         $$ = $1;
     }
     | Print ';' {
-        |$1: Statement| -> Statement;
         $$ = $1;
     }
     | Break ';' {
-        |$1: Statement| -> Statement;
         $$ = $1;
     }
-    | ObjectCopy ';' {
-        |$1: Statement| -> Statement;
+    | SCopy ';' {
         $$ = $1;
     }
     | Foreach {
-        |$1: Statement| -> Statement;
         $$ = $1;
     }
     | Guarded {
-        |$1: Statement| -> Statement;
         $$ = $1;
     }
     | Block {
@@ -396,26 +387,57 @@ Statement
     }
     ;
 
+Blocked
+    : Statement {
+        |$1: Statement| -> Block;
+        $$ = match $1 {
+            Statement::Block(block) => block,
+            statement => Block {
+                loc: NO_LOC,
+                statements: vec![statement],
+                ..D::default()
+            }
+        }
+    }
+    ;
+
 While
-    : WHILE '(' Expr ')' Statement {
-        |$1: Token, $3: Expr, $5: Statement| -> Statement;
+    : WHILE '(' Expr ')' Blocked {
+        |$1: Token, $3: Expr, $5: Block| -> Statement;
         $$ = Statement::While(While {
             loc: $1.get_loc(),
             cond: $3,
-            body: Box::new($5),
+            body: $5,
         });
     }
     ;
 
 For
-    : FOR '(' Simple ';' Expr ';' Simple ')' Statement {
-        |$1: Token, $3: Simple, $5: Expr, $7: Simple, $9: Statement| -> Statement;
+    : FOR '(' Simple ';' Expr ';' Simple ')' Blocked {
+        |$1: Token, $3: Simple, $5: Expr, $7: Simple, $9: Block| -> Statement;
         $$ = Statement::For(For {
             loc: $1.get_loc(),
             init: $3,
             cond: $5,
             update: $7,
-            body: Box::new($9),
+            body: $9,
+        });
+    }
+    ;
+
+Foreach
+    : FOREACH '(' TypeOrVar IDENTIFIER IN Expr MaybeForeachCond ')' Blocked {
+        |$1: Token, $3: Type, $4: Token, $6: Expr, $7: Option<Expr>, $9: Block| -> Statement;
+        $$ = Statement::Foreach(Foreach {
+            var_def: VarDef {
+                loc: $1.get_loc(),
+                type_: $3,
+                name: $4.value,
+                is_param: false,
+            },
+            array: $6,
+            cond: $7,
+            body: $9,
         });
     }
     ;
@@ -428,23 +450,20 @@ Break
     ;
 
 If
-    : IF '(' Expr ')' Statement MaybeElse {
-        |$1: Token, $3: Expr, $5: Statement, $6: Option<Statement>| -> Statement;
+    : IF '(' Expr ')' Blocked MaybeElse {
+        |$1: Token, $3: Expr, $5: Block, $6: Option<Block>| -> Statement;
         $$ = Statement::If(If {
             loc: $1.get_loc(),
             cond: $3,
-            on_true: Box::new($5),
-            on_false: match $6 {
-                Some(statement) => Some(Box::new(statement)),
-                None => None,
-            },
+            on_true: $5,
+            on_false: $6,
         });
     }
     ;
 
 MaybeElse
-    : ELSE Statement {
-        |$1: Token, $2: Statement| -> Option<Statement>;
+    : ELSE Blocked {
+        |$1: Token, $2: Block| -> Option<Block>;
         $$ = Some($2);
     }
     | /* empty */  {
@@ -453,30 +472,13 @@ MaybeElse
     }
     ;
 
-ObjectCopy
+SCopy
     : SCOPY '(' IDENTIFIER ',' Expr ')' {
         |$1: Token, $3: Token, $5: Expr| -> Statement;
-        $$ = Statement::ObjectCopy(ObjectCopy {
+        $$ = Statement::SCopy(SCopy {
             loc: $1.get_loc(),
             dst: $3.value,
             src: $5,
-        });
-    }
-    ;
-
-Foreach
-    : FOREACH '(' TypeOrVar IDENTIFIER IN Expr MaybeForeachCond ')' Statement {
-        |$1: Token, $3: Type, $4: Token, $6: Expr, $7: Option<Expr>, $9: Statement| -> Statement;
-        $$ = Statement::Foreach(Foreach {
-            var_def: VarDef {
-                loc: $1.get_loc(),
-                type_: $3,
-                name: $4.value,
-                is_parameter: false,
-            },
-            array: $6,
-            cond: $7,
-            body: Box::new($9),
         });
     }
     ;
@@ -487,7 +489,6 @@ TypeOrVar
         $$ = Type { loc: $1.get_loc(), sem: VAR };
     }
     | Type {
-        |$1: Type| -> Type;
         $$ = $1;
     }
     ;
@@ -515,7 +516,6 @@ Guarded
 
 GuardedBranchesOrEmpty
     :  GuardedBranches {
-        |$1: GuardedList| -> GuardedList;
         $$ = $1;
     }
     | /* empty */ {
@@ -525,13 +525,13 @@ GuardedBranchesOrEmpty
     ;
 
 GuardedBranches
-    : GuardedBranches GUARD_SPLIT Expr ':' Statement {
-        |$1: GuardedList, $3: Expr, $5: Statement| -> GuardedList;
+    : GuardedBranches GUARD_SPLIT Expr ':' Blocked {
+        |$1: GuardedList, $3: Expr, $5: Block| -> GuardedList;
         $1.push(($3, $5));
         $$ = $1;
     }
-    | Expr ':' Statement {
-        |$1: Expr, $3: Statement| -> GuardedList;
+    | Expr ':' Blocked {
+        |$1: Expr, $3: Block| -> GuardedList;
         $$ = vec![($1, $3)];
     }
     ;
@@ -605,11 +605,9 @@ Simple
 
 Expr
     : LValue {
-        |$1: Expr| -> Expr;
         $$ = $1;
     }
     | Call {
-        |$1: Expr| -> Expr;
         $$ = $1;
     }
     | Const {
@@ -719,7 +717,6 @@ Expr
         });
     }
     | '(' Expr ')' {
-        |$2: Expr| -> Expr;
         $$ = $2;
     }
     | '-' Expr %prec UMINUS {
@@ -824,7 +821,7 @@ Call
                 None => None,
             },
             name: $2.value,
-            arguments: $4,
+            args: $4,
             type_: D::default(),
             method: ptr::null(),
         });
@@ -903,7 +900,6 @@ ConstList
 
 ExprListOrEmpty
     : ExprList {
-        |$1: ExprList| -> ExprList;
         $$ = $1;
     }
     | /* empty */ {
