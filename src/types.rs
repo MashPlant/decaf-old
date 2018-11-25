@@ -1,5 +1,5 @@
 use super::ast::{ClassDef, MethodDef};
-use super::util::*;
+use super::print::*;
 use super::errors::*;
 use super::loc::*;
 use super::symbol::Symbol;

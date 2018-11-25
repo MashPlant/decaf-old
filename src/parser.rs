@@ -577,7 +577,7 @@ use super::ast::*;
 use super::types::*;
 use super::loc::*;
 use super::errors::*;
-use super::util;
+use super::print;
 
 type Str = &'static str;
 
@@ -1269,7 +1269,7 @@ impl Tokenizer {
 
   fn _lex_rule57(&mut self) -> &'static str {
     let loc = Loc(self.string_builder.1, self.string_builder.2);
-    let string = util::quote(&self.string_builder.0.clone());
+    let string = print::quote(&self.string_builder.0.clone());
     self.report_error(Error::new(loc, NewlineInStr { string }));
     return "";
   }
@@ -1280,7 +1280,7 @@ impl Tokenizer {
 
   fn _lex_rule59(&mut self) -> &'static str {
     let loc = Loc(self.string_builder.1, self.string_builder.2);
-    let string = util::quote(&self.string_builder.0.clone());
+    let string = print::quote(&self.string_builder.0.clone());
     self.report_error(Error::new(loc, UnterminatedStr { string }));
     self.begin("INITIAL");
     return "";
