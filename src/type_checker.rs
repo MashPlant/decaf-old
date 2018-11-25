@@ -103,16 +103,10 @@ impl TypeChecker {
               }
             }
           }
-          _ => {
-            issue!(self, call.loc, NotMethod { name: call.name, owner_t: owner_t.to_string() });
-            call.type_ = ERROR;
-          }
+          _ => issue!(self, call.loc, NotMethod { name: call.name, owner_t: owner_t.to_string() }),
         }
       }
-      None => {
-        issue!(self, call.loc, NoSuchField { name: call.name, owner_t: owner_t.to_string() });
-        call.type_ = ERROR;
-      }
+      None => issue!(self, call.loc, NoSuchField { name: call.name, owner_t: owner_t.to_string() }),
     };
   }
 }
@@ -209,10 +203,7 @@ impl Visitor for TypeChecker {
   fn visit_new_class(&mut self, new_class: &mut NewClass) {
     match self.scopes.lookup_class(new_class.name) {
       Some(class) => new_class.type_ = class.get_type(),
-      None => {
-        issue!(self, new_class.loc, NoSuchClass { name: new_class.name });
-        new_class.type_ = ERROR;
-      }
+      None => issue!(self, new_class.loc, NoSuchClass { name: new_class.name }),
     }
   }
 
@@ -247,13 +238,11 @@ impl Visitor for TypeChecker {
           unary.type_ = INT;
         } else {
           issue!(self, unary.loc, IncompatibleUnary { opt: "-", type_: opr.to_string() });
-          unary.type_ = ERROR;
         }
       }
       Operator::Not => {
         if !opr.error_or(&BOOL) {
           issue!(self, unary.loc, IncompatibleUnary { opt: "!", type_: opr.to_string() });
-          unary.type_ = ERROR;
         }
         // no matter error or not, set type to bool
         unary.type_ = BOOL;
@@ -304,17 +293,15 @@ impl Visitor for TypeChecker {
   }
 
   fn visit_call(&mut self, call: &mut Call) {
-    let callptr = call as *mut Call;
-    match unsafe { &mut (*callptr).owner } {
+    let call_ptr = call as *mut Call;
+    match unsafe { &mut (*call_ptr).owner } {
       Some(owner) => {
         self.current_id_used_for_ref = true;
         self.visit_expr(owner);
         let owner_t = owner.get_type();
-        if owner_t == &ERROR {
-          call.type_ = ERROR;
-          return;
-        }
+        if owner_t == &ERROR { return; }
         // check array length call, quite a dirty implementation
+        // TODO fix the bug here
         if call.name == "length" {
           if owner_t.is_array() {
             if !call.args.is_empty() {
@@ -323,12 +310,10 @@ impl Visitor for TypeChecker {
             call.type_ = INT;
           } else if !owner_t.is_object() {
             issue!(self, call.loc, BadLength);
-            call.type_ = ERROR;
           }
         } else {
-          if !owner_t.is_object() {
+          if !owner_t.is_object() && !owner_t.is_class() {
             issue!(self, call.loc, BadFieldAccess{name: call.name, owner_t: owner_t.to_string() });
-            call.type_ = ERROR;
             return;
           } else {
             let symbol = owner_t.get_class().lookup(call.name);
@@ -355,10 +340,7 @@ impl Visitor for TypeChecker {
 
   fn visit_this(&mut self, this: &mut This) {
     unsafe {
-      if (*self.current_method).static_ {
-        issue!(self, this.loc, ThisInStatic);
-        this.type_ = ERROR;
-      } else {
+      if (*self.current_method).static_ { issue!(self, this.loc, ThisInStatic); } else {
         this.type_ = (*self.current_class).get_object_type();
       }
     }
@@ -438,11 +420,7 @@ impl Visitor for TypeChecker {
                 None => issue!(self, id.loc, NoSuchField { name: id.name, owner_t: owner_t.to_string() }),
               }
             }
-            SemanticType::Error => id.type_ = ERROR,
-            _ => {
-              issue!(self, id.loc, BadFieldAccess{name: id.name, owner_t: owner_t.to_string() });
-              id.type_ = ERROR;
-            }
+            _ => issue!(self, id.loc, BadFieldAccess{name: id.name, owner_t: owner_t.to_string() }),
           }
         }
         None => {
@@ -452,7 +430,6 @@ impl Visitor for TypeChecker {
                 Symbol::Class(class) => {
                   if !self.current_id_used_for_ref {
                     issue!(self, id.loc, UndeclaredVar { name: id.name });
-                    id.type_ = ERROR;
                   } else { id.type_ = SemanticType::Class(class); }
                 }
                 Symbol::Method(method) => id.type_ = SemanticType::Method(method),
@@ -472,10 +449,7 @@ impl Visitor for TypeChecker {
                 }
               }
             }
-            None => {
-              issue!(self, id.loc, UndeclaredVar { name: id.name });
-              id.type_ = ERROR;
-            }
+            None => issue!(self, id.loc, UndeclaredVar { name: id.name }),
           }
           self.current_id_used_for_ref = false;
         }
