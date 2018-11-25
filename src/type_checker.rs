@@ -294,8 +294,8 @@ impl Visitor for TypeChecker {
               match class.lookup(id.name) {
                 Some(symbol) => {
                   match symbol {
-                    Symbol::Var(var, _) => {
-                      id.type_ = (*var).type_.sem.clone();
+                    Symbol::Var(var) => {
+                      id.type_ = var.get_type().clone();
                       if !(*self.current_class).extends(class) {
                         issue!(self, id.loc, PrivateFieldAccess { name: id.name, owner_t: owner_t.to_string() });
                       }
@@ -327,9 +327,9 @@ impl Visitor for TypeChecker {
                   } else { id.type_ = SemanticType::Class(class); }
                 }
                 Symbol::Method(method) => id.type_ = SemanticType::Method(method),
-                Symbol::Var(var, scope) => {
-                  id.type_ = (*var).type_.sem.clone();
-                  if (*scope).is_class() && (*self.current_method).static_ {
+                Symbol::Var(var) => {
+                  id.type_ = var.get_type().clone();
+                  if var.get_scope().is_class() && (*self.current_method).static_ {
                     issue!(self, id.loc, RefInStatic {
                         field: id.name,
                         method: (*self.current_method).name

@@ -433,7 +433,7 @@ Foreach
                 loc: $1.get_loc(),
                 type_: $3,
                 name: $4.value,
-                is_param: false,
+                scope: ptr::null(),
             },
             array: $6,
             cond: $7,
@@ -591,6 +591,8 @@ Simple
             loc: $3.get_loc(),
             name: $2.value,
             src: $4,
+            scope: ptr::null(),
+            type_: D::default(),
         });
     }
     | Expr {
@@ -916,7 +918,7 @@ VarDef
             loc: $2.get_loc(),
             name: $2.value,
             type_: $1,
-            ..D::default()
+            scope: ptr::null(),
         };
     }
     ;

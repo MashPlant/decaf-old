@@ -2067,7 +2067,7 @@ impl Parser {
         loc: _1.get_loc(),
         type_: _3,
         name: _4.value,
-        is_param: false,
+        scope: ptr::null(),
       },
       array: _6,
       cond: _7,
@@ -2303,6 +2303,8 @@ impl Parser {
       loc: _3.get_loc(),
       name: _2.value,
       src: _4,
+      scope: ptr::null(),
+      type_: D::default(),
     });
     SV::_14(_0)
   }
@@ -2904,7 +2906,7 @@ impl Parser {
       loc: _2.get_loc(),
       name: _2.value,
       type_: _1,
-      ..D::default()
+      scope: ptr::null(),
     };
     SV::_7(_0)
   }

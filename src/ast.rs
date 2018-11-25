@@ -204,12 +204,12 @@ impl MethodDef {
   }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct VarDef {
   pub loc: Loc,
   pub name: &'static str,
   pub type_: Type,
-  pub is_param: bool,
+  pub scope: *const Scope,
 }
 
 impl VarDef {
@@ -520,6 +520,9 @@ pub struct VarAssign {
   pub loc: Loc,
   pub name: &'static str,
   pub src: Expr,
+  pub scope: *const Scope,
+  // determined during type check
+  pub type_: SemanticType,
 }
 
 impl VarAssign {
@@ -1106,13 +1109,15 @@ pub trait Visitor {
   fn visit_simple(&mut self, simple: &mut Simple) {
     match simple {
       Simple::Assign(assign) => self.visit_assign(assign),
-      Simple::VarAssign(_) => unimplemented!(),
+      Simple::VarAssign(var_assign) => self.visit_var_assign(var_assign),
       Simple::Expr(expr) => self.visit_expr(expr),
       Simple::Skip(skip) => self.visit_skip(skip),
     }
   }
 
   fn visit_var_def(&mut self, _var_def: &mut VarDef) {}
+
+  fn visit_var_assign(&mut self, _var_assign: &mut VarAssign) {}
 
   fn visit_skip(&mut self, _skip: &mut Skip) {}
 

@@ -126,6 +126,23 @@ impl SymbolBuilder {
     class_def.checked = true;
   }
 
+  // check whether a declaration is valid
+  // if valid, return true, but it is not declared yet
+  unsafe fn check_var_declaration(&mut self, name: &'static str, loc: Loc) -> bool {
+    if let Some((symbol, scope)) = self.scopes.lookup(name, true) {
+      if {
+        let cur = self.scopes.cur_scope();
+        cur as *const _ == scope || ((*scope).is_parameter() && match cur.kind {
+          ScopeKind::Local(block) => (*block).is_method,
+          _ => false,
+        })
+      } {
+        issue!(self, loc, ConflictDeclaration { earlier: symbol.get_loc(), name, });
+        false
+      } else { true }
+    } else { true }
+  }
+
   unsafe fn check_main(&mut self, class_def: *const ClassDef) -> bool {
     if class_def.is_null() { return false; }
     let class_def = &*class_def;
@@ -206,12 +223,12 @@ impl Visitor for SymbolBuilder {
       self.scopes.declare(Symbol::Method(method_def as *mut _));
     }
     if !method_def.static_ {
-      let class = self.scopes.current_scope().get_class();
+      let class = self.scopes.cur_scope().get_class();
       method_def.params.insert(0, VarDef {
         loc: method_def.loc,
         name: "this",
         type_: Type { loc: method_def.loc, sem: SemanticType::Object(class.name, class) },
-        is_param: true,
+        scope: &method_def.scope,
       });
     }
     method_def.scope = Scope { symbols: D::default(), kind: ScopeKind::Parameter(method_def) };
@@ -231,23 +248,18 @@ impl Visitor for SymbolBuilder {
         issue!(self, var_def.loc, VoidVar { name: var_def.name });
         return;
       }
-      if {
-        if let Some((symbol, scope)) = self.scopes.lookup(var_def.name, true) {
-          if {
-            let current = self.scopes.current_scope();
-            current as *const _ == scope || ((*scope).is_parameter() && match current.kind {
-              ScopeKind::Local(block) => (*block).is_method,
-              _ => false,
-            })
-          } {
-            issue!(self, var_def.loc, ConflictDeclaration { earlier: symbol.get_loc(),name: var_def.name, });
-            false
-          } else { true }
-        } else { true }
-      } {
-        let current = self.scopes.current_scope() as *const _;
-        self.scopes.declare(Symbol::Var(var_def, current));
-        var_def.is_param = self.scopes.current_scope().is_parameter();
+      if self.check_var_declaration(var_def.name, var_def.loc) {
+        var_def.scope = self.scopes.cur_scope() as *const _;
+        self.scopes.declare(Symbol::Var(Var::VarDef(var_def)));
+      }
+    }
+  }
+
+  fn visit_var_assign(&mut self, var_assign: &mut VarAssign) {
+    unsafe {
+      if self.check_var_declaration(var_assign.name, var_assign.loc) {
+        var_assign.scope = self.scopes.cur_scope() as *const _;
+        self.scopes.declare(Symbol::Var(Var::VarAssign(var_assign)));
       }
     }
   }
@@ -267,7 +279,7 @@ impl Visitor for SymbolBuilder {
     let block = &mut for_.body;
     block.scope = Scope { symbols: D::default(), kind: ScopeKind::Local(block) };
     self.scopes.open(&mut block.scope);
-    self.visit_simple(&mut for_.init);
+    if let Simple::VarAssign(var_assign) = &mut for_.init { self.visit_var_assign(var_assign); }
     for stmt in &mut block.stmts { self.visit_stmt(stmt); }
     self.scopes.close();
   }
