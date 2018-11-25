@@ -109,6 +109,37 @@ impl TypeChecker {
       None => issue!(self, call.loc, NoSuchField { name: call.name, owner_t: owner_t.to_string() }),
     };
   }
+
+  fn check_repeat(&mut self, binary: &mut Binary) {
+    // left & right are already visited in visit_binary
+    let (left, right) = (&mut binary.left, &mut binary.right);
+    let (left_t, right_t) = (left.get_type(), right.get_type());
+    if !right_t.error_or(&INT) {
+      issue!(self, right.get_loc(), ArrayRepeatNotInt);
+    }
+    // left_t cannot be void here
+    if left_t != &ERROR {
+      binary.type_ = SemanticType::Array(Box::new(left_t.clone()));
+    }
+  }
+
+  fn check_concat(&mut self, binary: &mut Binary) {
+    // same as above
+    let (left, right) = (&mut binary.left, &mut binary.right);
+    let (left_t, right_t) = (left.get_type(), right.get_type());
+    if left_t != &ERROR && !left_t.is_array() {
+      issue!(self, left.get_loc(), BadArrayOp);
+    }
+    if right_t != &ERROR && !right_t.is_array() {
+      issue!(self, right.get_loc(), BadArrayOp);
+    }
+    if left_t.is_array() && right_t.is_array() {
+      if left_t != right_t {
+        issue!(self, binary.loc, ConcatMismatch { left_t: left_t.to_string(), right_t: right_t.to_string() });
+      }
+      binary.type_ = left_t.clone();
+    }
+  }
 }
 
 impl SemanticTypeVisitor for TypeChecker {
@@ -213,7 +244,7 @@ impl Visitor for TypeChecker {
           if src_t != &ERROR && !src_t.is_object() {
             issue!(self, s_copy.src.get_loc(), SCopyNotClass { which: "src", type_: src_t.to_string() });
           };
-        } else if src_t != &ERROR && &dst_t != src_t {
+        } else if !src_t.error_or(&dst_t) {
           issue!(self, s_copy.loc, SCopyMismatch { dst_t: dst_t.to_string(), src_t: src_t.to_string() });
         }
       }
@@ -223,6 +254,13 @@ impl Visitor for TypeChecker {
           issue!(self, s_copy.src.get_loc(), SCopyNotClass { which: "src", type_: src_t.to_string() });
         };
       }
+    }
+  }
+
+  fn visit_guarded(&mut self, guarded: &mut Guarded) {
+    for (e, b) in &mut guarded.guarded {
+      self.check_bool(e);
+      self.visit_block(b);
     }
   }
 
@@ -260,17 +298,15 @@ impl Visitor for TypeChecker {
     let opr = unary.opr.get_type();
     match unary.opt {
       Operator::Neg => {
-        if opr.error_or(&INT) {
-          unary.type_ = INT;
-        } else {
+        if !opr.error_or(&INT) {
           issue!(self, unary.loc, IncompatibleUnary { opt: "-", type_: opr.to_string() });
         }
+        unary.type_ = INT;
       }
       Operator::Not => {
         if !opr.error_or(&BOOL) {
           issue!(self, unary.loc, IncompatibleUnary { opt: "!", type_: opr.to_string() });
         }
-        // no matter error or not, set type to bool
         unary.type_ = BOOL;
       }
       _ => unreachable!(),
@@ -280,41 +316,45 @@ impl Visitor for TypeChecker {
   fn visit_binary(&mut self, binary: &mut Binary) {
     self.visit_expr(&mut binary.left);
     self.visit_expr(&mut binary.right);
-    let (left, right) = (&*binary.left, &*binary.right);
-    let (left_t, right_t) = (left.get_type(), right.get_type());
-    if left_t == &ERROR || right_t == &ERROR {
-      match binary.opt {
-        Operator::Add | Operator::Sub | Operator::Mul | Operator::Div | Operator::Mod => binary.type_ = left_t.clone(),
-        Operator::Repeat | Operator::Concat => unimplemented!(),
-        _ => binary.type_ = BOOL,
+    match binary.opt {
+      Operator::Repeat => return self.check_repeat(binary),
+      Operator::Concat => return self.check_concat(binary),
+      _ => {
+        let (left, right) = (&*binary.left, &*binary.right);
+        let (left_t, right_t) = (left.get_type(), right.get_type());
+        if left_t == &ERROR || right_t == &ERROR {
+          match binary.opt {
+            Operator::Add | Operator::Sub | Operator::Mul | Operator::Div | Operator::Mod => binary.type_ = left_t.clone(),
+            _ => binary.type_ = BOOL,
+          }
+          return;
+        }
+        if !match binary.opt {
+          Operator::Add | Operator::Sub | Operator::Mul | Operator::Div | Operator::Mod => {
+            binary.type_ = left_t.clone();
+            left_t == &INT && right_t == &INT
+          }
+          Operator::Lt | Operator::Le | Operator::Gt | Operator::Ge => {
+            binary.type_ = BOOL;
+            left_t == &INT && right_t == &INT
+          }
+          Operator::Eq | Operator::Ne => {
+            binary.type_ = BOOL;
+            left_t == right_t
+          }
+          Operator::And | Operator::Or => {
+            binary.type_ = BOOL;
+            left_t == &BOOL && right_t == &BOOL
+          }
+          _ => unreachable!(),
+        } {
+          issue!(self, binary.loc, IncompatibleBinary {
+            left_t: left_t.to_string(),
+            opt: binary.opt.to_str(),
+            right_t: right_t.to_string(),
+          });
+        }
       }
-      return;
-    }
-    if !match binary.opt {
-      Operator::Add | Operator::Sub | Operator::Mul | Operator::Div | Operator::Mod => {
-        binary.type_ = left_t.clone();
-        left_t == &INT && right_t == &INT
-      }
-      Operator::Lt | Operator::Le | Operator::Gt | Operator::Ge => {
-        binary.type_ = BOOL;
-        left_t == &INT && right_t == &INT
-      }
-      Operator::Eq | Operator::Ne => {
-        binary.type_ = BOOL;
-        left_t == right_t
-      }
-      Operator::And | Operator::Or => {
-        binary.type_ = BOOL;
-        left_t == &BOOL && right_t == &BOOL
-      }
-      Operator::Repeat | Operator::Concat => unimplemented!(),
-      _ => unreachable!(),
-    } {
-      issue!(self, binary.loc, IncompatibleBinary {
-          left_t: left_t.to_string(),
-          opt: binary.opt.to_str(),
-          right_t: right_t.to_string(),
-      });
     }
   }
 
@@ -406,8 +446,8 @@ impl Visitor for TypeChecker {
       SemanticType::Error => {}
       _ => issue!(self, indexed.array.get_loc(), NotArray),
     }
-    if idx_t != &ERROR && idx_t != &INT {
-      issue!(self, indexed.loc, BadArrayIndex);
+    if !idx_t.error_or(&INT) {
+      issue!(self, indexed.loc, ArrayIndexNotInt);
     }
   }
 

@@ -356,11 +356,38 @@ impl IError for NotArray {
   }
 }
 
-pub struct BadArrayIndex;
+pub struct ArrayIndexNotInt;
 
-impl IError for BadArrayIndex {
+impl IError for ArrayIndexNotInt {
   fn get_msg(&self) -> String {
     "array subscript must be an integer".to_owned()
+  }
+}
+
+pub struct ArrayRepeatNotInt;
+
+impl IError for ArrayRepeatNotInt {
+  fn get_msg(&self) -> String {
+    "array repeats time type must be int type".to_owned()
+  }
+}
+
+pub struct BadArrayOp;
+
+impl IError for BadArrayOp {
+  fn get_msg(&self) -> String {
+    "Array Operation on non-array type".to_owned()
+  }
+}
+
+pub struct ConcatMismatch {
+  pub left_t: String,
+  pub right_t: String,
+}
+
+impl IError for ConcatMismatch {
+  fn get_msg(&self) -> String {
+    format!("concat {} with {}", self.left_t, self.right_t)
   }
 }
 
