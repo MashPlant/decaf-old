@@ -467,7 +467,7 @@ MaybeElse
         $$ = Some($2);
     }
     | /* empty */  {
-        || -> Option<Stmt>;
+        || -> Option<Block>;
         $$ = None;
     }
     ;

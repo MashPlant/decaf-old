@@ -151,6 +151,16 @@ impl Visitor for TypeChecker {
     self.loop_counter -= 1;
   }
 
+  fn visit_for(&mut self, for_: &mut For) {
+    let block = &mut for_.body;
+    self.scopes.open(&mut block.scope);
+    self.visit_simple(&mut for_.init);
+    self.check_bool(&mut for_.cond);
+    self.visit_simple(&mut for_.update);
+    for stmt in &mut block.stmts { self.visit_stmt(stmt); }
+    self.scopes.close();
+  }
+
   fn visit_break(&mut self, break_: &mut Break) {
     if self.loop_counter == 0 { issue!(self, break_.loc, BreakOutOfLoop); }
   }

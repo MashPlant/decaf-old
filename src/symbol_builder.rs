@@ -19,13 +19,14 @@ pub struct SymbolBuilder {
 }
 
 unsafe fn calc_order(class_def: *mut ClassDef) -> i32 {
-  if class_def.is_null() { return -1; }
-  let class_def = &mut *class_def;
-  if class_def.order < 0 {
-    class_def.order = 0;
-    class_def.order = calc_order(class_def.parent_ref) + 1;
+  if class_def.is_null() { -1 } else {
+    let class_def = &mut *class_def;
+    if class_def.order < 0 {
+      class_def.order = 0;
+      class_def.order = calc_order(class_def.parent_ref) + 1;
+    }
+    class_def.order
   }
-  class_def.order
 }
 
 impl SymbolBuilder {
