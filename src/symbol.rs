@@ -1,6 +1,6 @@
 use super::ast::*;
+use super::types::SemanticType;
 use super::loc::*;
-use super::types::*;
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::string::ToString;
@@ -151,15 +151,7 @@ impl ToString for Symbol {
           let s = format!("{} -> class {}", class.loc, class.name);
           if (*class).parent_ref.is_null() { s } else { s + " : " + (*class.parent_ref).name }
         }
-        Symbol::Method(method) => {
-          let method = &**method;
-          let mut s = method.loc.to_string() + " -> " + if method.static_ { "static " } else { "" } + "function "
-            + method.name + " : ";
-          for parameter in &method.params {
-            s += &(parameter.type_.to_string() + "->");
-          }
-          s + &method.ret_t.to_string()
-        }
+        Symbol::Method(method) => SemanticType::Method(*method).to_string(),
         Symbol::Var(var) => {
           var.get_loc().to_string() + " -> variable " + if var.is_param() { "@" } else { "" }
             + var.get_name() + " : " + &var.get_type().to_string()
@@ -229,6 +221,7 @@ impl Symbol {
     }
   }
 
+  // for a class symbol, will return the type of its instance
   pub fn get_type(&self) -> SemanticType {
     unsafe {
       match self {
@@ -240,6 +233,7 @@ impl Symbol {
   }
 }
 
+#[derive(Debug)]
 pub struct ScopeStack {
   pub global_scope: *mut Scope,
   pub scopes: Vec<*mut Scope>,

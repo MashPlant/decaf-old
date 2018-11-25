@@ -49,29 +49,6 @@ impl SymbolBuilder {
       Err(self.errors)
     }
   }
-
-  fn visit_semantic_type(&mut self, type_: &mut SemanticType, loc: Loc) {
-    if match type_ { // work around with borrow check
-      SemanticType::Object(name, ref mut class) =>
-        if let Some(class_symbol) = self.scopes.lookup_class(name) {
-          *class = class_symbol.as_class();
-          false
-        } else {
-          issue!(self, loc, ClassNotFound { name });
-          true
-        }
-      SemanticType::Array(elem_type) => {
-        self.visit_semantic_type(elem_type, loc);
-        if elem_type.as_ref() == &ERROR {
-          true
-        } else if elem_type.as_ref() == &VOID {
-          issue!(self, loc, VoidArrayElement);
-          true
-        } else { false }
-      }
-      _ => false,
-    } { *type_ = ERROR; }
-  }
 }
 
 impl SymbolBuilder {
@@ -157,16 +134,23 @@ impl SymbolBuilder {
   }
 }
 
+impl SemanticTypeVisitor for SymbolBuilder {
+  fn push_error(&mut self, error: Error) {
+    self.errors.push(error)
+  }
+
+  fn lookup_class(&self, name: &'static str) -> Option<Symbol> {
+    self.scopes.lookup_class(name)
+  }
+}
+
 impl Visitor for SymbolBuilder {
   fn visit_program(&mut self, program: &mut Program) {
     unsafe {
       self.scopes.open(&mut program.scope);
       for class_def in &mut program.classes {
         if let Some(earlier) = self.scopes.lookup_class(class_def.name) {
-          issue!(self, class_def.loc, ConflictDeclaration {
-                        earlier: earlier.get_loc(),
-                        name: class_def.name,
-                    });
+          issue!(self, class_def.loc, ConflictDeclaration { earlier: earlier.get_loc(), name: class_def.name });
         } else {
           self.scopes.declare(Symbol::Class(class_def));
         }
@@ -185,7 +169,7 @@ impl Visitor for SymbolBuilder {
               class_def.parent_ref = ptr::null_mut();
             }
           } else {
-            issue!(self, class_def.loc, ClassNotFound { name: parent });
+            issue!(self, class_def.loc, NoSuchClass { name: parent });
           }
         }
       }
@@ -216,10 +200,7 @@ impl Visitor for SymbolBuilder {
   fn visit_method_def(&mut self, method_def: &mut MethodDef) {
     self.visit_type(&mut method_def.ret_t);
     if let Some((earlier, _)) = self.scopes.lookup(method_def.name, false) {
-      issue!(self, method_def.loc, ConflictDeclaration {
-                earlier: earlier.get_loc(),
-                name: method_def.name,
-            });
+      issue!(self, method_def.loc, ConflictDeclaration { earlier: earlier.get_loc(), name: method_def.name });
     } else {
       self.scopes.declare(Symbol::Method(method_def as *mut _));
     }

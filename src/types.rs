@@ -1,5 +1,9 @@
 use super::ast::{ClassDef, MethodDef};
 use super::util::*;
+use super::errors::*;
+use super::loc::*;
+use super::symbol::Symbol;
+
 use std::default::Default as D;
 
 // the struct SemanticType in ast.rs is syntactic type(so it have field `loc`)
@@ -57,9 +61,9 @@ impl ToString for SemanticType {
       SemanticType::Null => "null".to_string(),
       SemanticType::Basic(name) => name.to_string(),
       SemanticType::Object(name, _) => "class : ".to_string() + name,
+      SemanticType::Class(class) => "class : ".to_string() + unsafe { &**class }.name,
       SemanticType::Array(elem) => elem.to_string() + "[]",
       SemanticType::Method(method) => {
-        // TODO remove the duplicate code
         let method = unsafe { &**method };
         let mut s = method.loc.to_string() + " -> " + if method.static_ { "static " } else { "" } + "function "
           + method.name + " : ";
@@ -68,7 +72,6 @@ impl ToString for SemanticType {
         }
         s + &method.ret_t.to_string()
       }
-      _ => unreachable!()
     }
   }
 }
@@ -82,6 +85,7 @@ impl SemanticType {
       (SemanticType::Basic(name1), SemanticType::Basic(name2)) => name1 == name2,
       (SemanticType::Object(_, class1), SemanticType::Object(_, class2)) => unsafe { (&**class1).extends(*class2) },
       (SemanticType::Array(elem1), SemanticType::Array(elem2)) => elem1 == elem2,
+      (SemanticType::Null, SemanticType::Object(_, _)) => true,
       _ => false,
     }
   }
@@ -159,3 +163,32 @@ impl PartialEq for SemanticType {
 }
 
 impl Eq for SemanticType {}
+
+pub trait SemanticTypeVisitor {
+  fn push_error(&mut self, error: Error);
+
+  fn lookup_class(&self, name: &'static str) -> Option<Symbol>;
+
+  fn visit_semantic_type(&mut self, type_: &mut SemanticType, loc: Loc) {
+    if match type_ { // work around with borrow check
+      SemanticType::Object(name, ref mut class) =>
+        if let Some(class_symbol) = self.lookup_class(name) {
+          *class = class_symbol.as_class();
+          false
+        } else {
+          self.push_error(Error::new(loc, NoSuchClass { name }));
+          true
+        }
+      SemanticType::Array(elem_type) => {
+        self.visit_semantic_type(elem_type, loc);
+        if elem_type.as_ref() == &ERROR {
+          true
+        } else if elem_type.as_ref() == &VOID {
+          self.push_error(Error::new(loc, VoidArrayElement));
+          true
+        } else { false }
+      }
+      _ => false,
+    } { *type_ = ERROR; }
+  }
+}

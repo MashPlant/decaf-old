@@ -80,11 +80,11 @@ impl IError for ConflictDeclaration {
   }
 }
 
-pub struct ClassNotFound {
+pub struct NoSuchClass {
   pub name: &'static str,
 }
 
-impl IError for ClassNotFound {
+impl IError for NoSuchClass {
   fn get_msg(&self) -> String {
     format!("class '{}' not found", self.name)
   }
@@ -168,7 +168,7 @@ pub struct TestNotBool;
 
 impl IError for TestNotBool {
   fn get_msg(&self) -> String {
-    "test expression must have bool type".to_string()
+    "test expression must have bool type".to_owned()
   }
 }
 
@@ -188,7 +188,7 @@ pub struct BreakOutOfLoop;
 
 impl IError for BreakOutOfLoop {
   fn get_msg(&self) -> String {
-    "'break' is only allowed inside a loop".to_string()
+    "'break' is only allowed inside a loop".to_owned()
   }
 }
 
@@ -260,7 +260,7 @@ pub struct BadLength;
 
 impl IError for BadLength {
   fn get_msg(&self) -> String {
-    "'length' can only be applied to arrays".to_string()
+    "'length' can only be applied to arrays".to_owned()
   }
 }
 
@@ -297,5 +297,69 @@ pub struct WrongArgType {
 impl IError for WrongArgType {
   fn get_msg(&self) -> String {
     format!("incompatible argument {}: {} given, {} expected", self.loc, self.arg_t, self.param_t)
+  }
+}
+
+pub struct ThisInStatic;
+
+impl IError for ThisInStatic {
+  fn get_msg(&self) -> String {
+    "can not use this in static function".to_owned()
+  }
+}
+
+pub struct NotObject {
+  pub type_: String,
+}
+
+impl IError for NotObject {
+  fn get_msg(&self) -> String {
+    format!("{} is not a class type", self.type_)
+  }
+}
+
+pub struct BadPrintArg {
+  pub loc: i32,
+  pub type_: String,
+}
+
+impl IError for BadPrintArg {
+  fn get_msg(&self) -> String {
+    format!("incompatible argument {}: {} given, int/bool/string expected", self.loc, self.type_)
+  }
+}
+
+pub struct WrongReturnType {
+  pub ret_t: String,
+  pub expect_t: String,
+}
+
+impl IError for WrongReturnType {
+  fn get_msg(&self) -> String {
+    format!("incompatible return: {} given, {} expected", self.ret_t, self.expect_t)
+  }
+}
+
+pub struct BadNewArrayLen;
+
+impl IError for BadNewArrayLen {
+  fn get_msg(&self) -> String {
+    "new array length must be an integer".to_owned()
+  }
+}
+
+pub struct NotArray;
+
+impl IError for NotArray {
+  fn get_msg(&self) -> String {
+    "[] can only be applied to arrays".to_owned()
+  }
+}
+
+pub struct BadArrayIndex;
+
+impl IError for BadArrayIndex {
+  fn get_msg(&self) -> String {
+    "array subscript must be an integer".to_owned()
   }
 }

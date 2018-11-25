@@ -52,8 +52,8 @@ impl TypeChecker {
     }
   }
 
-  unsafe fn check_call(&mut self, call_: &mut Call, symbol: Option<Symbol>) {
-    let owner_t = match &call_.owner {
+  unsafe fn check_call(&mut self, call: &mut Call, symbol: Option<Symbol>) {
+    let owner_t = match &call.owner {
       Some(owner) => owner.get_type().clone(),
       None => (*self.current_class).get_object_type(),
     };
@@ -62,58 +62,68 @@ impl TypeChecker {
         match symbol {
           Symbol::Method(method) => {
             let method = &*method;
-            call_.method = method;
-            call_.type_ = method.ret_t.sem.clone();
-            match &call_.owner {
+            call.method = method;
+            call.type_ = method.ret_t.sem.clone();
+            match &call.owner {
               Some(_) => {
                 if owner_t.is_class() && !method.static_ {
                   // call a instance method through class reference
-                  issue!(self, call_.loc, BadFieldAccess { name: call_.name, owner_t: owner_t.to_string() });
+                  issue!(self, call.loc, BadFieldAccess { name: call.name, owner_t: owner_t.to_string() });
                 }
                 if method.static_ {
-                  call_.owner = None;
+                  call.owner = None;
                 }
               }
               None => {
                 match ((*self.current_method).static_, method.static_) {
-                  (true, false) => issue!(self, call_.loc, RefInStatic { field: method.name, method: (*self.current_method).name }),
-                  (false, false) => call_.owner = Some(Box::new(Expr::This(This {
-                    loc: call_.loc,
+                  (true, false) => issue!(self, call.loc, RefInStatic { field: method.name, method: (*self.current_method).name }),
+                  (false, false) => call.owner = Some(Box::new(Expr::This(This {
+                    loc: call.loc,
                     type_: (*self.current_class).get_object_type(),
                   }))),
                   _ => {}
                 }
               }
             };
-            for expr in &mut call_.args { self.visit_expr(expr); }
+            for expr in &mut call.args { self.visit_expr(expr); }
             let this_offset = if method.static_ { 0 } else { 1 };
-            let argc = call_.args.len();
+            let argc = call.args.len();
             if argc != method.params.len() - this_offset {
-              issue!(self, call_.loc, WrongArgc { name: call_.name, expect: method.params.len() as i32, actual: argc as i32 });
+              issue!(self, call.loc, WrongArgc { name: call.name, expect: method.params.len() as i32, actual: argc as i32 });
             } else {
               for i in this_offset..argc + this_offset {
-                let arg_t = call_.args[i - this_offset].get_type();
+                let arg_t = call.args[i - this_offset].get_type();
                 if arg_t != &ERROR && !arg_t.extends(&method.params[i].type_.sem) {
-                  issue!(self, call_.args[i].get_loc(), WrongArgType {
-                      loc: i as i32,
-                      arg_t: arg_t.to_string(),
-                      param_t: method.params[i].type_.sem.to_string()
+                  issue!(self, call.args[i].get_loc(), WrongArgType {
+                    loc: i as i32,
+                    arg_t: arg_t.to_string(),
+                    param_t: method.params[i].type_.sem.to_string()
                   });
                 }
               }
             }
           }
           _ => {
-            issue!(self, call_.loc, NotMethod { name: call_.name, owner_t: owner_t.to_string() });
-            call_.type_ = ERROR;
+            issue!(self, call.loc, NotMethod { name: call.name, owner_t: owner_t.to_string() });
+            call.type_ = ERROR;
           }
         }
       }
       None => {
-        issue!(self, call_.loc, NoSuchField { name: call_.name, owner_t: owner_t.to_string() });
-        call_.type_ = ERROR;
+        issue!(self, call.loc, NoSuchField { name: call.name, owner_t: owner_t.to_string() });
+        call.type_ = ERROR;
       }
     };
+  }
+}
+
+impl SemanticTypeVisitor for TypeChecker {
+  fn push_error(&mut self, error: Error) {
+    self.errors.push(error)
+  }
+
+  fn lookup_class(&self, name: &'static str) -> Option<Symbol> {
+    self.scopes.lookup_class(name)
   }
 }
 
@@ -136,6 +146,11 @@ impl Visitor for TypeChecker {
     self.scopes.open(&mut method_def.scope);
     self.visit_block(&mut method_def.body);
     self.scopes.close();
+  }
+
+  fn visit_var_assign(&mut self, var_assign: &mut VarAssign) {
+    self.visit_expr(&mut var_assign.src);
+    var_assign.type_ = var_assign.src.get_type().clone();
   }
 
   fn visit_block(&mut self, block: &mut Block) {
@@ -161,8 +176,55 @@ impl Visitor for TypeChecker {
     self.scopes.close();
   }
 
+  fn visit_if(&mut self, if_: &mut If) {
+    self.check_bool(&mut if_.cond);
+    self.visit_block(&mut if_.on_true);
+    if let Some(on_false) = &mut if_.on_false { self.visit_block(on_false); }
+  }
+
   fn visit_break(&mut self, break_: &mut Break) {
     if self.loop_counter == 0 { issue!(self, break_.loc, BreakOutOfLoop); }
+  }
+
+  fn visit_return(&mut self, return_: &mut Return) {
+    unsafe {
+      let expect = &(*self.current_method).ret_t.sem;
+      match &mut return_.expr {
+        Some(expr) => {
+          self.visit_expr(expr);
+          let expr_t = expr.get_type();
+          if !expr_t.extends(expect) {
+            issue!(self, return_.loc, WrongReturnType { ret_t: expr_t.to_string(), expect_t: expect.to_string() });
+          }
+        }
+        None => {
+          if expect != &VOID {
+            issue!(self, return_.loc, WrongReturnType { ret_t: "void".to_owned(), expect_t: expect.to_string() });
+          }
+        }
+      }
+    }
+  }
+
+  fn visit_new_class(&mut self, new_class: &mut NewClass) {
+    match self.scopes.lookup_class(new_class.name) {
+      Some(class) => new_class.type_ = class.get_type(),
+      None => {
+        issue!(self, new_class.loc, NoSuchClass { name: new_class.name });
+        new_class.type_ = ERROR;
+      }
+    }
+  }
+
+  fn visit_new_array(&mut self, new_array: &mut NewArray) {
+    let elem_t = &mut new_array.elem_type;
+    new_array.type_ = SemanticType::Array(Box::new(elem_t.sem.clone()));
+    self.visit_semantic_type(&mut new_array.type_, elem_t.loc);
+    self.visit_expr(&mut new_array.len);
+    let len_t = new_array.len.get_type();
+    if !len_t.error_or(&INT) {
+      issue!(self, new_array.len.get_loc(), BadNewArrayLen);
+    }
   }
 
   fn visit_assign(&mut self, assign: &mut Assign) {
@@ -241,42 +303,102 @@ impl Visitor for TypeChecker {
     }
   }
 
-  fn visit_call(&mut self, call_: &mut Call) {
-    let call_ptr = call_ as *mut Call;
-    match unsafe { &mut (*call_ptr).owner } {
+  fn visit_call(&mut self, call: &mut Call) {
+    let callptr = call as *mut Call;
+    match unsafe { &mut (*callptr).owner } {
       Some(owner) => {
         self.current_id_used_for_ref = true;
         self.visit_expr(owner);
         let owner_t = owner.get_type();
         if owner_t == &ERROR {
-          call_.type_ = ERROR;
+          call.type_ = ERROR;
           return;
         }
-        // check array length call
-        // quite a dirty implementation
-        if call_.name == "length" {
+        // check array length call, quite a dirty implementation
+        if call.name == "length" {
           if owner_t.is_array() {
-            if !call_.args.is_empty() {
-              issue!(self, call_.loc, LengthWithArgument { count: call_.args.len() as i32 });
+            if !call.args.is_empty() {
+              issue!(self, call.loc, LengthWithArgument { count: call.args.len() as i32 });
             }
-            call_.type_ = INT;
+            call.type_ = INT;
           } else if !owner_t.is_object() {
-            issue!(self, call_.loc, BadLength);
-            call_.type_ = ERROR;
+            issue!(self, call.loc, BadLength);
+            call.type_ = ERROR;
+          }
+        } else {
+          if !owner_t.is_object() {
+            issue!(self, call.loc, BadFieldAccess{name: call.name, owner_t: owner_t.to_string() });
+            call.type_ = ERROR;
+            return;
+          } else {
+            let symbol = owner_t.get_class().lookup(call.name);
+            unsafe { self.check_call(call, symbol); }
           }
         }
-        if !owner_t.is_object() {
-          issue!(self, call_.loc, BadFieldAccess{name: call_.name, owner_t: owner_t.to_string() });
-          call_.type_ = ERROR;
-          return;
-        }
-        let symbol = owner_t.get_class().lookup(call_.name);
-        unsafe { self.check_call(call_, symbol); }
       }
       None => unsafe {
-        let symbol = (*self.current_class).lookup(call_.name);
-        self.check_call(call_, symbol);
+        let symbol = (*self.current_class).lookup(call.name);
+        self.check_call(call, symbol);
       }
+    }
+  }
+
+  fn visit_print(&mut self, print: &mut Print) {
+    for (i, expr) in print.print.iter_mut().enumerate() {
+      self.visit_expr(expr);
+      let expr_t = expr.get_type();
+      if expr_t != &ERROR && expr_t != &BOOL && expr_t != &INT && expr_t != &STRING {
+        issue!(self, expr.get_loc(), BadPrintArg { loc: i as i32, type_: expr_t.to_string() });
+      }
+    }
+  }
+
+  fn visit_this(&mut self, this: &mut This) {
+    unsafe {
+      if (*self.current_method).static_ {
+        issue!(self, this.loc, ThisInStatic);
+        this.type_ = ERROR;
+      } else {
+        this.type_ = (*self.current_class).get_object_type();
+      }
+    }
+  }
+
+  fn visit_type_cast(&mut self, type_cast: &mut TypeCast) {
+    self.visit_expr(&mut type_cast.expr);
+    let expr_t = type_cast.expr.get_type();
+    if expr_t != &ERROR && !expr_t.is_object() {
+      issue!(self, type_cast.loc, NotObject { type_: expr_t.to_string() });
+    }
+    // doesn't need to set type to error because it originally was
+    match self.scopes.lookup_class(type_cast.name) {
+      Some(class) => type_cast.type_ = class.get_type(),
+      None => issue!(self, type_cast.loc, NoSuchClass { name: type_cast.name }),
+    }
+  }
+
+  fn visit_type_test(&mut self, type_test: &mut TypeTest) {
+    self.visit_expr(&mut type_test.expr);
+    let expr_t = type_test.expr.get_type();
+    if expr_t != &ERROR && !expr_t.is_object() {
+      issue!(self, type_test.loc, NotObject { type_: expr_t.to_string() });
+    }
+    if self.scopes.lookup_class(type_test.name).is_none() {
+      issue!(self, type_test.loc, NoSuchClass { name: type_test.name });
+    }
+  }
+
+  fn visit_indexed(&mut self, indexed: &mut Indexed) {
+    self.visit_expr(&mut indexed.array);
+    self.visit_expr(&mut indexed.index);
+    let (arr_t, idx_t) = (indexed.array.get_type(), indexed.index.get_type());
+    match &arr_t {
+      SemanticType::Array(elem) => indexed.type_ = *elem.clone(),
+      SemanticType::Error => {}
+      _ => issue!(self, indexed.array.get_loc(), NotArray),
+    }
+    if idx_t != &ERROR && idx_t != &INT {
+      issue!(self, indexed.loc, BadArrayIndex);
     }
   }
 
@@ -291,7 +413,7 @@ impl Visitor for TypeChecker {
     // wither UndeclaredVar or BadFieldAssess
 
     unsafe {
-      let owner_ptr = &mut id.owner as *mut _; // work with borrow check
+      let owner_ptr = &mut id.owner as *mut _; // workaround with borrow check
       match &mut id.owner {
         Some(owner) => {
           self.current_id_used_for_ref = true;
@@ -313,10 +435,7 @@ impl Visitor for TypeChecker {
                     _ => id.type_ = symbol.get_type(),
                   }
                 }
-                None => {
-                  issue!(self, id.loc, NoSuchField { name: id.name, owner_t: owner_t.to_string() });
-                  id.type_ = ERROR;
-                }
+                None => issue!(self, id.loc, NoSuchField { name: id.name, owner_t: owner_t.to_string() }),
               }
             }
             SemanticType::Error => id.type_ = ERROR,
@@ -339,17 +458,16 @@ impl Visitor for TypeChecker {
                 Symbol::Method(method) => id.type_ = SemanticType::Method(method),
                 Symbol::Var(var) => {
                   id.type_ = var.get_type().clone();
-                  if var.get_scope().is_class() && (*self.current_method).static_ {
-                    issue!(self, id.loc, RefInStatic {
-                        field: id.name,
-                        method: (*self.current_method).name
-                    });
-                  } else {
-                    // add a virtual `this`, it doesn't need visit
-                    *owner_ptr = Some(Box::new(Expr::This(This {
-                      loc: id.loc,
-                      type_: SemanticType::Object((*self.current_class).name, self.current_class),
-                    })));
+                  if var.get_scope().is_class() {
+                    if (*self.current_method).static_ {
+                      issue!(self, id.loc, RefInStatic { field: id.name, method: (*self.current_method).name });
+                    } else {
+                      // add a virtual `this`, it doesn't need visit
+                      *owner_ptr = Some(Box::new(Expr::This(This {
+                        loc: id.loc,
+                        type_: SemanticType::Object((*self.current_class).name, self.current_class),
+                      })));
+                    }
                   }
                 }
               }
