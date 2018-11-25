@@ -236,7 +236,7 @@ impl Deref for Type {
 }
 
 #[derive(Debug)]
-pub enum Statement {
+pub enum Stmt {
   VarDef(VarDef),
   Simple(Simple),
   If(If),
@@ -251,9 +251,9 @@ pub enum Statement {
   Block(Block),
 }
 
-impl Statement {
+impl Stmt {
   pub fn print_ast(&self, printer: &mut IndentPrinter) {
-    use self::Statement::*;
+    use self::Stmt::*;
     match &self {
       VarDef(var_def) => var_def.print_ast(printer),
       Simple(simple) => simple.print_ast(printer),
@@ -294,7 +294,7 @@ impl Simple {
 pub struct Block {
   // syntax part
   pub loc: Loc,
-  pub statements: Vec<Statement>,
+  pub stmts: Vec<Stmt>,
   // semantic part
   pub is_method: bool,
   pub scope: Scope,
@@ -304,8 +304,8 @@ impl Block {
   pub fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.println("stmtblock");
     printer.inc_indent();
-    for statement in &self.statements {
-      statement.print_ast(printer);
+    for stmt in &self.stmts {
+      stmt.print_ast(printer);
     }
     printer.dec_indent();
   }
@@ -315,8 +315,8 @@ impl Block {
     for symbol in self.scope.sorted() {
       printer.println(&symbol.to_string());
     }
-    for statement in &self.statements {
-      if let Statement::Block(block) = statement {
+    for stmt in &self.stmts {
+      if let Stmt::Block(block) = stmt {
         block.print_scope(printer)
       }
     }
@@ -1085,9 +1085,9 @@ pub trait Visitor {
     };
   }
 
-  fn visit_statement(&mut self, statement: &mut Statement) {
-    use self::Statement::*;
-    match statement {
+  fn visit_stmt(&mut self, stmt: &mut Stmt) {
+    use self::Stmt::*;
+    match stmt {
       VarDef(var_def) => self.visit_var_def(var_def),
       Simple(simple) => self.visit_simple(simple),
       If(if_) => self.visit_if(if_),

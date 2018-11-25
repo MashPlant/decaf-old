@@ -140,7 +140,7 @@ impl Visitor for TypeChecker {
 
   fn visit_block(&mut self, block: &mut Block) {
     self.scopes.open(&mut block.scope);
-    for statement in &mut block.statements { self.visit_statement(statement); }
+    for stmt in &mut block.stmts { self.visit_stmt(stmt); }
     self.scopes.close();
   }
 

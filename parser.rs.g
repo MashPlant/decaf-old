@@ -186,7 +186,7 @@ pub type TError = Error;
 type ClassList = Vec<ClassDef>;
 type FieldList = Vec<FieldDef>;
 type VarDefList = Vec<VarDef>;
-type StatementList = Vec<Statement>;
+type StmtList = Vec<Stmt>;
 type ExprList = Vec<Expr>;
 type ConstList = Vec<Const>;
 type GuardedList = Vec<(Expr, Block)>;
@@ -323,36 +323,36 @@ VarDefList
     ;
 
 Block
-    : '{' StatementList '}' {
-        |$1: Token, $2: StatementList| -> Block;
+    : '{' StmtList '}' {
+        |$1: Token, $2: StmtList| -> Block;
         $$ = Block {
             loc: $1.get_loc(),
-            statements: $2,
+            stmts: $2,
             ..D::default()
         };
     }
     ;
 
-StatementList
-    : StatementList Statement {
-        |$1: StatementList, $2: Statement| -> StatementList;
+StmtList
+    : StmtList Stmt {
+        |$1: StmtList, $2: Stmt| -> StmtList;
         $1.push($2);
         $$ = $1;
     }
     | /* empty */ {
-        || -> StatementList;
+        || -> StmtList;
         $$ = Vec::new();
     }
     ;
 
-Statement
+Stmt
     : VarDef ';' {
-        |$1: VarDef| -> Statement;
-        $$ = Statement::VarDef($1);
+        |$1: VarDef| -> Stmt;
+        $$ = Stmt::VarDef($1);
     }
     | Simple ';' {
-        |$1: Simple| -> Statement;
-        $$ = Statement::Simple($1);
+        |$1: Simple| -> Stmt;
+        $$ = Stmt::Simple($1);
     }
     | If {
         $$ = $1;
@@ -382,19 +382,19 @@ Statement
         $$ = $1;
     }
     | Block {
-        |$1: Block| -> Statement;
-        $$ = Statement::Block($1);
+        |$1: Block| -> Stmt;
+        $$ = Stmt::Block($1);
     }
     ;
 
 Blocked
-    : Statement {
-        |$1: Statement| -> Block;
+    : Stmt {
+        |$1: Stmt| -> Block;
         $$ = match $1 {
-            Statement::Block(block) => block,
-            statement => Block {
+            Stmt::Block(block) => block,
+            stmt => Block {
                 loc: NO_LOC,
-                statements: vec![statement],
+                stmts: vec![stmt],
                 ..D::default()
             }
         }
@@ -403,8 +403,8 @@ Blocked
 
 While
     : WHILE '(' Expr ')' Blocked {
-        |$1: Token, $3: Expr, $5: Block| -> Statement;
-        $$ = Statement::While(While {
+        |$1: Token, $3: Expr, $5: Block| -> Stmt;
+        $$ = Stmt::While(While {
             loc: $1.get_loc(),
             cond: $3,
             body: $5,
@@ -414,8 +414,8 @@ While
 
 For
     : FOR '(' Simple ';' Expr ';' Simple ')' Blocked {
-        |$1: Token, $3: Simple, $5: Expr, $7: Simple, $9: Block| -> Statement;
-        $$ = Statement::For(For {
+        |$1: Token, $3: Simple, $5: Expr, $7: Simple, $9: Block| -> Stmt;
+        $$ = Stmt::For(For {
             loc: $1.get_loc(),
             init: $3,
             cond: $5,
@@ -427,8 +427,8 @@ For
 
 Foreach
     : FOREACH '(' TypeOrVar IDENTIFIER IN Expr MaybeForeachCond ')' Blocked {
-        |$1: Token, $3: Type, $4: Token, $6: Expr, $7: Option<Expr>, $9: Block| -> Statement;
-        $$ = Statement::Foreach(Foreach {
+        |$1: Token, $3: Type, $4: Token, $6: Expr, $7: Option<Expr>, $9: Block| -> Stmt;
+        $$ = Stmt::Foreach(Foreach {
             var_def: VarDef {
                 loc: $1.get_loc(),
                 type_: $3,
@@ -444,15 +444,15 @@ Foreach
 
 Break
     : BREAK {
-        |$1: Token| -> Statement;
-        $$ = Statement::Break(Break { loc: $1.get_loc(), });
+        |$1: Token| -> Stmt;
+        $$ = Stmt::Break(Break { loc: $1.get_loc(), });
     }
     ;
 
 If
     : IF '(' Expr ')' Blocked MaybeElse {
-        |$1: Token, $3: Expr, $5: Block, $6: Option<Block>| -> Statement;
-        $$ = Statement::If(If {
+        |$1: Token, $3: Expr, $5: Block, $6: Option<Block>| -> Stmt;
+        $$ = Stmt::If(If {
             loc: $1.get_loc(),
             cond: $3,
             on_true: $5,
@@ -467,15 +467,15 @@ MaybeElse
         $$ = Some($2);
     }
     | /* empty */  {
-        || -> Option<Statement>;
+        || -> Option<Stmt>;
         $$ = None;
     }
     ;
 
 SCopy
     : SCOPY '(' IDENTIFIER ',' Expr ')' {
-        |$1: Token, $3: Token, $5: Expr| -> Statement;
-        $$ = Statement::SCopy(SCopy {
+        |$1: Token, $3: Token, $5: Expr| -> Stmt;
+        $$ = Stmt::SCopy(SCopy {
             loc: $1.get_loc(),
             dst: $3.value,
             src: $5,
@@ -506,8 +506,8 @@ MaybeForeachCond
 
 Guarded
     : IF '{' GuardedBranchesOrEmpty '}' {
-        |$1: Token, $3: GuardedList|-> Statement;
-        $$ = Statement::Guarded(Guarded {
+        |$1: Token, $3: GuardedList|-> Stmt;
+        $$ = Stmt::Guarded(Guarded {
             loc: $1.get_loc(),
             guarded: $3,
         });
@@ -538,15 +538,15 @@ GuardedBranches
 
 Return
     : RETURN Expr {
-        |$1: Token, $2: Expr| -> Statement;
-        $$ = Statement::Return(Return {
+        |$1: Token, $2: Expr| -> Stmt;
+        $$ = Stmt::Return(Return {
             loc: $1.get_loc(),
             expr: Some($2),
         });
     }
     | RETURN {
-        |$1: Token| -> Statement;
-        $$ = Statement::Return(Return {
+        |$1: Token| -> Stmt;
+        $$ = Stmt::Return(Return {
             loc: $1.get_loc(),
             expr: None,
         });
@@ -556,8 +556,8 @@ Return
 
 Print
     : PRINT '(' ExprList ')' {
-        |$1: Token, $3: ExprList| -> Statement;
-        $$ = Statement::Print(Print {
+        |$1: Token, $3: ExprList| -> Stmt;
+        $$ = Stmt::Print(Print {
             loc: $1.get_loc(),
             print: $3,
         });

@@ -255,7 +255,7 @@ impl Visitor for SymbolBuilder {
   fn visit_block(&mut self, block: &mut Block) {
     block.scope = Scope { symbols: D::default(), kind: ScopeKind::Local(block) };
     self.scopes.open(&mut block.scope);
-    for statement in &mut block.statements { self.visit_statement(statement); }
+    for stmt in &mut block.stmts { self.visit_stmt(stmt); }
     self.scopes.close();
   }
 
@@ -264,7 +264,12 @@ impl Visitor for SymbolBuilder {
   }
 
   fn visit_for(&mut self, for_: &mut For) {
-    self.visit_block(&mut for_.body);
+    let block = &mut for_.body;
+    block.scope = Scope { symbols: D::default(), kind: ScopeKind::Local(block) };
+    self.scopes.open(&mut block.scope);
+    self.visit_simple(&mut for_.init);
+    for stmt in &mut block.stmts { self.visit_stmt(stmt); }
+    self.scopes.close();
   }
 
   fn visit_if(&mut self, if_: &mut If) {
@@ -277,7 +282,7 @@ impl Visitor for SymbolBuilder {
   }
 
   fn visit_guarded(&mut self, guarded: &mut Guarded) {
-    for (_, statement) in &mut guarded.guarded { self.visit_block(statement); }
+    for (_, stmt) in &mut guarded.guarded { self.visit_block(stmt); }
   }
 
   fn visit_type(&mut self, type_: &mut Type) {

@@ -19,13 +19,13 @@ enum SV {
   _9(Type),
   _10(VarDefList),
   _11(Block),
-  _12(StatementList),
-  _13(Statement),
+  _12(StmtList),
+  _13(Stmt),
   _14(Simple),
   _15(Expr),
   _16(Option<Expr>),
   _17(Option<Block>),
-  _18(Option<Statement>),
+  _18(Option<Stmt>),
   _19(GuardedList),
   _20(ExprList),
   _21(Const),
@@ -635,7 +635,7 @@ pub type TError = Error;
 type ClassList = Vec<ClassDef>;
 type FieldList = Vec<FieldDef>;
 type VarDefList = Vec<VarDef>;
-type StatementList = Vec<Statement>;
+type StmtList = Vec<Stmt>;
 type ExprList = Vec<Expr>;
 type ConstList = Vec<Const>;
 type GuardedList = Vec<(Expr, Block)>;
@@ -1871,7 +1871,7 @@ impl Parser {
 
     let _0 = Block {
       loc: _1.get_loc(),
-      statements: _2,
+      stmts: _2,
       ..D::default()
     };
     SV::_11(_0)
@@ -1900,7 +1900,7 @@ impl Parser {
     self.values_stack.pop();
     let mut _1 = pop!(self.values_stack, _7);
 
-    let _0 = Statement::VarDef(_1);
+    let _0 = Stmt::VarDef(_1);
     SV::_13(_0)
   }
 
@@ -1909,7 +1909,7 @@ impl Parser {
     self.values_stack.pop();
     let mut _1 = pop!(self.values_stack, _14);
 
-    let _0 = Statement::Simple(_1);
+    let _0 = Stmt::Simple(_1);
     SV::_13(_0)
   }
 
@@ -1993,7 +1993,7 @@ impl Parser {
 // Semantic values prologue.
     let mut _1 = pop!(self.values_stack, _11);
 
-    let _0 = Statement::Block(_1);
+    let _0 = Stmt::Block(_1);
     SV::_13(_0)
   }
 
@@ -2002,10 +2002,10 @@ impl Parser {
     let mut _1 = pop!(self.values_stack, _13);
 
     let _0 = match _1 {
-      Statement::Block(block) => block,
-      statement => Block {
+      Stmt::Block(block) => block,
+      stmt => Block {
         loc: NO_LOC,
-        statements: vec![statement],
+        stmts: vec![stmt],
         ..D::default()
       }
     };
@@ -2020,7 +2020,7 @@ impl Parser {
     self.values_stack.pop();
     let mut _1 = pop!(self.values_stack, _0);
 
-    let _0 = Statement::While(While {
+    let _0 = Stmt::While(While {
       loc: _1.get_loc(),
       cond: _3,
       body: _5,
@@ -2040,7 +2040,7 @@ impl Parser {
     self.values_stack.pop();
     let mut _1 = pop!(self.values_stack, _0);
 
-    let _0 = Statement::For(For {
+    let _0 = Stmt::For(For {
       loc: _1.get_loc(),
       init: _3,
       cond: _5,
@@ -2062,7 +2062,7 @@ impl Parser {
     self.values_stack.pop();
     let mut _1 = pop!(self.values_stack, _0);
 
-    let _0 = Statement::Foreach(Foreach {
+    let _0 = Stmt::Foreach(Foreach {
       var_def: VarDef {
         loc: _1.get_loc(),
         type_: _3,
@@ -2080,7 +2080,7 @@ impl Parser {
 // Semantic values prologue.
     let mut _1 = pop!(self.values_stack, _0);
 
-    let _0 = Statement::Break(Break { loc: _1.get_loc() });
+    let _0 = Stmt::Break(Break { loc: _1.get_loc() });
     SV::_13(_0)
   }
 
@@ -2093,7 +2093,7 @@ impl Parser {
     self.values_stack.pop();
     let mut _1 = pop!(self.values_stack, _0);
 
-    let _0 = Statement::If(If {
+    let _0 = Stmt::If(If {
       loc: _1.get_loc(),
       cond: _3,
       on_true: _5,
@@ -2128,7 +2128,7 @@ impl Parser {
     self.values_stack.pop();
     let mut _1 = pop!(self.values_stack, _0);
 
-    let _0 = Statement::SCopy(SCopy {
+    let _0 = Stmt::SCopy(SCopy {
       loc: _1.get_loc(),
       dst: _3.value,
       src: _5,
@@ -2176,7 +2176,7 @@ impl Parser {
     self.values_stack.pop();
     let mut _1 = pop!(self.values_stack, _0);
 
-    let _0 = Statement::Guarded(Guarded {
+    let _0 = Stmt::Guarded(Guarded {
       loc: _1.get_loc(),
       guarded: _3,
     });
@@ -2227,7 +2227,7 @@ impl Parser {
     let mut _2 = pop!(self.values_stack, _15);
     let mut _1 = pop!(self.values_stack, _0);
 
-    let _0 = Statement::Return(Return {
+    let _0 = Stmt::Return(Return {
       loc: _1.get_loc(),
       expr: Some(_2),
     });
@@ -2238,7 +2238,7 @@ impl Parser {
 // Semantic values prologue.
     let mut _1 = pop!(self.values_stack, _0);
 
-    let _0 = Statement::Return(Return {
+    let _0 = Stmt::Return(Return {
       loc: _1.get_loc(),
       expr: None,
     });
@@ -2252,7 +2252,7 @@ impl Parser {
     self.values_stack.pop();
     let mut _1 = pop!(self.values_stack, _0);
 
-    let _0 = Statement::Print(Print {
+    let _0 = Stmt::Print(Print {
       loc: _1.get_loc(),
       print: _3,
     });
