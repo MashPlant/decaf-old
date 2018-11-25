@@ -427,10 +427,10 @@ For
 
 Foreach
     : FOREACH '(' TypeOrVar IDENTIFIER IN Expr MaybeForeachCond ')' Blocked {
-        |$1: Token, $3: Type, $4: Token, $6: Expr, $7: Option<Expr>, $9: Block| -> Stmt;
+        |$3: Type, $4: Token, $6: Expr, $7: Option<Expr>, $9: Block| -> Stmt;
         $$ = Stmt::Foreach(Foreach {
             var_def: VarDef {
-                loc: $1.get_loc(),
+                loc: $4.get_loc(),
                 type_: $3,
                 name: $4.value,
                 scope: ptr::null(),
@@ -589,7 +589,7 @@ Simple
     | VAR IDENTIFIER '=' Expr {
         |$2: Token, $3: Token, $4: Expr| -> Simple;
         $$ = Simple::VarAssign(VarAssign {
-            loc: $3.get_loc(),
+            loc: $2.get_loc(),
             name: $2.value,
             src: $4,
             scope: ptr::null(),

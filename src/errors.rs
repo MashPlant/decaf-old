@@ -380,6 +380,28 @@ impl IError for BadArrayOp {
   }
 }
 
+pub struct DefaultMismatch {
+  pub elem_t: String,
+  pub dft_t: String,
+}
+
+impl IError for DefaultMismatch {
+  fn get_msg(&self) -> String {
+    format!("Array has Element type {} but default has type {}", self.elem_t, self.dft_t)
+  }
+}
+
+pub struct ForeachMismatch {
+  pub elem_t: String,
+  pub def_t: String,
+}
+
+impl IError for ForeachMismatch {
+  fn get_msg(&self) -> String {
+    format!("Array has Element type {} but Foreach wants type {}", self.elem_t, self.def_t)
+  }
+}
+
 pub struct ConcatMismatch {
   pub left_t: String,
   pub right_t: String,

@@ -192,13 +192,10 @@ impl Visitor for TypeChecker {
   }
 
   fn visit_for(&mut self, for_: &mut For) {
-    let block = &mut for_.body;
-    self.scopes.open(&mut block.scope);
     self.visit_simple(&mut for_.init);
     self.check_bool(&mut for_.cond);
     self.visit_simple(&mut for_.update);
-    for stmt in &mut block.stmts { self.visit_stmt(stmt); }
-    self.scopes.close();
+    self.visit_block(&mut for_.body);
   }
 
   fn visit_if(&mut self, if_: &mut If) {
@@ -255,6 +252,31 @@ impl Visitor for TypeChecker {
         };
       }
     }
+  }
+
+  fn visit_foreach(&mut self, foreach: &mut Foreach) {
+    self.visit_expr(&mut foreach.array);
+    let arr_t = foreach.array.get_type();
+    match arr_t {
+      SemanticType::Array(elem) => match foreach.var_def.type_.sem {
+        ref mut t if t == &VAR => *t = *elem.clone(),
+        ref t if !elem.extends(t) => issue!(self, foreach.var_def.loc, ForeachMismatch{ elem_t: elem.to_string(), def_t: t.to_string() }),
+        _ => {}
+      }
+      SemanticType::Error => if &foreach.var_def.type_.sem == &VAR {
+        // if declared type is not 'var', retain it
+        // otherwise set it to error
+        foreach.var_def.type_.sem = ERROR;
+      }
+      _ => {
+        issue!(self, foreach.array.get_loc(), BadArrayOp);
+        if &foreach.var_def.type_.sem == &VAR {
+          foreach.var_def.type_.sem = ERROR;
+        }
+      }
+    };
+    if let Some(cond) = &mut foreach.cond { self.check_bool(cond); }
+    self.visit_block(&mut foreach.body);
   }
 
   fn visit_guarded(&mut self, guarded: &mut Guarded) {
@@ -317,8 +339,8 @@ impl Visitor for TypeChecker {
     self.visit_expr(&mut binary.left);
     self.visit_expr(&mut binary.right);
     match binary.opt {
-      Operator::Repeat => return self.check_repeat(binary),
-      Operator::Concat => return self.check_concat(binary),
+      Operator::Repeat => self.check_repeat(binary),
+      Operator::Concat => self.check_concat(binary),
       _ => {
         let (left, right) = (&*binary.left, &*binary.right);
         let (left_t, right_t) = (left.get_type(), right.get_type());
@@ -522,6 +544,30 @@ impl Visitor for TypeChecker {
           self.current_id_used_for_ref = false;
         }
       }
+    }
+  }
+
+  fn visit_default(&mut self, default: &mut Default) {
+    self.visit_expr(&mut default.array);
+    self.visit_expr(&mut default.index);
+    self.visit_expr(&mut default.default);
+    let (arr_t, idx_t, dft_t) =
+      (default.array.get_type(), default.index.get_type(), default.default.get_type());
+    match arr_t {
+      SemanticType::Array(elem) => {
+        default.type_ = *elem.clone();
+        if dft_t != &ERROR && dft_t != elem.as_ref() {
+          issue!(self, default.loc, DefaultMismatch { elem_t: elem.to_string(), dft_t: dft_t.to_string() });
+        }
+      }
+      SemanticType::Error => {}
+      _ => {
+        issue!(self, default.array.get_loc(), BadArrayOp);
+        default.type_ = dft_t.clone();
+      }
+    }
+    if !idx_t.error_or(&INT) {
+      issue!(self, default.index.get_loc(), ArrayIndexNotInt);
     }
   }
 }

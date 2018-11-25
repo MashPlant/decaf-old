@@ -2059,11 +2059,11 @@ impl Parser {
     let mut _4 = pop!(self.values_stack, _0);
     let mut _3 = pop!(self.values_stack, _9);
     self.values_stack.pop();
-    let mut _1 = pop!(self.values_stack, _0);
+    self.values_stack.pop();
 
     let _0 = Stmt::Foreach(Foreach {
       var_def: VarDef {
-        loc: _1.get_loc(),
+        loc: _4.get_loc(),
         type_: _3,
         name: _4.value,
         scope: ptr::null(),
@@ -2300,7 +2300,7 @@ impl Parser {
     self.values_stack.pop();
 
     let _0 = Simple::VarAssign(VarAssign {
-      loc: _3.get_loc(),
+      loc: _2.get_loc(),
       name: _2.value,
       src: _4,
       scope: ptr::null(),

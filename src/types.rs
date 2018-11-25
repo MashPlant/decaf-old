@@ -69,7 +69,7 @@ impl fmt::Display for SemanticType {
         for parameter in &method.params {
           write!(f, "{}->", parameter.type_.sem);
         }
-        write!(f, "{}",method.ret_t.sem)
+        write!(f, "{}", method.ret_t.sem)
       }
     }
   }
@@ -131,6 +131,13 @@ impl SemanticType {
     self == &ERROR || self == require
   }
 
+  pub fn error_or_array(&self) -> bool {
+    match self {
+      SemanticType::Error | SemanticType::Array(_) => true,
+      _ => false,
+    }
+  }
+
   pub fn print_ast(&self, printer: &mut IndentPrinter) {
     match self {
       SemanticType::Var => printer.print("var"),
@@ -150,8 +157,9 @@ impl SemanticType {
 
 impl PartialEq for SemanticType {
   fn eq(&self, other: &SemanticType) -> bool {
-    // in correct usage,  SemanticType::Var & SemanticType::Null won't be compared here
+    // in correct usage, SemanticType::Null won't be compared here
     match (self, other) {
+      (SemanticType::Var, SemanticType::Var) => true,
       (SemanticType::Error, SemanticType::Error) => true,
       (SemanticType::Basic(name1), SemanticType::Basic(name2)) => name1 == name2,
       (SemanticType::Object(_, class1), SemanticType::Object(_, class2)) => class1 == class2,

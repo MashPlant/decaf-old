@@ -1,16 +1,24 @@
+class Father {
+	int d;
+	int foo(){
+		return d;
+	}
+}
+class Child extends Father{
+	int b;
+}
 class Main {
     static void main() {
-    	int [] a;
-    	a = 3 %% 2*3;
-    	bool [] b;
-    	b = true %% 10;
-    	string [] c;
-    	c = "hello" %% 3;
 
-    	int [][] d;
-    	d = a %% (2+3);
+		class Child[] a;
+		class Child[] b;
+		class Child d;
+		int c;
 
-    	string [][] e;
-    	e = c %% 10;
+		foreach(var i in d  while c>2){
+			int x ;
+			x = i.b();
+		}
+
 	}
 }
