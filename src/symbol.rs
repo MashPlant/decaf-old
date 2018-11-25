@@ -3,7 +3,7 @@ use super::types::SemanticType;
 use super::loc::*;
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
-use std::string::ToString;
+use std::fmt;
 use std::default::Default as D;
 
 // ast node owns the scope
@@ -142,19 +142,25 @@ pub enum Symbol {
   Var(Var),
 }
 
-impl ToString for Symbol {
-  fn to_string(&self) -> String {
+impl fmt::Display for Symbol {
+  fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
     unsafe {
       match self {
         Symbol::Class(class) => {
           let class = &**class;
-          let s = format!("{} -> class {}", class.loc, class.name);
-          if (*class).parent_ref.is_null() { s } else { s + " : " + (*class.parent_ref).name }
+          write!(f, "{} -> class {}", class.loc, class.name);
+          if (*class).parent_ref.is_null() { Ok(()) } else {
+            write!(f, " : {}", (*class.parent_ref).name)
+          }
         }
-        Symbol::Method(method) => SemanticType::Method(*method).to_string(),
+        Symbol::Method(method) => {
+          let method = &**method;
+          write!(f, "{} -> {}function {} : {}", method.loc, if method.static_ { "static " } else { "" },
+                 method.name, SemanticType::Method(method))
+        }
         Symbol::Var(var) => {
-          var.get_loc().to_string() + " -> variable " + if var.is_param() { "@" } else { "" }
-            + var.get_name() + " : " + &var.get_type().to_string()
+          write!(f, "{} -> variable {}{} : {}", var.get_loc(), if var.is_param() { "@" } else { "" },
+                 var.get_name(), var.get_type())
         }
       }
     }

@@ -459,6 +459,7 @@ impl Break {
 #[derive(Debug)]
 pub struct SCopy {
   pub loc: Loc,
+  pub dst_loc: Loc,
   pub dst: &'static str,
   pub src: Expr,
 }
@@ -1099,7 +1100,7 @@ pub trait Visitor {
       Return(return_) => self.visit_return(return_),
       Print(print) => self.visit_print(print),
       Break(break_) => self.visit_break(break_),
-      SCopy(object_copy) => self.visit_object_copy(object_copy),
+      SCopy(s_copy) => self.visit_s_copy(s_copy),
       Foreach(foreach) => self.visit_foreach(foreach),
       Guarded(guarded) => self.visit_guarded(guarded),
       Block(block) => self.visit_block(block),
@@ -1133,7 +1134,7 @@ pub trait Visitor {
 
   fn visit_return(&mut self, _return: &mut Return) {}
 
-  fn visit_object_copy(&mut self, _object_copy: &mut SCopy) {}
+  fn visit_s_copy(&mut self, _s_copy: &mut SCopy) {}
 
   fn visit_foreach(&mut self, _foreach: &mut Foreach) {}
 

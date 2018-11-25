@@ -93,7 +93,7 @@ impl TypeChecker {
             } else {
               for i in this_offset..argc + this_offset {
                 let arg_t = call.args[i - this_offset].get_type();
-                if arg_t != &ERROR && !arg_t.extends(&method.params[i].type_.sem) {
+                if !arg_t.extends(&method.params[i].type_.sem) {
                   issue!(self, call.args[i].get_loc(), WrongArgType {
                     loc: (i + 1 - this_offset) as i32,
                     arg_t: arg_t.to_string(),
@@ -200,6 +200,32 @@ impl Visitor for TypeChecker {
     }
   }
 
+  fn visit_s_copy(&mut self, s_copy: &mut SCopy) {
+    self.visit_expr(&mut s_copy.src);
+    let src_t = s_copy.src.get_type();
+    match self.scopes.lookup_before(s_copy.dst, s_copy.loc) {
+      Some(symbol) => {
+        let dst_t = symbol.get_type();
+        if &dst_t != &ERROR && !dst_t.is_object() {
+          issue!(self, s_copy.dst_loc, SCopyNotClass { which: "dst", type_: dst_t.to_string() });
+        };
+        if !dst_t.is_object() {
+          if src_t != &ERROR && !src_t.is_object() {
+            issue!(self, s_copy.src.get_loc(), SCopyNotClass { which: "src", type_: src_t.to_string() });
+          };
+        } else if src_t != &ERROR && &dst_t != src_t {
+          issue!(self, s_copy.loc, SCopyMismatch { dst_t: dst_t.to_string(), src_t: src_t.to_string() });
+        }
+      }
+      None => {
+        issue!(self, s_copy.dst_loc, UndeclaredVar { name: s_copy.dst });
+        if src_t != &ERROR && !src_t.is_object() {
+          issue!(self, s_copy.src.get_loc(), SCopyNotClass { which: "src", type_: src_t.to_string() });
+        };
+      }
+    }
+  }
+
   fn visit_new_class(&mut self, new_class: &mut NewClass) {
     match self.scopes.lookup_class(new_class.name) {
       Some(class) => new_class.type_ = class.get_type(),
@@ -221,11 +247,11 @@ impl Visitor for TypeChecker {
   fn visit_assign(&mut self, assign: &mut Assign) {
     self.visit_expr(&mut assign.dst);
     self.visit_expr(&mut assign.src);
-    let dst_type = assign.dst.get_type();
-    let src_type = assign.src.get_type();
+    let dst_t = assign.dst.get_type();
+    let src_t = assign.src.get_type();
     // error check is contained in extends
-    if dst_type.is_method() || !src_type.extends(dst_type) {
-      issue!(self, assign.loc, IncompatibleBinary{left_t:dst_type.to_string(), opt:"=", right_t:src_type.to_string() })
+    if dst_t.is_method() || !src_t.extends(dst_t) {
+      issue!(self, assign.loc, IncompatibleBinary{left_t: dst_t.to_string(), opt: "=", right_t: src_t.to_string() })
     }
   }
 

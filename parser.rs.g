@@ -477,6 +477,7 @@ SCopy
         |$1: Token, $3: Token, $5: Expr| -> Stmt;
         $$ = Stmt::SCopy(SCopy {
             loc: $1.get_loc(),
+            dst_loc:$3.get_loc(),
             dst: $3.value,
             src: $5,
         });

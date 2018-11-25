@@ -5,6 +5,7 @@ use super::loc::*;
 use super::symbol::Symbol;
 
 use std::default::Default as D;
+use std::fmt;
 
 // the struct SemanticType in ast.rs is syntactic type(so it have field `loc`)
 #[derive(Debug)]
@@ -53,24 +54,22 @@ impl D for SemanticType {
   }
 }
 
-impl ToString for SemanticType {
-  fn to_string(&self) -> String {
+impl fmt::Display for SemanticType {
+  fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
     match self {
-      SemanticType::Error => "error".to_string(),
-      SemanticType::Var => "var".to_string(),
-      SemanticType::Null => "null".to_string(),
-      SemanticType::Basic(name) => name.to_string(),
-      SemanticType::Object(name, _) => "class : ".to_string() + name,
-      SemanticType::Class(class) => "class : ".to_string() + unsafe { &**class }.name,
-      SemanticType::Array(elem) => elem.to_string() + "[]",
+      SemanticType::Error => write!(f, "error"),
+      SemanticType::Var => write!(f, "var"),
+      SemanticType::Null => write!(f, "null"),
+      SemanticType::Basic(name) => write!(f, "{}", name),
+      SemanticType::Object(name, _) => write!(f, "class : {}", name),
+      SemanticType::Class(class) => write!(f, "class : {}", unsafe { &**class }.name),
+      SemanticType::Array(elem) => write!(f, "{}[]", elem),
       SemanticType::Method(method) => {
         let method = unsafe { &**method };
-        let mut s = method.loc.to_string() + " -> " + if method.static_ { "static " } else { "" } + "function "
-          + method.name + " : ";
         for parameter in &method.params {
-          s += &(parameter.type_.to_string() + "->");
+          write!(f, "{}->", parameter.type_.sem);
         }
-        s + &method.ret_t.to_string()
+        write!(f, "{}",method.ret_t.sem)
       }
     }
   }

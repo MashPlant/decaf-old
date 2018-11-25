@@ -271,8 +271,12 @@ impl Visitor for SymbolBuilder {
     if let Some(on_false) = &mut if_.on_false { self.visit_block(on_false); }
   }
 
-  fn visit_foreach(&mut self, _foreach: &mut Foreach) {
-    unimplemented!()
+  fn visit_foreach(&mut self, foreach: &mut Foreach) {
+    self.scopes.open(&mut foreach.body.scope);
+    // reuse the code of var def, which can handle var correctly
+    self.visit_var_def(&mut foreach.var_def);
+    for stmt in &mut foreach.body.stmts { self.visit_stmt(stmt); }
+    self.scopes.close();
   }
 
   fn visit_guarded(&mut self, guarded: &mut Guarded) {

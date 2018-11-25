@@ -363,3 +363,25 @@ impl IError for BadArrayIndex {
     "array subscript must be an integer".to_owned()
   }
 }
+
+pub struct SCopyNotClass {
+  pub which: &'static str,
+  pub type_: String,
+}
+
+impl IError for SCopyNotClass {
+  fn get_msg(&self) -> String {
+    format!("incompatible argument {}: {} given, class expected", self.which, self.type_)
+  }
+}
+
+pub struct SCopyMismatch {
+  pub dst_t: String,
+  pub src_t: String,
+}
+
+impl IError for SCopyMismatch {
+  fn get_msg(&self) -> String {
+    format!("incompatible dst type: {} and src type: {}", self.dst_t, self.src_t)
+  }
+}
