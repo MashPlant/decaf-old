@@ -1,42 +1,28 @@
-class Stack {
-    int sp;
-    int[] elems;
-
-    void Init() {
-        elems = new int[100];
-        sp = 0;
-        Push(3);
-    }
-
-    void Push(int i) {
-        elems[sp] = i;
-        sp = sp + 1;
-    }
-
-    int Pop() {
-        int val;
-        val = elems[sp - 1];
-        sp = sp - 1;
-        return val;
-    }
-
-    int NumElems() {
-        return sp;
-    }
+class Main {
+    int div;
 
     static void main() {
-        class Stack s;
-        s = new Stack();
-        s.Init();
-        s.Push(3);
-        s.Push(7);
-        s.Push(4);
-        Print(s.NumElems(), " ", s.Pop(), " ", s.Pop(), " ", s.Pop(), " ", s.NumElems());
+        Print(add(1));
+        Print(Main.add(1, new Main()));
+        new Main().length();
+        int[] a;
+        a = new int[true];
+        a.length(1);
+        int b;
+        b = 1;
+        b.length();
+        Main.sub(1, 2);
+        mul(1, 2);
+        Main.mul(1, 2);
+        new Main().mul();
+        new Main().div();
     }
-}
 
-class Main {
-	static void main() {
-		Stack.main();
-	}
+    static int add(int a, int b) {
+        return a + b;
+    }
+
+    int sub(int a, int b) {
+        return a - b;
+    }
 }

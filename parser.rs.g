@@ -769,7 +769,7 @@ Expr
     | '(' CLASS IDENTIFIER ')' Expr {
         |$3: Token, $5: Expr| -> Expr;
         $$ = Expr::TypeCast(TypeCast {
-            loc: $3.get_loc(),
+            loc: $5.get_loc(),
             name: $3.value,
             expr: Box::new($5),
             type_: D::default(),

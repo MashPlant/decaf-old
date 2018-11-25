@@ -95,7 +95,7 @@ impl TypeChecker {
                 let arg_t = call.args[i - this_offset].get_type();
                 if arg_t != &ERROR && !arg_t.extends(&method.params[i].type_.sem) {
                   issue!(self, call.args[i].get_loc(), WrongArgType {
-                    loc: i as i32,
+                    loc: (i + 1 - this_offset) as i32,
                     arg_t: arg_t.to_string(),
                     param_t: method.params[i].type_.sem.to_string()
                   });
@@ -301,24 +301,23 @@ impl Visitor for TypeChecker {
         let owner_t = owner.get_type();
         if owner_t == &ERROR { return; }
         // check array length call, quite a dirty implementation
-        // TODO fix the bug here
         if call.name == "length" {
           if owner_t.is_array() {
             if !call.args.is_empty() {
               issue!(self, call.loc, LengthWithArgument { count: call.args.len() as i32 });
             }
             call.type_ = INT;
-          } else if !owner_t.is_object() {
-            issue!(self, call.loc, BadLength);
-          }
-        } else {
-          if !owner_t.is_object() && !owner_t.is_class() {
-            issue!(self, call.loc, BadFieldAccess{name: call.name, owner_t: owner_t.to_string() });
             return;
-          } else {
-            let symbol = owner_t.get_class().lookup(call.name);
-            unsafe { self.check_call(call, symbol); }
+          } else if !owner_t.is_object() && !owner_t.is_class() {
+            issue!(self, call.loc, BadLength);
+            return;
           }
+        }
+        if !owner_t.is_object() && !owner_t.is_class() {
+          issue!(self, call.loc, BadFieldAccess{name: call.name, owner_t: owner_t.to_string() });
+        } else {
+          let symbol = owner_t.get_class().lookup(call.name);
+          unsafe { self.check_call(call, symbol); }
         }
       }
       None => unsafe {
@@ -333,14 +332,16 @@ impl Visitor for TypeChecker {
       self.visit_expr(expr);
       let expr_t = expr.get_type();
       if expr_t != &ERROR && expr_t != &BOOL && expr_t != &INT && expr_t != &STRING {
-        issue!(self, expr.get_loc(), BadPrintArg { loc: i as i32, type_: expr_t.to_string() });
+        issue!(self, expr.get_loc(), BadPrintArg { loc: i as i32 + 1, type_: expr_t.to_string() });
       }
     }
   }
 
   fn visit_this(&mut self, this: &mut This) {
     unsafe {
-      if (*self.current_method).static_ { issue!(self, this.loc, ThisInStatic); } else {
+      if (*self.current_method).static_ {
+        issue!(self, this.loc, ThisInStatic);
+      } else {
         this.type_ = (*self.current_class).get_object_type();
       }
     }
@@ -420,6 +421,7 @@ impl Visitor for TypeChecker {
                 None => issue!(self, id.loc, NoSuchField { name: id.name, owner_t: owner_t.to_string() }),
               }
             }
+            SemanticType::Error => {}
             _ => issue!(self, id.loc, BadFieldAccess{name: id.name, owner_t: owner_t.to_string() }),
           }
         }

@@ -110,7 +110,7 @@ pub struct NoMainClass;
 
 impl IError for NoMainClass {
   fn get_msg(&self) -> String {
-    format!("no legal Main class named {} was found", MAIN_CLASS)
+    format!("no legal Main class named '{}' was found", MAIN_CLASS)
   }
 }
 

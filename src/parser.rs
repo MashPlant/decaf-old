@@ -2694,7 +2694,7 @@ impl Parser {
     self.values_stack.pop();
 
     let _0 = Expr::TypeCast(TypeCast {
-      loc: _3.get_loc(),
+      loc: _5.get_loc(),
       name: _3.value,
       expr: Box::new(_5),
       type_: D::default(),

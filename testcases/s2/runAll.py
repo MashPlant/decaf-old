@@ -12,7 +12,7 @@ def read_txt_file(filename):
 
 
 def main():
-    decafc = os.path.join('..', '..', 'target', 'release', 'decaf')
+    decafc = os.path.join('..', '..', 'target', 'debug', 'decaf')
     names = sys.argv[1:]
     if not names:
         names = sorted(os.listdir('.'))
