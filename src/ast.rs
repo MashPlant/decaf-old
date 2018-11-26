@@ -85,7 +85,7 @@ impl ClassDef {
   }
 
   pub fn get_object_type(&self) -> SemanticType {
-    SemanticType::Object(self.name, self)
+    SemanticType::Object(self)
   }
 }
 

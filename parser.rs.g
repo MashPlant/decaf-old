@@ -943,7 +943,7 @@ Type
     }
     | CLASS IDENTIFIER  {
         |$1: Token, $2: Token| -> Type;
-        $$ = Type { loc: $2.get_loc(), sem: SemanticType::Object($2.value, ptr::null()) };
+        $$ = Type { loc: $2.get_loc(), sem: SemanticType::Named($2.value) };
     }
     | Type '[' ']' {
         |$1: Type| -> Type;

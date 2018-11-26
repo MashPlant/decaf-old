@@ -209,7 +209,7 @@ impl Visitor for SymbolBuilder {
       method_def.param.insert(0, VarDef {
         loc: method_def.loc,
         name: "this",
-        type_: Type { loc: method_def.loc, sem: SemanticType::Object(class.name, class) },
+        type_: Type { loc: method_def.loc, sem: SemanticType::Object(class) },
         scope: &method_def.scope,
       });
     }

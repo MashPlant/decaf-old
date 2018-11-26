@@ -2948,7 +2948,7 @@ impl Parser {
     let mut _2 = pop!(self.values_stack, _0);
     let mut _1 = pop!(self.values_stack, _0);
 
-    let _0 = Type { loc: _2.get_loc(), sem: SemanticType::Object(_2.value, ptr::null()) };
+    let _0 = Type { loc: _2.get_loc(), sem: SemanticType::Named(_2.value) };
     SV::_9(_0)
   }
 

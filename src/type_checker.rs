@@ -489,7 +489,7 @@ impl Visitor for TypeChecker {
           self.expr(owner);
           let owner_t = owner.get_type();
           match owner_t {
-            SemanticType::Object(_, class) => {
+            SemanticType::Object(class) => {
               let class = &**class;
               // lookup through inheritance chain
               match class.lookup(id.name) {
@@ -530,7 +530,7 @@ impl Visitor for TypeChecker {
                       // add a virtual `this`, it doesn't need visit
                       *owner_ptr = Some(Box::new(Expr::This(This {
                         loc: id.loc,
-                        type_: SemanticType::Object((*self.current_class).name, self.current_class),
+                        type_: SemanticType::Object(self.current_class),
                       })));
                     }
                   }

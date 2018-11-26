@@ -229,12 +229,10 @@ impl Symbol {
 
   // for a class symbol, will return the type of its instance
   pub fn get_type(&self) -> SemanticType {
-    unsafe {
-      match self {
-        Symbol::Class(class) => SemanticType::Object((**class).name, *class),
-        Symbol::Method(method) => SemanticType::Method(*method),
-        Symbol::Var(var) => var.get_type().clone(),
-      }
+    match self {
+      Symbol::Class(class) => SemanticType::Object(*class),
+      Symbol::Method(method) => SemanticType::Method(*method),
+      Symbol::Var(var) => var.get_type().clone(),
     }
   }
 }

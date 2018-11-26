@@ -15,14 +15,16 @@ pub enum SemanticType {
   Null,
   // int, string, bool, void
   Basic(&'static str),
+  // only a name, generated while parsing, whether it can become an object depends on type check process
+  Named(&'static str),
   // a class object
-  Object(&'static str, *const ClassDef),
+  Object(*const ClassDef),
+  // a class, e.g., the type of `Main` in Main.f()
+  Class(*const ClassDef),
   // type [][]...
   Array(Box<SemanticType>),
   // refer to a method, only possible in semantic analysis
   Method(*const MethodDef),
-  // a class, e.g., the type of `Main` in Main.f()
-  Class(*const ClassDef),
 }
 
 impl Clone for SemanticType {
@@ -32,10 +34,11 @@ impl Clone for SemanticType {
       SemanticType::Var => SemanticType::Var,
       SemanticType::Null => SemanticType::Null,
       SemanticType::Basic(name) => SemanticType::Basic(name),
-      SemanticType::Object(name, class) => SemanticType::Object(name, *class),
+      SemanticType::Named(name) => SemanticType::Named(name),
+      SemanticType::Object(class) => SemanticType::Object(*class),
+      SemanticType::Class(class) => SemanticType::Class(*class),
       SemanticType::Array(elem) => SemanticType::Array(elem.clone()),
       SemanticType::Method(method) => SemanticType::Method(*method),
-      SemanticType::Class(class) => SemanticType::Class(*class),
     }
   }
 }
@@ -61,7 +64,8 @@ impl fmt::Display for SemanticType {
       SemanticType::Var => write!(f, "var"),
       SemanticType::Null => write!(f, "null"),
       SemanticType::Basic(name) => write!(f, "{}", name),
-      SemanticType::Object(name, _) => write!(f, "class : {}", name),
+      SemanticType::Named(name) => write!(f, "class : {}", name),
+      SemanticType::Object(class) => write!(f, "class : {}", unsafe { &**class }.name),
       SemanticType::Class(class) => write!(f, "class : {}", unsafe { &**class }.name),
       SemanticType::Array(elem) => write!(f, "{}[]", elem),
       SemanticType::Method(method) => {
@@ -82,9 +86,9 @@ impl SemanticType {
       (SemanticType::Error, _) => true,
       (_, SemanticType::Error) => true,
       (SemanticType::Basic(name1), SemanticType::Basic(name2)) => name1 == name2,
-      (SemanticType::Object(_, class1), SemanticType::Object(_, class2)) => unsafe { (&**class1).extends(*class2) },
+      (SemanticType::Object(class1), SemanticType::Object(class2)) => unsafe { (&**class1).extends(*class2) },
       (SemanticType::Array(elem1), SemanticType::Array(elem2)) => elem1 == elem2,
-      (SemanticType::Null, SemanticType::Object(_, _)) => true,
+      (SemanticType::Null, SemanticType::Object(_)) => true,
       _ => false,
     }
   }
@@ -98,7 +102,7 @@ impl SemanticType {
 
   pub fn is_object(&self) -> bool {
     match self {
-      SemanticType::Object(_, _) => true,
+      SemanticType::Object(_) => true,
       _ => false,
     }
   }
@@ -120,7 +124,7 @@ impl SemanticType {
   pub fn get_class(&self) -> &ClassDef {
     unsafe {
       match self {
-        SemanticType::Object(_, class) => &**class,
+        SemanticType::Object(class) => &**class,
         SemanticType::Class(class) => &**class,
         _ => panic!("call get_class on non-class & non-object type"),
       }
@@ -142,13 +146,13 @@ impl SemanticType {
     match self {
       SemanticType::Var => printer.print("var"),
       SemanticType::Basic(name) => printer.print(&(name.to_string() + "type")),
-      SemanticType::Object(name, _) => {
+      SemanticType::Named(name) => {
         printer.print("classtype");
         printer.print(name);
       }
-      SemanticType::Array(name) => {
+      SemanticType::Array(elem) => {
         printer.print("arrtype");
-        name.print_ast(printer);
+        elem.print_ast(printer);
       }
       _ => unreachable!()
     }
@@ -162,7 +166,7 @@ impl PartialEq for SemanticType {
       (SemanticType::Var, SemanticType::Var) => true,
       (SemanticType::Error, SemanticType::Error) => true,
       (SemanticType::Basic(name1), SemanticType::Basic(name2)) => name1 == name2,
-      (SemanticType::Object(_, class1), SemanticType::Object(_, class2)) => class1 == class2,
+      (SemanticType::Object(class1), SemanticType::Object(class2)) => class1 == class2,
       (SemanticType::Array(elem1), SemanticType::Array(elem2)) => elem1 == elem2,
       _ => false,
     }
@@ -177,25 +181,28 @@ pub trait SemanticTypeVisitor {
   fn lookup_class(&self, name: &'static str) -> Option<Symbol>;
 
   fn semantic_type(&mut self, type_: &mut SemanticType, loc: Loc) {
-    if match type_ { // work around with borrow check
-      SemanticType::Object(name, ref mut class) =>
-        if let Some(class_symbol) = self.lookup_class(name) {
-          *class = class_symbol.as_class();
-          false
-        } else {
-          self.push_error(Error::new(loc, NoSuchClass { name }));
-          true
+    unsafe {
+      let type_ptr = type_ as *mut SemanticType;
+      if match type_ { // work around with borrow check
+        SemanticType::Named(name) =>
+          if let Some(class_symbol) = self.lookup_class(name) {
+            *type_ptr = SemanticType::Object(class_symbol.as_class());
+            false
+          } else {
+            self.push_error(Error::new(loc, NoSuchClass { name }));
+            true
+          }
+        SemanticType::Array(elem) => {
+          self.semantic_type(elem, loc);
+          if elem.as_ref() == &ERROR {
+            true
+          } else if elem.as_ref() == &VOID {
+            self.push_error(Error::new(loc, VoidArrayElement));
+            true
+          } else { false }
         }
-      SemanticType::Array(elem_type) => {
-        self.semantic_type(elem_type, loc);
-        if elem_type.as_ref() == &ERROR {
-          true
-        } else if elem_type.as_ref() == &VOID {
-          self.push_error(Error::new(loc, VoidArrayElement));
-          true
-        } else { false }
-      }
-      _ => false,
-    } { *type_ = ERROR; }
+        _ => false,
+      } { *type_ = ERROR; }
+    }
   }
 }
