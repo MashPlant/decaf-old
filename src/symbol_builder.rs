@@ -41,7 +41,7 @@ impl SymbolBuilder {
   }
 
   pub fn build(mut self, mut program: Program) -> Result<Program, Vec<Error>> {
-    self.visit_program(&mut program);
+    self.program(&mut program);
     if self.errors.is_empty() {
       Ok(program)
     } else {
@@ -145,7 +145,7 @@ impl SemanticTypeVisitor for SymbolBuilder {
 }
 
 impl Visitor for SymbolBuilder {
-  fn visit_program(&mut self, program: &mut Program) {
+  fn program(&mut self, program: &mut Program) {
     unsafe {
       self.scopes.open(&mut program.scope);
       for class_def in &mut program.class {
@@ -179,7 +179,7 @@ impl Visitor for SymbolBuilder {
       }
 
       for class_def in &mut program.class {
-        self.visit_class_def(class_def);
+        self.class_def(class_def);
         if class_def.name == MAIN_CLASS {
           program.main = class_def;
         }
@@ -191,14 +191,14 @@ impl Visitor for SymbolBuilder {
     }
   }
 
-  fn visit_class_def(&mut self, class_def: &mut ClassDef) {
+  fn class_def(&mut self, class_def: &mut ClassDef) {
     self.scopes.open(&mut class_def.scope);
-    for field_def in &mut class_def.field { self.visit_field_def(field_def) }
+    for field_def in &mut class_def.field { self.field_def(field_def) }
     self.scopes.close();
   }
 
-  fn visit_method_def(&mut self, method_def: &mut MethodDef) {
-    self.visit_type(&mut method_def.ret_t);
+  fn method_def(&mut self, method_def: &mut MethodDef) {
+    self.type_(&mut method_def.ret_t);
     if let Some((earlier, _)) = self.scopes.lookup(method_def.name, false) {
       issue!(self, method_def.loc, ConflictDeclaration { earlier: earlier.get_loc(), name: method_def.name });
     } else {
@@ -216,16 +216,16 @@ impl Visitor for SymbolBuilder {
     method_def.scope = Scope { symbols: D::default(), kind: ScopeKind::Parameter(method_def) };
     self.scopes.open(&mut method_def.scope);
     for var_def in &mut method_def.param {
-      self.visit_var_def(var_def);
+      self.var_def(var_def);
     }
     method_def.body.is_method = true;
-    self.visit_block(&mut method_def.body);
+    self.block(&mut method_def.body);
     self.scopes.close();
   }
 
-  fn visit_var_def(&mut self, var_def: &mut VarDef) {
+  fn var_def(&mut self, var_def: &mut VarDef) {
     unsafe {
-      self.visit_type(&mut var_def.type_);
+      self.type_(&mut var_def.type_);
       if var_def.type_.sem == VOID {
         issue!(self, var_def.loc, VoidVar { name: var_def.name });
         return;
@@ -237,7 +237,7 @@ impl Visitor for SymbolBuilder {
     }
   }
 
-  fn visit_var_assign(&mut self, var_assign: &mut VarAssign) {
+  fn var_assign(&mut self, var_assign: &mut VarAssign) {
     unsafe {
       if self.check_var_declaration(var_assign.name, var_assign.loc) {
         var_assign.scope = self.scopes.cur_scope() as *const _;
@@ -246,44 +246,44 @@ impl Visitor for SymbolBuilder {
     }
   }
 
-  fn visit_block(&mut self, block: &mut Block) {
+  fn block(&mut self, block: &mut Block) {
     block.scope = Scope { symbols: D::default(), kind: ScopeKind::Local(block) };
     self.scopes.open(&mut block.scope);
-    for stmt in &mut block.stmt { self.visit_stmt(stmt); }
+    for stmt in &mut block.stmt { self.stmt(stmt); }
     self.scopes.close();
   }
 
-  fn visit_while(&mut self, while_: &mut While) {
-    self.visit_block(&mut while_.body);
+  fn while_(&mut self, while_: &mut While) {
+    self.block(&mut while_.body);
   }
 
-  fn visit_for(&mut self, for_: &mut For) {
+  fn for_(&mut self, for_: &mut For) {
     let block = &mut for_.body;
     block.scope = Scope { symbols: D::default(), kind: ScopeKind::Local(block) };
     self.scopes.open(&mut block.scope);
-    if let Simple::VarAssign(var_assign) = &mut for_.init { self.visit_var_assign(var_assign); }
-    for stmt in &mut block.stmt { self.visit_stmt(stmt); }
+    if let Simple::VarAssign(var_assign) = &mut for_.init { self.var_assign(var_assign); }
+    for stmt in &mut block.stmt { self.stmt(stmt); }
     self.scopes.close();
   }
 
-  fn visit_if(&mut self, if_: &mut If) {
-    self.visit_block(&mut if_.on_true);
-    if let Some(on_false) = &mut if_.on_false { self.visit_block(on_false); }
+  fn if_(&mut self, if_: &mut If) {
+    self.block(&mut if_.on_true);
+    if let Some(on_false) = &mut if_.on_false { self.block(on_false); }
   }
 
-  fn visit_foreach(&mut self, foreach: &mut Foreach) {
+  fn foreach(&mut self, foreach: &mut Foreach) {
     self.scopes.open(&mut foreach.body.scope);
     // reuse the code of var def, which can handle var correctly
-    self.visit_var_def(&mut foreach.def);
-    for stmt in &mut foreach.body.stmt { self.visit_stmt(stmt); }
+    self.var_def(&mut foreach.def);
+    for stmt in &mut foreach.body.stmt { self.stmt(stmt); }
     self.scopes.close();
   }
 
-  fn visit_guarded(&mut self, guarded: &mut Guarded) {
-    for (_, stmt) in &mut guarded.guarded { self.visit_block(stmt); }
+  fn guarded(&mut self, guarded: &mut Guarded) {
+    for (_, stmt) in &mut guarded.guarded { self.block(stmt); }
   }
 
-  fn visit_type(&mut self, type_: &mut Type) {
-    self.visit_semantic_type(&mut type_.sem, type_.loc);
+  fn type_(&mut self, type_: &mut Type) {
+    self.semantic_type(&mut type_.sem, type_.loc);
   }
 }

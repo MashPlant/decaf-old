@@ -35,7 +35,7 @@ impl TypeChecker {
   }
 
   pub fn check(mut self, mut program: Program) -> Result<Program, Vec<Error>> {
-    self.visit_program(&mut program);
+    self.program(&mut program);
     if self.errors.is_empty() {
       Ok(program)
     } else {
@@ -45,7 +45,7 @@ impl TypeChecker {
   }
 
   fn check_bool(&mut self, expr: &mut Expr) {
-    self.visit_expr(expr);
+    self.expr(expr);
     let t = expr.get_type();
     if !t.error_or(&BOOL) {
       issue!(self, expr.get_loc(), TestNotBool);
@@ -85,7 +85,7 @@ impl TypeChecker {
                 }
               }
             };
-            for expr in &mut call.arg { self.visit_expr(expr); }
+            for expr in &mut call.arg { self.expr(expr); }
             let this_offset = if method.static_ { 0 } else { 1 };
             let argc = call.arg.len();
             if argc != method.param.len() - this_offset {
@@ -111,7 +111,7 @@ impl TypeChecker {
   }
 
   fn check_repeat(&mut self, binary: &mut Binary) {
-    // l & r are already visited in visit_binary
+    // l & r are already visited in binary
     let (l, r) = (&mut binary.l, &mut binary.r);
     let (l_t, r_t) = (l.get_type(), r.get_type());
     if !r_t.error_or(&INT) {
@@ -153,67 +153,67 @@ impl SemanticTypeVisitor for TypeChecker {
 }
 
 impl Visitor for TypeChecker {
-  fn visit_program(&mut self, program: &mut Program) {
+  fn program(&mut self, program: &mut Program) {
     self.scopes.open(&mut program.scope);
-    for class_def in &mut program.class { self.visit_class_def(class_def); }
+    for class_def in &mut program.class { self.class_def(class_def); }
     self.scopes.close();
   }
 
-  fn visit_class_def(&mut self, class_def: &mut ClassDef) {
+  fn class_def(&mut self, class_def: &mut ClassDef) {
     self.current_class = class_def;
     self.scopes.open(&mut class_def.scope);
-    for field_def in &mut class_def.field { self.visit_field_def(field_def) }
+    for field_def in &mut class_def.field { self.field_def(field_def) }
     self.scopes.close();
   }
 
-  fn visit_method_def(&mut self, method_def: &mut MethodDef) {
+  fn method_def(&mut self, method_def: &mut MethodDef) {
     self.current_method = method_def;
     self.scopes.open(&mut method_def.scope);
-    self.visit_block(&mut method_def.body);
+    self.block(&mut method_def.body);
     self.scopes.close();
   }
 
-  fn visit_var_assign(&mut self, var_assign: &mut VarAssign) {
-    self.visit_expr(&mut var_assign.src);
+  fn var_assign(&mut self, var_assign: &mut VarAssign) {
+    self.expr(&mut var_assign.src);
     var_assign.type_ = var_assign.src.get_type().clone();
   }
 
-  fn visit_block(&mut self, block: &mut Block) {
+  fn block(&mut self, block: &mut Block) {
     self.scopes.open(&mut block.scope);
-    for stmt in &mut block.stmt { self.visit_stmt(stmt); }
+    for stmt in &mut block.stmt { self.stmt(stmt); }
     self.scopes.close();
   }
 
-  fn visit_while(&mut self, while_: &mut While) {
+  fn while_(&mut self, while_: &mut While) {
     self.check_bool(&mut while_.cond);
     self.loop_counter += 1;
-    self.visit_block(&mut while_.body);
+    self.block(&mut while_.body);
     self.loop_counter -= 1;
   }
 
-  fn visit_for(&mut self, for_: &mut For) {
-    self.visit_simple(&mut for_.init);
+  fn for_(&mut self, for_: &mut For) {
+    self.simple(&mut for_.init);
     self.check_bool(&mut for_.cond);
-    self.visit_simple(&mut for_.update);
-    self.visit_block(&mut for_.body);
+    self.simple(&mut for_.update);
+    self.block(&mut for_.body);
   }
 
-  fn visit_if(&mut self, if_: &mut If) {
+  fn if_(&mut self, if_: &mut If) {
     self.check_bool(&mut if_.cond);
-    self.visit_block(&mut if_.on_true);
-    if let Some(on_false) = &mut if_.on_false { self.visit_block(on_false); }
+    self.block(&mut if_.on_true);
+    if let Some(on_false) = &mut if_.on_false { self.block(on_false); }
   }
 
-  fn visit_break(&mut self, break_: &mut Break) {
+  fn break_(&mut self, break_: &mut Break) {
     if self.loop_counter == 0 { issue!(self, break_.loc, BreakOutOfLoop); }
   }
 
-  fn visit_return(&mut self, return_: &mut Return) {
+  fn return_(&mut self, return_: &mut Return) {
     unsafe {
       let expect = &(*self.current_method).ret_t.sem;
       match &mut return_.expr {
         Some(expr) => {
-          self.visit_expr(expr);
+          self.expr(expr);
           let expr_t = expr.get_type();
           if !expr_t.extends(expect) {
             issue!(self, return_.loc, WrongReturnType { ret_t: expr_t.to_string(), expect_t: expect.to_string() });
@@ -228,8 +228,8 @@ impl Visitor for TypeChecker {
     }
   }
 
-  fn visit_s_copy(&mut self, s_copy: &mut SCopy) {
-    self.visit_expr(&mut s_copy.src);
+  fn s_copy(&mut self, s_copy: &mut SCopy) {
+    self.expr(&mut s_copy.src);
     let src_t = s_copy.src.get_type();
     match self.scopes.lookup_before(s_copy.dst, s_copy.loc) {
       Some(symbol) => {
@@ -254,8 +254,8 @@ impl Visitor for TypeChecker {
     }
   }
 
-  fn visit_foreach(&mut self, foreach: &mut Foreach) {
-    self.visit_expr(&mut foreach.arr);
+  fn foreach(&mut self, foreach: &mut Foreach) {
+    self.expr(&mut foreach.arr);
     let arr_t = foreach.arr.get_type();
     match arr_t {
       SemanticType::Array(elem) => match foreach.def.type_.sem {
@@ -276,37 +276,37 @@ impl Visitor for TypeChecker {
       }
     };
     if let Some(cond) = &mut foreach.cond { self.check_bool(cond); }
-    self.visit_block(&mut foreach.body);
+    self.block(&mut foreach.body);
   }
 
-  fn visit_guarded(&mut self, guarded: &mut Guarded) {
+  fn guarded(&mut self, guarded: &mut Guarded) {
     for (e, b) in &mut guarded.guarded {
       self.check_bool(e);
-      self.visit_block(b);
+      self.block(b);
     }
   }
 
-  fn visit_new_class(&mut self, new_class: &mut NewClass) {
+  fn new_class(&mut self, new_class: &mut NewClass) {
     match self.scopes.lookup_class(new_class.name) {
       Some(class) => new_class.type_ = class.get_type(),
       None => issue!(self, new_class.loc, NoSuchClass { name: new_class.name }),
     }
   }
 
-  fn visit_new_array(&mut self, new_array: &mut NewArray) {
+  fn new_array(&mut self, new_array: &mut NewArray) {
     let elem_t = &mut new_array.elem_t;
     new_array.type_ = SemanticType::Array(Box::new(elem_t.sem.clone()));
-    self.visit_semantic_type(&mut new_array.type_, elem_t.loc);
-    self.visit_expr(&mut new_array.len);
+    self.semantic_type(&mut new_array.type_, elem_t.loc);
+    self.expr(&mut new_array.len);
     let len_t = new_array.len.get_type();
     if !len_t.error_or(&INT) {
       issue!(self, new_array.len.get_loc(), BadNewArrayLen);
     }
   }
 
-  fn visit_assign(&mut self, assign: &mut Assign) {
-    self.visit_expr(&mut assign.dst);
-    self.visit_expr(&mut assign.src);
+  fn assign(&mut self, assign: &mut Assign) {
+    self.expr(&mut assign.dst);
+    self.expr(&mut assign.src);
     let dst_t = assign.dst.get_type();
     let src_t = assign.src.get_type();
     // error check is contained in extends
@@ -315,8 +315,8 @@ impl Visitor for TypeChecker {
     }
   }
 
-  fn visit_unary(&mut self, unary: &mut Unary) {
-    self.visit_expr(&mut unary.r);
+  fn unary(&mut self, unary: &mut Unary) {
+    self.expr(&mut unary.r);
     let r = unary.r.get_type();
     match unary.op {
       Operator::Neg => {
@@ -335,9 +335,9 @@ impl Visitor for TypeChecker {
     }
   }
 
-  fn visit_binary(&mut self, binary: &mut Binary) {
-    self.visit_expr(&mut binary.l);
-    self.visit_expr(&mut binary.r);
+  fn binary(&mut self, binary: &mut Binary) {
+    self.expr(&mut binary.l);
+    self.expr(&mut binary.r);
     match binary.op {
       Operator::Repeat => self.check_repeat(binary),
       Operator::Concat => self.check_concat(binary),
@@ -378,12 +378,12 @@ impl Visitor for TypeChecker {
     }
   }
 
-  fn visit_call(&mut self, call: &mut Call) {
+  fn call(&mut self, call: &mut Call) {
     let call_ptr = call as *mut Call;
     match unsafe { &mut (*call_ptr).owner } {
       Some(owner) => {
         self.current_id_used_for_ref = true;
-        self.visit_expr(owner);
+        self.expr(owner);
         let owner_t = owner.get_type();
         if owner_t == &ERROR { return; }
         // check array length call, quite a dirty implementation
@@ -413,9 +413,9 @@ impl Visitor for TypeChecker {
     }
   }
 
-  fn visit_print(&mut self, print: &mut Print) {
+  fn print(&mut self, print: &mut Print) {
     for (i, expr) in print.print.iter_mut().enumerate() {
-      self.visit_expr(expr);
+      self.expr(expr);
       let expr_t = expr.get_type();
       if expr_t != &ERROR && expr_t != &BOOL && expr_t != &INT && expr_t != &STRING {
         issue!(self, expr.get_loc(), BadPrintArg { loc: i as i32 + 1, type_: expr_t.to_string() });
@@ -423,7 +423,7 @@ impl Visitor for TypeChecker {
     }
   }
 
-  fn visit_this(&mut self, this: &mut This) {
+  fn this(&mut self, this: &mut This) {
     unsafe {
       if (*self.current_method).static_ {
         issue!(self, this.loc, ThisInStatic);
@@ -433,8 +433,8 @@ impl Visitor for TypeChecker {
     }
   }
 
-  fn visit_type_cast(&mut self, type_cast: &mut TypeCast) {
-    self.visit_expr(&mut type_cast.expr);
+  fn type_cast(&mut self, type_cast: &mut TypeCast) {
+    self.expr(&mut type_cast.expr);
     let expr_t = type_cast.expr.get_type();
     if expr_t != &ERROR && !expr_t.is_object() {
       issue!(self, type_cast.loc, NotObject { type_: expr_t.to_string() });
@@ -446,8 +446,8 @@ impl Visitor for TypeChecker {
     }
   }
 
-  fn visit_type_test(&mut self, type_test: &mut TypeTest) {
-    self.visit_expr(&mut type_test.expr);
+  fn type_test(&mut self, type_test: &mut TypeTest) {
+    self.expr(&mut type_test.expr);
     let expr_t = type_test.expr.get_type();
     if expr_t != &ERROR && !expr_t.is_object() {
       issue!(self, type_test.loc, NotObject { type_: expr_t.to_string() });
@@ -457,9 +457,9 @@ impl Visitor for TypeChecker {
     }
   }
 
-  fn visit_indexed(&mut self, indexed: &mut Indexed) {
-    self.visit_expr(&mut indexed.arr);
-    self.visit_expr(&mut indexed.idx);
+  fn indexed(&mut self, indexed: &mut Indexed) {
+    self.expr(&mut indexed.arr);
+    self.expr(&mut indexed.idx);
     let (arr_t, idx_t) = (indexed.arr.get_type(), indexed.idx.get_type());
     match &arr_t {
       SemanticType::Array(elem) => indexed.type_ = *elem.clone(),
@@ -471,7 +471,7 @@ impl Visitor for TypeChecker {
     }
   }
 
-  fn visit_identifier(&mut self, id: &mut Identifier) {
+  fn identifier(&mut self, id: &mut Identifier) {
     // not found(no owner) or sole ClassName => UndeclaredVar
     // refer to field in static function => RefInStatic
     // <not object>.a (Main.a, 1.a, func.a) => BadFieldAssess
@@ -486,7 +486,7 @@ impl Visitor for TypeChecker {
       match &mut id.owner {
         Some(owner) => {
           self.current_id_used_for_ref = true;
-          self.visit_expr(owner);
+          self.expr(owner);
           let owner_t = owner.get_type();
           match owner_t {
             SemanticType::Object(_, class) => {
@@ -545,10 +545,10 @@ impl Visitor for TypeChecker {
     }
   }
 
-  fn visit_default(&mut self, default: &mut Default) {
-    self.visit_expr(&mut default.arr);
-    self.visit_expr(&mut default.idx);
-    self.visit_expr(&mut default.dft);
+  fn default(&mut self, default: &mut Default) {
+    self.expr(&mut default.arr);
+    self.expr(&mut default.idx);
+    self.expr(&mut default.dft);
     let (arr_t, idx_t, dft_t) =
       (default.arr.get_type(), default.idx.get_type(), default.dft.get_type());
     match arr_t {

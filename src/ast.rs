@@ -535,127 +535,127 @@ pub struct Comprehension {
 }
 
 pub trait Visitor {
-  fn visit_program(&mut self, _program: &mut Program) {}
+  fn program(&mut self, _program: &mut Program) {}
 
-  fn visit_class_def(&mut self, _class_def: &mut ClassDef) {}
+  fn class_def(&mut self, _class_def: &mut ClassDef) {}
 
-  fn visit_method_def(&mut self, _method_def: &mut MethodDef) {}
+  fn method_def(&mut self, _method_def: &mut MethodDef) {}
 
-  fn visit_field_def(&mut self, field_def: &mut FieldDef) {
+  fn field_def(&mut self, field_def: &mut FieldDef) {
     match field_def {
-      FieldDef::MethodDef(method_def) => self.visit_method_def(method_def),
-      FieldDef::VarDef(var_def) => self.visit_var_def(var_def),
+      FieldDef::MethodDef(method_def) => self.method_def(method_def),
+      FieldDef::VarDef(var_def) => self.var_def(var_def),
     };
   }
 
-  fn visit_stmt(&mut self, stmt: &mut Stmt) {
+  fn stmt(&mut self, stmt: &mut Stmt) {
     use self::Stmt::*;
     match stmt {
-      VarDef(var_def) => self.visit_var_def(var_def),
-      Simple(simple) => self.visit_simple(simple),
-      If(if_) => self.visit_if(if_),
-      While(while_) => self.visit_while(while_),
-      For(for_) => self.visit_for(for_),
-      Return(return_) => self.visit_return(return_),
-      Print(print) => self.visit_print(print),
-      Break(break_) => self.visit_break(break_),
-      SCopy(s_copy) => self.visit_s_copy(s_copy),
-      Foreach(foreach) => self.visit_foreach(foreach),
-      Guarded(guarded) => self.visit_guarded(guarded),
-      Block(block) => self.visit_block(block),
+      VarDef(var_def) => self.var_def(var_def),
+      Simple(simple) => self.simple(simple),
+      If(if_) => self.if_(if_),
+      While(while_) => self.while_(while_),
+      For(for_) => self.for_(for_),
+      Return(return_) => self.return_(return_),
+      Print(print) => self.print(print),
+      Break(break_) => self.break_(break_),
+      SCopy(s_copy) => self.s_copy(s_copy),
+      Foreach(foreach) => self.foreach(foreach),
+      Guarded(guarded) => self.guarded(guarded),
+      Block(block) => self.block(block),
     };
   }
 
-  fn visit_simple(&mut self, simple: &mut Simple) {
+  fn simple(&mut self, simple: &mut Simple) {
     match simple {
-      Simple::Assign(assign) => self.visit_assign(assign),
-      Simple::VarAssign(var_assign) => self.visit_var_assign(var_assign),
-      Simple::Expr(expr) => self.visit_expr(expr),
-      Simple::Skip(skip) => self.visit_skip(skip),
+      Simple::Assign(assign) => self.assign(assign),
+      Simple::VarAssign(var_assign) => self.var_assign(var_assign),
+      Simple::Expr(expr) => self.expr(expr),
+      Simple::Skip(skip) => self.skip(skip),
     }
   }
 
-  fn visit_var_def(&mut self, _var_def: &mut VarDef) {}
+  fn var_def(&mut self, _var_def: &mut VarDef) {}
 
-  fn visit_var_assign(&mut self, _var_assign: &mut VarAssign) {}
+  fn var_assign(&mut self, _var_assign: &mut VarAssign) {}
 
-  fn visit_skip(&mut self, _skip: &mut Skip) {}
+  fn skip(&mut self, _skip: &mut Skip) {}
 
-  fn visit_block(&mut self, _block: &mut Block) {}
+  fn block(&mut self, _block: &mut Block) {}
 
-  fn visit_while(&mut self, _while: &mut While) {}
+  fn while_(&mut self, _while: &mut While) {}
 
-  fn visit_for(&mut self, _for: &mut For) {}
+  fn for_(&mut self, _for: &mut For) {}
 
-  fn visit_if(&mut self, _if: &mut If) {}
+  fn if_(&mut self, _if: &mut If) {}
 
-  fn visit_break(&mut self, _break: &mut Break) {}
+  fn break_(&mut self, _break: &mut Break) {}
 
-  fn visit_return(&mut self, _return: &mut Return) {}
+  fn return_(&mut self, _return: &mut Return) {}
 
-  fn visit_s_copy(&mut self, _s_copy: &mut SCopy) {}
+  fn s_copy(&mut self, _s_copy: &mut SCopy) {}
 
-  fn visit_foreach(&mut self, _foreach: &mut Foreach) {}
+  fn foreach(&mut self, _foreach: &mut Foreach) {}
 
-  fn visit_guarded(&mut self, _guarded: &mut Guarded) {}
+  fn guarded(&mut self, _guarded: &mut Guarded) {}
 
-  fn visit_new_class(&mut self, _new_class: &mut NewClass) {}
+  fn new_class(&mut self, _new_class: &mut NewClass) {}
 
-  fn visit_new_array(&mut self, _new_array: &mut NewArray) {}
+  fn new_array(&mut self, _new_array: &mut NewArray) {}
 
-  fn visit_assign(&mut self, _assign: &mut Assign) {}
+  fn assign(&mut self, _assign: &mut Assign) {}
 
-  fn visit_expr(&mut self, expr: &mut Expr) {
+  fn expr(&mut self, expr: &mut Expr) {
     use self::Expr::*;
     match expr {
-      Identifier(identifier) => self.visit_identifier(identifier),
-      Indexed(indexed) => self.visit_indexed(indexed),
-      Const(const_) => self.visit_const(const_),
-      Call(call) => self.visit_call(call),
-      Unary(unary) => self.visit_unary(unary),
-      Binary(binary) => self.visit_binary(binary),
-      This(this) => self.visit_this(this),
-      ReadInt(read_int) => self.visit_read_int(read_int),
-      ReadLine(read_line) => self.visit_read_line(read_line),
-      NewClass(new_class) => self.visit_new_class(new_class),
-      NewArray(new_array) => self.visit_new_array(new_array),
-      TypeTest(type_test) => self.visit_type_test(type_test),
-      TypeCast(type_cast) => self.visit_type_cast(type_cast),
-      Range(range) => self.visit_range(range),
-      Default(default) => self.visit_default(default),
-      Comprehension(comprehension) => self.visit_comprehension(comprehension),
+      Identifier(identifier) => self.identifier(identifier),
+      Indexed(indexed) => self.indexed(indexed),
+      Const(const_) => self.const_(const_),
+      Call(call) => self.call(call),
+      Unary(unary) => self.unary(unary),
+      Binary(binary) => self.binary(binary),
+      This(this) => self.this(this),
+      ReadInt(read_int) => self.read_int(read_int),
+      ReadLine(read_line) => self.read_line(read_line),
+      NewClass(new_class) => self.new_class(new_class),
+      NewArray(new_array) => self.new_array(new_array),
+      TypeTest(type_test) => self.type_test(type_test),
+      TypeCast(type_cast) => self.type_cast(type_cast),
+      Range(range) => self.range(range),
+      Default(default) => self.default(default),
+      Comprehension(comprehension) => self.comprehension(comprehension),
     };
   }
 
-  fn visit_const(&mut self, _const_: &mut Const) {}
+  fn const_(&mut self, _const_: &mut Const) {}
 
-  fn visit_unary(&mut self, _unary: &mut Unary) {}
+  fn unary(&mut self, _unary: &mut Unary) {}
 
-  fn visit_binary(&mut self, _binary: &mut Binary) {}
+  fn binary(&mut self, _binary: &mut Binary) {}
 
-  fn visit_call(&mut self, _call: &mut Call) {}
+  fn call(&mut self, _call: &mut Call) {}
 
-  fn visit_read_int(&mut self, _read_int: &mut ReadInt) {}
+  fn read_int(&mut self, _read_int: &mut ReadInt) {}
 
-  fn visit_read_line(&mut self, _read_line: &mut ReadLine) {}
+  fn read_line(&mut self, _read_line: &mut ReadLine) {}
 
-  fn visit_print(&mut self, _print: &mut Print) {}
+  fn print(&mut self, _print: &mut Print) {}
 
-  fn visit_this(&mut self, _this: &mut This) {}
+  fn this(&mut self, _this: &mut This) {}
 
-  fn visit_type_cast(&mut self, _type_cast: &mut TypeCast) {}
+  fn type_cast(&mut self, _type_cast: &mut TypeCast) {}
 
-  fn visit_type_test(&mut self, _type_test: &mut TypeTest) {}
+  fn type_test(&mut self, _type_test: &mut TypeTest) {}
 
-  fn visit_indexed(&mut self, _indexed: &mut Indexed) {}
+  fn indexed(&mut self, _indexed: &mut Indexed) {}
 
-  fn visit_identifier(&mut self, _identifier: &mut Identifier) {}
+  fn identifier(&mut self, _identifier: &mut Identifier) {}
 
-  fn visit_range(&mut self, _range: &mut Range) {}
+  fn range(&mut self, _range: &mut Range) {}
 
-  fn visit_default(&mut self, _default: &mut Default) {}
+  fn default(&mut self, _default: &mut Default) {}
 
-  fn visit_comprehension(&mut self, _comprehension: &mut Comprehension) {}
+  fn comprehension(&mut self, _comprehension: &mut Comprehension) {}
 
-  fn visit_type(&mut self, _type: &mut Type) {}
+  fn type_(&mut self, _type: &mut Type) {}
 }

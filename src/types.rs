@@ -176,7 +176,7 @@ pub trait SemanticTypeVisitor {
 
   fn lookup_class(&self, name: &'static str) -> Option<Symbol>;
 
-  fn visit_semantic_type(&mut self, type_: &mut SemanticType, loc: Loc) {
+  fn semantic_type(&mut self, type_: &mut SemanticType, loc: Loc) {
     if match type_ { // work around with borrow check
       SemanticType::Object(name, ref mut class) =>
         if let Some(class_symbol) = self.lookup_class(name) {
@@ -187,7 +187,7 @@ pub trait SemanticTypeVisitor {
           true
         }
       SemanticType::Array(elem_type) => {
-        self.visit_semantic_type(elem_type, loc);
+        self.semantic_type(elem_type, loc);
         if elem_type.as_ref() == &ERROR {
           true
         } else if elem_type.as_ref() == &VOID {
