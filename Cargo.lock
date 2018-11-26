@@ -12,9 +12,14 @@ version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "codegen"
+version = "0.1.0"
+
+[[package]]
 name = "decaf"
 version = "0.1.0"
 dependencies = [
+ "codegen 0.1.0",
  "lazy_static 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
