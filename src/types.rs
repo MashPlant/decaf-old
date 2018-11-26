@@ -94,31 +94,19 @@ impl SemanticType {
   }
 
   pub fn is_class(&self) -> bool {
-    match self {
-      SemanticType::Class(_) => true,
-      _ => false,
-    }
+    if let SemanticType::Class(_) = self { true } else { false }
   }
 
   pub fn is_object(&self) -> bool {
-    match self {
-      SemanticType::Object(_) => true,
-      _ => false,
-    }
+    if let SemanticType::Object(_) = self { true } else { false }
   }
 
   pub fn is_method(&self) -> bool {
-    match self {
-      SemanticType::Method(_) => true,
-      _ => false,
-    }
+    if let SemanticType::Method(_) = self { true } else { false }
   }
 
   pub fn is_array(&self) -> bool {
-    match self {
-      SemanticType::Array(_) => true,
-      _ => false,
-    }
+    if let SemanticType::Array(_) = self { true } else { false }
   }
 
   pub fn get_class(&self) -> &ClassDef {

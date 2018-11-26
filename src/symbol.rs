@@ -169,41 +169,28 @@ impl fmt::Display for Symbol {
 
 impl Symbol {
   pub fn is_class(&self) -> bool {
-    match self {
-      Symbol::Class(_) => true,
-      _ => false,
-    }
+    if let Symbol::Class(_) = self { true } else { false }
   }
 
   pub fn is_method(&self) -> bool {
-    match self {
-      Symbol::Method(_) => true,
-      _ => false,
-    }
+    if let Symbol::Method(_) = self { true } else { false }
   }
 
   pub fn is_var(&self) -> bool {
-    match self {
-      Symbol::Var(_) => true,
-      _ => false,
-    }
+    if let Symbol::Var(_) = self { true } else { false }
   }
 
   pub fn as_class(&self) -> &mut ClassDef {
-    unsafe {
-      match self {
-        Symbol::Class(class) => &mut **class,
-        _ => panic!("call as_class on non-class symbol"),
-      }
+    match self {
+      Symbol::Class(class) => unsafe { &mut **class },
+      _ => panic!("call as_class on non-class symbol"),
     }
   }
 
   pub fn as_method(&self) -> &mut MethodDef {
-    unsafe {
-      match self {
-        Symbol::Method(method) => &mut **method,
-        _ => panic!("call as_method on non-method symbol"),
-      }
+    match self {
+      Symbol::Method(method) => unsafe { &mut **method },
+      _ => panic!("call as_method on non-method symbol"),
     }
   }
 
