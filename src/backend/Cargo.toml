@@ -1,9 +1,6 @@
 [package]
-name = "decaf"
+name = "backend"
 version = "0.1.0"
 authors = ["MashPlant <740678788@qq.com>"]
 
 [dependencies]
-regex = "0.2"
-lazy_static = "0.2.8"
-backend  = { path = "src/backend" }

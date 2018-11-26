@@ -1,4 +1,5 @@
 /target
+/src/backend/jvm/target
 **/*.rs.bk
 /testcases/s1/output/*
 /testcases/s2/output/*
