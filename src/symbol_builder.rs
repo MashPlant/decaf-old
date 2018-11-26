@@ -23,7 +23,7 @@ unsafe fn calc_order(class_def: *mut ClassDef) -> i32 {
     let class_def = &mut *class_def;
     if class_def.order < 0 {
       class_def.order = 0;
-      class_def.order = calc_order(class_def.parent_ref) + 1;
+      class_def.order = calc_order(class_def.p_ptr) + 1;
     }
     class_def.order
   }
@@ -53,8 +53,8 @@ impl SymbolBuilder {
 
 impl SymbolBuilder {
   unsafe fn check_override(&mut self, class_def: &mut ClassDef) {
-    if class_def.checked || class_def.parent_ref.is_null() { return; }
-    let parent = &mut *class_def.parent_ref;
+    if class_def.checked || class_def.p_ptr.is_null() { return; }
+    let parent = &mut *class_def.p_ptr;
     self.check_override(parent);
     let self_scope = &mut class_def.scope;
     self.scopes.open(&mut parent.scope);
@@ -74,12 +74,12 @@ impl SymbolBuilder {
               issue!(self, symbol.loc, ConflictDeclaration { earlier: parent_symbol.loc, name });
               false
             } else if !symbol.ret_t.extends(&parent_symbol.ret_t)
-              || symbol.params.len() != parent_symbol.params.len()
+              || symbol.param.len() != parent_symbol.param.len()
               || {
               let mut unfit = false;
               // start from 1, skip this
-              for i in 1..symbol.params.len() {
-                if !parent_symbol.params[i].type_.extends(&symbol.params[i].type_) {
+              for i in 1..symbol.param.len() {
+                if !parent_symbol.param[i].type_.extends(&symbol.param[i].type_) {
                   unfit = true;
                   break;
                 }
@@ -127,7 +127,7 @@ impl SymbolBuilder {
     match class_def.scope.get(MAIN_METHOD) {
       Some(main) if main.is_method() => {
         let main = main.as_method();
-        main.static_ && main.ret_t.sem == VOID && main.params.is_empty()
+        main.static_ && main.ret_t.sem == VOID && main.param.is_empty()
       }
       _ => false,
     }
@@ -148,7 +148,7 @@ impl Visitor for SymbolBuilder {
   fn visit_program(&mut self, program: &mut Program) {
     unsafe {
       self.scopes.open(&mut program.scope);
-      for class_def in &mut program.classes {
+      for class_def in &mut program.class {
         if let Some(earlier) = self.scopes.lookup_class(class_def.name) {
           issue!(self, class_def.loc, ConflictDeclaration { earlier: earlier.get_loc(), name: class_def.name });
         } else {
@@ -156,17 +156,17 @@ impl Visitor for SymbolBuilder {
         }
       }
 
-      for class_def in &mut program.classes {
+      for class_def in &mut program.class {
         if let Some(parent) = class_def.parent {
           if let Some(parent_ref) = self.scopes.lookup_class(parent) {
             let parent_ref = parent_ref.as_class();
-            class_def.parent_ref = parent_ref;
+            class_def.p_ptr = parent_ref;
             if calc_order(class_def) <= calc_order(parent_ref) {
               issue!(self, class_def.loc, CyclicInheritance);
-              class_def.parent_ref = ptr::null_mut();
+              class_def.p_ptr = ptr::null_mut();
             } else if parent_ref.sealed {
               issue!(self, class_def.loc, SealedInheritance);
-              class_def.parent_ref = ptr::null_mut();
+              class_def.p_ptr = ptr::null_mut();
             }
           } else {
             issue!(self, class_def.loc, NoSuchClass { name: parent });
@@ -174,18 +174,18 @@ impl Visitor for SymbolBuilder {
         }
       }
 
-      for class_def in &mut program.classes {
+      for class_def in &mut program.class {
         class_def.scope = Scope { symbols: D::default(), kind: ScopeKind::Class(class_def) };
       }
 
-      for class_def in &mut program.classes {
+      for class_def in &mut program.class {
         self.visit_class_def(class_def);
         if class_def.name == MAIN_CLASS {
           program.main = class_def;
         }
       }
 
-      for class_def in &mut program.classes { self.check_override(class_def); }
+      for class_def in &mut program.class { self.check_override(class_def); }
 
       if !self.check_main(program.main) { issue!(self, NO_LOC, NoMainClass); }
     }
@@ -193,7 +193,7 @@ impl Visitor for SymbolBuilder {
 
   fn visit_class_def(&mut self, class_def: &mut ClassDef) {
     self.scopes.open(&mut class_def.scope);
-    for field_def in &mut class_def.fields { self.visit_field_def(field_def) }
+    for field_def in &mut class_def.field { self.visit_field_def(field_def) }
     self.scopes.close();
   }
 
@@ -206,7 +206,7 @@ impl Visitor for SymbolBuilder {
     }
     if !method_def.static_ {
       let class = self.scopes.cur_scope().get_class();
-      method_def.params.insert(0, VarDef {
+      method_def.param.insert(0, VarDef {
         loc: method_def.loc,
         name: "this",
         type_: Type { loc: method_def.loc, sem: SemanticType::Object(class.name, class) },
@@ -215,7 +215,7 @@ impl Visitor for SymbolBuilder {
     }
     method_def.scope = Scope { symbols: D::default(), kind: ScopeKind::Parameter(method_def) };
     self.scopes.open(&mut method_def.scope);
-    for var_def in &mut method_def.params {
+    for var_def in &mut method_def.param {
       self.visit_var_def(var_def);
     }
     method_def.body.is_method = true;
@@ -249,7 +249,7 @@ impl Visitor for SymbolBuilder {
   fn visit_block(&mut self, block: &mut Block) {
     block.scope = Scope { symbols: D::default(), kind: ScopeKind::Local(block) };
     self.scopes.open(&mut block.scope);
-    for stmt in &mut block.stmts { self.visit_stmt(stmt); }
+    for stmt in &mut block.stmt { self.visit_stmt(stmt); }
     self.scopes.close();
   }
 
@@ -262,7 +262,7 @@ impl Visitor for SymbolBuilder {
     block.scope = Scope { symbols: D::default(), kind: ScopeKind::Local(block) };
     self.scopes.open(&mut block.scope);
     if let Simple::VarAssign(var_assign) = &mut for_.init { self.visit_var_assign(var_assign); }
-    for stmt in &mut block.stmts { self.visit_stmt(stmt); }
+    for stmt in &mut block.stmt { self.visit_stmt(stmt); }
     self.scopes.close();
   }
 
@@ -274,8 +274,8 @@ impl Visitor for SymbolBuilder {
   fn visit_foreach(&mut self, foreach: &mut Foreach) {
     self.scopes.open(&mut foreach.body.scope);
     // reuse the code of var def, which can handle var correctly
-    self.visit_var_def(&mut foreach.var_def);
-    for stmt in &mut foreach.body.stmts { self.visit_stmt(stmt); }
+    self.visit_var_def(&mut foreach.def);
+    for stmt in &mut foreach.body.stmt { self.visit_stmt(stmt); }
     self.scopes.close();
   }
 

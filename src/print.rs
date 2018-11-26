@@ -83,7 +83,7 @@ impl ASTData for Program {
   fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.println("program");
     printer.inc_indent();
-    for class in &self.classes { class.print_ast(printer); }
+    for class in &self.class { class.print_ast(printer); }
     printer.dec_indent();
   }
 }
@@ -95,7 +95,7 @@ impl ScopeData for Program {
     for symbol in self.scope.sorted() {
       printer.println(&symbol.to_string());
     }
-    for class in &self.classes {
+    for class in &self.class {
       class.print_scope(printer);
     }
     printer.dec_indent();
@@ -113,7 +113,7 @@ impl ASTData for ClassDef {
     };
     printer.newline();
     printer.inc_indent();
-    for field in &self.fields { field.print_ast(printer); }
+    for field in &self.field { field.print_ast(printer); }
     printer.dec_indent();
   }
 }
@@ -125,7 +125,7 @@ impl ScopeData for ClassDef {
     for symbol in self.scope.sorted() {
       printer.println(&symbol.to_string());
     }
-    for field_def in &self.fields {
+    for field_def in &self.field {
       if let FieldDef::MethodDef(method_def) = field_def {
         method_def.print_scope(printer);
       }
@@ -153,7 +153,7 @@ impl ASTData for MethodDef {
     printer.inc_indent();
     printer.println("formals");
     printer.inc_indent();
-    for parameter in &self.params {
+    for parameter in &self.param {
       parameter.print_ast(printer);
     }
     printer.dec_indent();
@@ -219,7 +219,7 @@ impl ASTData for Block {
   fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.println("stmtblock");
     printer.inc_indent();
-    for stmt in &self.stmts {
+    for stmt in &self.stmt {
       stmt.print_ast(printer);
     }
     printer.dec_indent();
@@ -232,7 +232,7 @@ impl ScopeData for Block {
     for symbol in self.scope.sorted() {
       printer.println(&symbol.to_string());
     }
-    for stmt in &self.stmts {
+    for stmt in &self.stmt {
       if let Stmt::Block(block) = stmt {
         block.print_scope(printer)
       }
@@ -284,10 +284,10 @@ impl ASTData for Foreach {
     printer.println("foreach");
     printer.inc_indent();
     printer.print("varbind");
-    printer.print(self.var_def.name);
-    self.var_def.type_.print_ast(printer);
+    printer.print(self.def.name);
+    self.def.type_.print_ast(printer);
     printer.newline();
-    self.array.print_ast(printer);
+    self.arr.print_ast(printer);
     match &self.cond {
       Some(cond) => cond.print_ast(printer),
       None => printer.println("boolconst true"),
@@ -417,8 +417,8 @@ impl ASTData for Indexed {
    fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.println("arrref");
     printer.inc_indent();
-    self.array.print_ast(printer);
-    self.index.print_ast(printer);
+    self.arr.print_ast(printer);
+    self.idx.print_ast(printer);
     printer.dec_indent();
   }
 }
@@ -485,7 +485,7 @@ impl ASTData for Call {
       Some(receiver) => receiver.print_ast(printer),
       None => printer.println("<empty>"),
     };
-    for expr in &self.args { expr.print_ast(printer); }
+    for expr in &self.arg { expr.print_ast(printer); }
     printer.dec_indent();
   }
 }
@@ -493,14 +493,14 @@ impl ASTData for Call {
 impl ASTData for Unary {
    fn print_ast(&self, printer: &mut IndentPrinter) {
     use ast::Operator::*;
-    let opname = match self.opt {
+    let opname = match self.op {
       Neg => "neg",
       Not => "not",
       _ => unreachable!(),
     };
     printer.println(opname);
     printer.inc_indent();
-    self.opr.print_ast(printer);
+    self.r.print_ast(printer);
     printer.dec_indent();
   }
 }
@@ -508,7 +508,7 @@ impl ASTData for Unary {
 impl ASTData for Binary {
    fn print_ast(&self, printer: &mut IndentPrinter) {
     use self::Operator::*;
-    let opname = match self.opt {
+    let opname = match self.op {
       Add => "add",
       Sub => "sub",
       Mul => "mul",
@@ -528,8 +528,8 @@ impl ASTData for Binary {
     };
     printer.println(opname);
     printer.inc_indent();
-    self.left.print_ast(printer);
-    self.right.print_ast(printer);
+    self.l.print_ast(printer);
+    self.r.print_ast(printer);
     printer.dec_indent();
   }
 }
@@ -562,7 +562,7 @@ impl ASTData for NewClass {
 impl ASTData for NewArray {
    fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.print("newarray");
-    self.elem_type.print_ast(printer);
+    self.elem_t.print_ast(printer);
     printer.newline();
     printer.inc_indent();
     self.len.print_ast(printer);
@@ -594,11 +594,11 @@ impl ASTData for Range {
    fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.println("arrref");
     printer.inc_indent();
-    self.array.print_ast(printer);
+    self.arr.print_ast(printer);
     printer.println("range");
     printer.inc_indent();
-    self.lower.print_ast(printer);
-    self.upper.print_ast(printer);
+    self.lb.print_ast(printer);
+    self.ub.print_ast(printer);
     printer.dec_indent();
     printer.dec_indent();
   }
@@ -608,11 +608,11 @@ impl ASTData for Default {
    fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.println("arrref");
     printer.inc_indent();
-    self.array.print_ast(printer);
-    self.index.print_ast(printer);
+    self.arr.print_ast(printer);
+    self.idx.print_ast(printer);
     printer.println("default");
     printer.inc_indent();
-    self.default.print_ast(printer);
+    self.dft.print_ast(printer);
     printer.dec_indent();
     printer.dec_indent();
   }
@@ -624,7 +624,7 @@ impl ASTData for Comprehension {
     printer.inc_indent();
     printer.print("varbind");
     printer.println(self.name);
-    self.array.print_ast(printer);
+    self.arr.print_ast(printer);
     match &self.cond {
       Some(cond) => cond.print_ast(printer),
       None => printer.println("boolconst true"),

@@ -85,19 +85,19 @@ impl TypeChecker {
                 }
               }
             };
-            for expr in &mut call.args { self.visit_expr(expr); }
+            for expr in &mut call.arg { self.visit_expr(expr); }
             let this_offset = if method.static_ { 0 } else { 1 };
-            let argc = call.args.len();
-            if argc != method.params.len() - this_offset {
-              issue!(self, call.loc, WrongArgc { name: call.name, expect: method.params.len() as i32, actual: argc as i32 });
+            let argc = call.arg.len();
+            if argc != method.param.len() - this_offset {
+              issue!(self, call.loc, WrongArgc { name: call.name, expect: method.param.len() as i32, actual: argc as i32 });
             } else {
               for i in this_offset..argc + this_offset {
-                let arg_t = call.args[i - this_offset].get_type();
-                if !arg_t.extends(&method.params[i].type_.sem) {
-                  issue!(self, call.args[i].get_loc(), WrongArgType {
+                let arg_t = call.arg[i - this_offset].get_type();
+                if !arg_t.extends(&method.param[i].type_.sem) {
+                  issue!(self, call.arg[i].get_loc(), WrongArgType {
                     loc: (i + 1 - this_offset) as i32,
                     arg_t: arg_t.to_string(),
-                    param_t: method.params[i].type_.sem.to_string()
+                    param_t: method.param[i].type_.sem.to_string()
                   });
                 }
               }
@@ -111,33 +111,33 @@ impl TypeChecker {
   }
 
   fn check_repeat(&mut self, binary: &mut Binary) {
-    // left & right are already visited in visit_binary
-    let (left, right) = (&mut binary.left, &mut binary.right);
-    let (left_t, right_t) = (left.get_type(), right.get_type());
-    if !right_t.error_or(&INT) {
-      issue!(self, right.get_loc(), ArrayRepeatNotInt);
+    // l & r are already visited in visit_binary
+    let (l, r) = (&mut binary.l, &mut binary.r);
+    let (l_t, r_t) = (l.get_type(), r.get_type());
+    if !r_t.error_or(&INT) {
+      issue!(self, r.get_loc(), ArrayRepeatNotInt);
     }
-    // left_t cannot be void here
-    if left_t != &ERROR {
-      binary.type_ = SemanticType::Array(Box::new(left_t.clone()));
+    // l_t cannot be void here
+    if l_t != &ERROR {
+      binary.type_ = SemanticType::Array(Box::new(l_t.clone()));
     }
   }
 
   fn check_concat(&mut self, binary: &mut Binary) {
     // same as above
-    let (left, right) = (&mut binary.left, &mut binary.right);
-    let (left_t, right_t) = (left.get_type(), right.get_type());
-    if left_t != &ERROR && !left_t.is_array() {
-      issue!(self, left.get_loc(), BadArrayOp);
+    let (l, r) = (&mut binary.l, &mut binary.r);
+    let (l_t, r_t) = (l.get_type(), r.get_type());
+    if l_t != &ERROR && !l_t.is_array() {
+      issue!(self, l.get_loc(), BadArrayOp);
     }
-    if right_t != &ERROR && !right_t.is_array() {
-      issue!(self, right.get_loc(), BadArrayOp);
+    if r_t != &ERROR && !r_t.is_array() {
+      issue!(self, r.get_loc(), BadArrayOp);
     }
-    if left_t.is_array() && right_t.is_array() {
-      if left_t != right_t {
-        issue!(self, binary.loc, ConcatMismatch { left_t: left_t.to_string(), right_t: right_t.to_string() });
+    if l_t.is_array() && r_t.is_array() {
+      if l_t != r_t {
+        issue!(self, binary.loc, ConcatMismatch { l_t: l_t.to_string(), r_t: r_t.to_string() });
       }
-      binary.type_ = left_t.clone();
+      binary.type_ = l_t.clone();
     }
   }
 }
@@ -155,14 +155,14 @@ impl SemanticTypeVisitor for TypeChecker {
 impl Visitor for TypeChecker {
   fn visit_program(&mut self, program: &mut Program) {
     self.scopes.open(&mut program.scope);
-    for class_def in &mut program.classes { self.visit_class_def(class_def); }
+    for class_def in &mut program.class { self.visit_class_def(class_def); }
     self.scopes.close();
   }
 
   fn visit_class_def(&mut self, class_def: &mut ClassDef) {
     self.current_class = class_def;
     self.scopes.open(&mut class_def.scope);
-    for field_def in &mut class_def.fields { self.visit_field_def(field_def) }
+    for field_def in &mut class_def.field { self.visit_field_def(field_def) }
     self.scopes.close();
   }
 
@@ -180,7 +180,7 @@ impl Visitor for TypeChecker {
 
   fn visit_block(&mut self, block: &mut Block) {
     self.scopes.open(&mut block.scope);
-    for stmt in &mut block.stmts { self.visit_stmt(stmt); }
+    for stmt in &mut block.stmt { self.visit_stmt(stmt); }
     self.scopes.close();
   }
 
@@ -255,23 +255,23 @@ impl Visitor for TypeChecker {
   }
 
   fn visit_foreach(&mut self, foreach: &mut Foreach) {
-    self.visit_expr(&mut foreach.array);
-    let arr_t = foreach.array.get_type();
+    self.visit_expr(&mut foreach.arr);
+    let arr_t = foreach.arr.get_type();
     match arr_t {
-      SemanticType::Array(elem) => match foreach.var_def.type_.sem {
+      SemanticType::Array(elem) => match foreach.def.type_.sem {
         ref mut t if t == &VAR => *t = *elem.clone(),
-        ref t if !elem.extends(t) => issue!(self, foreach.var_def.loc, ForeachMismatch{ elem_t: elem.to_string(), def_t: t.to_string() }),
+        ref t if !elem.extends(t) => issue!(self, foreach.def.loc, ForeachMismatch{ elem_t: elem.to_string(), def_t: t.to_string() }),
         _ => {}
       }
-      SemanticType::Error => if &foreach.var_def.type_.sem == &VAR {
+      SemanticType::Error => if &foreach.def.type_.sem == &VAR {
         // if declared type is not 'var', retain it
         // otherwise set it to error
-        foreach.var_def.type_.sem = ERROR;
+        foreach.def.type_.sem = ERROR;
       }
       _ => {
-        issue!(self, foreach.array.get_loc(), BadArrayOp);
-        if &foreach.var_def.type_.sem == &VAR {
-          foreach.var_def.type_.sem = ERROR;
+        issue!(self, foreach.arr.get_loc(), BadArrayOp);
+        if &foreach.def.type_.sem == &VAR {
+          foreach.def.type_.sem = ERROR;
         }
       }
     };
@@ -294,7 +294,7 @@ impl Visitor for TypeChecker {
   }
 
   fn visit_new_array(&mut self, new_array: &mut NewArray) {
-    let elem_t = &mut new_array.elem_type;
+    let elem_t = &mut new_array.elem_t;
     new_array.type_ = SemanticType::Array(Box::new(elem_t.sem.clone()));
     self.visit_semantic_type(&mut new_array.type_, elem_t.loc);
     self.visit_expr(&mut new_array.len);
@@ -311,23 +311,23 @@ impl Visitor for TypeChecker {
     let src_t = assign.src.get_type();
     // error check is contained in extends
     if dst_t.is_method() || !src_t.extends(dst_t) {
-      issue!(self, assign.loc, IncompatibleBinary{left_t: dst_t.to_string(), opt: "=", right_t: src_t.to_string() })
+      issue!(self, assign.loc, IncompatibleBinary{l_t: dst_t.to_string(), op: "=", r_t: src_t.to_string() })
     }
   }
 
   fn visit_unary(&mut self, unary: &mut Unary) {
-    self.visit_expr(&mut unary.opr);
-    let opr = unary.opr.get_type();
-    match unary.opt {
+    self.visit_expr(&mut unary.r);
+    let r = unary.r.get_type();
+    match unary.op {
       Operator::Neg => {
-        if !opr.error_or(&INT) {
-          issue!(self, unary.loc, IncompatibleUnary { opt: "-", type_: opr.to_string() });
+        if !r.error_or(&INT) {
+          issue!(self, unary.loc, IncompatibleUnary { op: "-", r_t: r.to_string() });
         }
         unary.type_ = INT;
       }
       Operator::Not => {
-        if !opr.error_or(&BOOL) {
-          issue!(self, unary.loc, IncompatibleUnary { opt: "!", type_: opr.to_string() });
+        if !r.error_or(&BOOL) {
+          issue!(self, unary.loc, IncompatibleUnary { op: "!", r_t: r.to_string() });
         }
         unary.type_ = BOOL;
       }
@@ -336,44 +336,42 @@ impl Visitor for TypeChecker {
   }
 
   fn visit_binary(&mut self, binary: &mut Binary) {
-    self.visit_expr(&mut binary.left);
-    self.visit_expr(&mut binary.right);
-    match binary.opt {
+    self.visit_expr(&mut binary.l);
+    self.visit_expr(&mut binary.r);
+    match binary.op {
       Operator::Repeat => self.check_repeat(binary),
       Operator::Concat => self.check_concat(binary),
       _ => {
-        let (left, right) = (&*binary.left, &*binary.right);
-        let (left_t, right_t) = (left.get_type(), right.get_type());
-        if left_t == &ERROR || right_t == &ERROR {
-          match binary.opt {
-            Operator::Add | Operator::Sub | Operator::Mul | Operator::Div | Operator::Mod => binary.type_ = left_t.clone(),
+        let (l, r) = (&*binary.l, &*binary.r);
+        let (l_t, r_t) = (l.get_type(), r.get_type());
+        if l_t == &ERROR || r_t == &ERROR {
+          match binary.op {
+            Operator::Add | Operator::Sub | Operator::Mul | Operator::Div | Operator::Mod => binary.type_ = l_t.clone(),
             _ => binary.type_ = BOOL,
           }
           return;
         }
-        if !match binary.opt {
+        if !match binary.op {
           Operator::Add | Operator::Sub | Operator::Mul | Operator::Div | Operator::Mod => {
-            binary.type_ = left_t.clone();
-            left_t == &INT && right_t == &INT
+            binary.type_ = l_t.clone();
+            l_t == &INT && r_t == &INT
           }
           Operator::Lt | Operator::Le | Operator::Gt | Operator::Ge => {
             binary.type_ = BOOL;
-            left_t == &INT && right_t == &INT
+            l_t == &INT && r_t == &INT
           }
           Operator::Eq | Operator::Ne => {
             binary.type_ = BOOL;
-            left_t == right_t
+            l_t == r_t
           }
           Operator::And | Operator::Or => {
             binary.type_ = BOOL;
-            left_t == &BOOL && right_t == &BOOL
+            l_t == &BOOL && r_t == &BOOL
           }
           _ => unreachable!(),
         } {
           issue!(self, binary.loc, IncompatibleBinary {
-            left_t: left_t.to_string(),
-            opt: binary.opt.to_str(),
-            right_t: right_t.to_string(),
+            l_t: l_t.to_string(), op: binary.op.to_str(), r_t: r_t.to_string(),
           });
         }
       }
@@ -391,8 +389,8 @@ impl Visitor for TypeChecker {
         // check array length call, quite a dirty implementation
         if call.name == "length" {
           if owner_t.is_array() {
-            if !call.args.is_empty() {
-              issue!(self, call.loc, LengthWithArgument { count: call.args.len() as i32 });
+            if !call.arg.is_empty() {
+              issue!(self, call.loc, LengthWithArgument { count: call.arg.len() as i32 });
             }
             call.type_ = INT;
             return;
@@ -460,13 +458,13 @@ impl Visitor for TypeChecker {
   }
 
   fn visit_indexed(&mut self, indexed: &mut Indexed) {
-    self.visit_expr(&mut indexed.array);
-    self.visit_expr(&mut indexed.index);
-    let (arr_t, idx_t) = (indexed.array.get_type(), indexed.index.get_type());
+    self.visit_expr(&mut indexed.arr);
+    self.visit_expr(&mut indexed.idx);
+    let (arr_t, idx_t) = (indexed.arr.get_type(), indexed.idx.get_type());
     match &arr_t {
       SemanticType::Array(elem) => indexed.type_ = *elem.clone(),
       SemanticType::Error => {}
-      _ => issue!(self, indexed.array.get_loc(), NotArray),
+      _ => issue!(self, indexed.arr.get_loc(), NotArray),
     }
     if !idx_t.error_or(&INT) {
       issue!(self, indexed.loc, ArrayIndexNotInt);
@@ -548,11 +546,11 @@ impl Visitor for TypeChecker {
   }
 
   fn visit_default(&mut self, default: &mut Default) {
-    self.visit_expr(&mut default.array);
-    self.visit_expr(&mut default.index);
-    self.visit_expr(&mut default.default);
+    self.visit_expr(&mut default.arr);
+    self.visit_expr(&mut default.idx);
+    self.visit_expr(&mut default.dft);
     let (arr_t, idx_t, dft_t) =
-      (default.array.get_type(), default.index.get_type(), default.default.get_type());
+      (default.arr.get_type(), default.idx.get_type(), default.dft.get_type());
     match arr_t {
       SemanticType::Array(elem) => {
         default.type_ = *elem.clone();
@@ -562,12 +560,12 @@ impl Visitor for TypeChecker {
       }
       SemanticType::Error => {}
       _ => {
-        issue!(self, default.array.get_loc(), BadArrayOp);
+        issue!(self, default.arr.get_loc(), BadArrayOp);
         default.type_ = dft_t.clone();
       }
     }
     if !idx_t.error_or(&INT) {
-      issue!(self, default.index.get_loc(), ArrayIndexNotInt);
+      issue!(self, default.idx.get_loc(), ArrayIndexNotInt);
     }
   }
 }

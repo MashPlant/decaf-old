@@ -7,7 +7,7 @@ use std::ops::Deref;
 
 #[derive(Debug)]
 pub struct Program {
-  pub classes: Vec<ClassDef>,
+  pub class: Vec<ClassDef>,
   pub scope: Scope,
   pub main: *const ClassDef,
 }
@@ -15,7 +15,7 @@ pub struct Program {
 impl D for Program {
   fn default() -> Self {
     Program {
-      classes: D::default(),
+      class: D::default(),
       scope: Scope { symbols: D::default(), kind: ScopeKind::Global },
       main: ptr::null(),
     }
@@ -28,14 +28,14 @@ pub struct ClassDef {
   pub loc: Loc,
   pub name: &'static str,
   pub parent: Option<&'static str>,
-  pub fields: Vec<FieldDef>,
+  pub field: Vec<FieldDef>,
   pub sealed: bool,
   // semantic part
   // to calculate inheritance order and determine cyclic inheritance
   pub order: i32,
   // to avoid duplicate override check
   pub checked: bool,
-  pub parent_ref: *mut ClassDef,
+  pub p_ptr: *mut ClassDef,
   pub scope: Scope,
 }
 
@@ -45,11 +45,11 @@ impl D for ClassDef {
       loc: D::default(),
       name: D::default(),
       parent: D::default(),
-      fields: D::default(),
+      field: D::default(),
       sealed: D::default(),
       order: -1,
       checked: D::default(),
-      parent_ref: ptr::null_mut(),
+      p_ptr: ptr::null_mut(),
       scope: D::default(),
     }
   }
@@ -63,7 +63,7 @@ impl ClassDef {
         if let Some(symbol) = (*class).scope.get(name) {
           return Some(*symbol);
         }
-        class = (*class).parent_ref;
+        class = (*class).p_ptr;
       }
       None
     }
@@ -75,7 +75,7 @@ impl ClassDef {
       if class == other {
         return true;
       }
-      class = unsafe { (*class).parent_ref };
+      class = unsafe { (*class).p_ptr };
     }
     false
   }
@@ -109,7 +109,7 @@ pub struct MethodDef {
   pub loc: Loc,
   pub name: &'static str,
   pub ret_t: Type,
-  pub params: Vec<VarDef>,
+  pub param: Vec<VarDef>,
   pub static_: bool,
   // body contains the scope of stack variables
   pub body: Block,
@@ -167,7 +167,7 @@ pub enum Simple {
 pub struct Block {
   // syntax part
   pub loc: Loc,
-  pub stmts: Vec<Stmt>,
+  pub stmt: Vec<Stmt>,
   // semantic part
   pub is_method: bool,
   pub scope: Scope,
@@ -200,8 +200,8 @@ pub struct For {
 
 #[derive(Debug)]
 pub struct Foreach {
-  pub var_def: VarDef,
-  pub array: Expr,
+  pub def: VarDef,
+  pub arr: Expr,
   pub cond: Option<Expr>,
   pub body: Block,
 }
@@ -356,8 +356,8 @@ impl Expr {
 #[derive(Debug)]
 pub struct Indexed {
   pub loc: Loc,
-  pub array: Box<Expr>,
-  pub index: Box<Expr>,
+  pub arr: Box<Expr>,
+  pub idx: Box<Expr>,
   pub type_: SemanticType,
 }
 
@@ -437,7 +437,7 @@ pub struct Call {
   pub loc: Loc,
   pub owner: Option<Box<Expr>>,
   pub name: &'static str,
-  pub args: Vec<Expr>,
+  pub arg: Vec<Expr>,
   pub type_: SemanticType,
   pub method: *const MethodDef,
 }
@@ -445,17 +445,17 @@ pub struct Call {
 #[derive(Debug)]
 pub struct Unary {
   pub loc: Loc,
-  pub opt: Operator,
-  pub opr: Box<Expr>,
+  pub op: Operator,
+  pub r: Box<Expr>,
   pub type_: SemanticType,
 }
 
 #[derive(Debug)]
 pub struct Binary {
   pub loc: Loc,
-  pub opt: Operator,
-  pub left: Box<Expr>,
-  pub right: Box<Expr>,
+  pub op: Operator,
+  pub l: Box<Expr>,
+  pub r: Box<Expr>,
   pub type_: SemanticType,
 }
 
@@ -485,7 +485,7 @@ pub struct NewClass {
 #[derive(Debug)]
 pub struct NewArray {
   pub loc: Loc,
-  pub elem_type: Type,
+  pub elem_t: Type,
   pub len: Box<Expr>,
   pub type_: SemanticType,
 }
@@ -509,18 +509,18 @@ pub struct TypeCast {
 #[derive(Debug)]
 pub struct Range {
   pub loc: Loc,
-  pub array: Box<Expr>,
-  pub lower: Box<Expr>,
-  pub upper: Box<Expr>,
+  pub arr: Box<Expr>,
+  pub lb: Box<Expr>,
+  pub ub: Box<Expr>,
   pub type_: SemanticType,
 }
 
 #[derive(Debug)]
 pub struct Default {
   pub loc: Loc,
-  pub array: Box<Expr>,
-  pub index: Box<Expr>,
-  pub default: Box<Expr>,
+  pub arr: Box<Expr>,
+  pub idx: Box<Expr>,
+  pub dft: Box<Expr>,
   pub type_: SemanticType,
 }
 
@@ -529,7 +529,7 @@ pub struct Comprehension {
   pub loc: Loc,
   pub expr: Box<Expr>,
   pub name: &'static str,
-  pub array: Box<Expr>,
+  pub arr: Box<Expr>,
   pub cond: Option<Box<Expr>>,
   pub type_: SemanticType,
 }

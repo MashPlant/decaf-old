@@ -596,9 +596,9 @@ impl Token {
 fn gen_binary(left: Expr, opt: Token, right: Expr, kind: Operator) -> Expr {
   Expr::Binary(Binary {
     loc: opt.get_loc(),
-    opt: kind,
-    left: Box::new(left),
-    right: Box::new(right),
+    op: kind,
+    l: Box::new(left),
+    r: Box::new(right),
     type_: D::default(),
   })
 }
@@ -606,8 +606,8 @@ fn gen_binary(left: Expr, opt: Token, right: Expr, kind: Operator) -> Expr {
 fn gen_unary(opt: Token, opr: Expr, kind: Operator) -> Expr {
   Expr::Unary(Unary {
     loc: opt.get_loc(),
-    opt: kind,
-    opr: Box::new(opr),
+    op: kind,
+    r: Box::new(opr),
     type_: D::default(),
   })
 }
@@ -1676,7 +1676,7 @@ impl Parser {
     let mut _1 = pop!(self.values_stack, _1);
 
     let _0 = if self.errors.is_empty() {
-      Ok(Program { classes: _1, ..D::default() })
+      Ok(Program { class: _1, ..D::default() })
     } else {
       Err(mem::replace(&mut self.errors, Vec::new()))
     };
@@ -1715,7 +1715,7 @@ impl Parser {
       loc: _2.get_loc(),
       name: _3.value,
       parent: _4,
-      fields: _6,
+      field: _6,
       sealed: _1,
       ..D::default()
     };
@@ -1798,7 +1798,7 @@ impl Parser {
       loc: _3.get_loc(),
       name: _3.value,
       ret_t: _2,
-      params: _5,
+      param: _5,
       static_: true,
       body: _7,
       ..D::default()
@@ -1819,7 +1819,7 @@ impl Parser {
       loc: _2.get_loc(),
       name: _2.value,
       ret_t: _1,
-      params: _4,
+      param: _4,
       static_: false,
       body: _6,
       ..D::default()
@@ -1870,7 +1870,7 @@ impl Parser {
 
     let _0 = Block {
       loc: _1.get_loc(),
-      stmts: _2,
+      stmt: _2,
       ..D::default()
     };
     SV::_11(_0)
@@ -2004,7 +2004,7 @@ impl Parser {
       Stmt::Block(block) => block,
       stmt => Block {
         loc: NO_LOC,
-        stmts: vec![stmt],
+        stmt: vec![stmt],
         ..D::default()
       }
     };
@@ -2062,13 +2062,13 @@ impl Parser {
     self.values_stack.pop();
 
     let _0 = Stmt::Foreach(Foreach {
-      var_def: VarDef {
+      def: VarDef {
         loc: _4.get_loc(),
         type_: _3,
         name: _4.value,
         scope: ptr::null(),
       },
-      array: _6,
+      arr: _6,
       cond: _7,
       body: _9,
     });
@@ -2510,9 +2510,9 @@ impl Parser {
 
     let _0 = Expr::Range(Range {
       loc: _2.get_loc(),
-      array: Box::new(_1),
-      lower: Box::new(_3),
-      upper: Box::new(_5),
+      arr: Box::new(_1),
+      lb: Box::new(_3),
+      ub: Box::new(_5),
       type_: D::default(),
     });
     SV::_15(_0)
@@ -2529,9 +2529,9 @@ impl Parser {
 
     let _0 = Expr::Default(Default {
       loc: _2.get_loc(),
-      array: Box::new(_1),
-      index: Box::new(_3),
-      default: Box::new(_6),
+      arr: Box::new(_1),
+      idx: Box::new(_3),
+      dft: Box::new(_6),
       type_: D::default(),
     });
     SV::_15(_0)
@@ -2551,7 +2551,7 @@ impl Parser {
       loc: _1.get_loc(),
       expr: Box::new(_2),
       name: _4.value,
-      array: Box::new(_6),
+      arr: Box::new(_6),
       cond: None,
       type_: D::default(),
     });
@@ -2574,7 +2574,7 @@ impl Parser {
       loc: _1.get_loc(),
       expr: Box::new(_2),
       name: _4.value,
-      array: Box::new(_6),
+      arr: Box::new(_6),
       cond: Some(Box::new(_8)),
       type_: D::default(),
     });
@@ -2662,7 +2662,7 @@ impl Parser {
 
     let _0 = Expr::NewArray(NewArray {
       loc: _1.get_loc(),
-      elem_type: _2,
+      elem_t: _2,
       len: Box::new(_4),
       type_: D::default(),
     });
@@ -2730,8 +2730,8 @@ impl Parser {
 
     let _0 = Expr::Indexed(Indexed {
       loc: _1.get_loc(),
-      array: Box::new(_1),
-      index: Box::new(_3),
+      arr: Box::new(_1),
+      idx: Box::new(_3),
       type_: D::default(),
     });
     SV::_15(_0)
@@ -2769,7 +2769,7 @@ impl Parser {
         None => None,
       },
       name: _2.value,
-      args: _4,
+      arg: _4,
       type_: D::default(),
       method: ptr::null(),
     });

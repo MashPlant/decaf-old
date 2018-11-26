@@ -149,8 +149,8 @@ impl fmt::Display for Symbol {
         Symbol::Class(class) => {
           let class = &**class;
           write!(f, "{} -> class {}", class.loc, class.name);
-          if (*class).parent_ref.is_null() { Ok(()) } else {
-            write!(f, " : {}", (*class.parent_ref).name)
+          if (*class).p_ptr.is_null() { Ok(()) } else {
+            write!(f, " : {}", (*class.p_ptr).name)
           }
         }
         Symbol::Method(method) => {
@@ -287,8 +287,8 @@ impl ScopeStack {
       match scope.kind {
         ScopeKind::Global => self.global_scope = scope,
         ScopeKind::Class(class) => {
-          if !(*class).parent_ref.is_null() {
-            self.open(&mut (*(*class).parent_ref).scope);
+          if !(*class).p_ptr.is_null() {
+            self.open(&mut (*(*class).p_ptr).scope);
           }
         }
         _ => {}

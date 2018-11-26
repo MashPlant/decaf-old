@@ -145,21 +145,21 @@ impl Token {
     }
 }
 
-fn gen_binary(left: Expr, opt: Token, right: Expr, kind: Operator) -> Expr {
+fn gen_binary(l: Expr, opt: Token, r: Expr, kind: Operator) -> Expr {
     Expr::Binary(Binary {
         loc: opt.get_loc(),
-        opt: kind,
-        left: Box::new(left),
-        right: Box::new(right),
+        op: kind,
+        l: Box::new(l),
+        r: Box::new(r),
         type_: D::default(),
     })
 }
 
-fn gen_unary(opt: Token, opr: Expr, kind: Operator) -> Expr {
+fn gen_unary(opt: Token, r: Expr, kind: Operator) -> Expr {
     Expr::Unary(Unary {
         loc: opt.get_loc(),
-        opt: kind,
-        opr: Box::new(opr),
+        op: kind,
+        r: Box::new(r),
         type_: D::default(),
     })
 }
@@ -200,7 +200,7 @@ Program
     : ClassList {
         |$1: ClassList| -> Result<Program, Vec<Error>>;
         $$ = if self.errors.is_empty() {
-            Ok(Program { classes: $1, ..D::default() })
+            Ok(Program { class: $1, ..D::default() })
         } else {
             Err(mem::replace(&mut self.errors, Vec::new()))
         }
@@ -226,7 +226,7 @@ ClassDef
             loc: $2.get_loc(),
             name: $3.value,
             parent: $4,
-            fields: $6,
+            field: $6,
             sealed: $1,
             ..D::default()
         };
@@ -280,7 +280,7 @@ MethodDef
             loc: $3.get_loc(),
             name: $3.value,
             ret_t: $2,
-            params: $5,
+            param: $5,
             static_: true,
             body: $7,
             ..D::default()
@@ -327,7 +327,7 @@ Block
         |$1: Token, $2: StmtList| -> Block;
         $$ = Block {
             loc: $1.get_loc(),
-            stmts: $2,
+            stmt: $2,
             ..D::default()
         };
     }
@@ -394,7 +394,7 @@ Blocked
             Stmt::Block(block) => block,
             stmt => Block {
                 loc: NO_LOC,
-                stmts: vec![stmt],
+                stmt: vec![stmt],
                 ..D::default()
             }
         }
@@ -429,13 +429,13 @@ Foreach
     : FOREACH '(' TypeOrVar IDENTIFIER IN Expr MaybeForeachCond ')' Blocked {
         |$3: Type, $4: Token, $6: Expr, $7: Option<Expr>, $9: Block| -> Stmt;
         $$ = Stmt::Foreach(Foreach {
-            var_def: VarDef {
+            def: VarDef {
                 loc: $4.get_loc(),
                 type_: $3,
                 name: $4.value,
                 scope: ptr::null(),
             },
-            array: $6,
+            arr: $6,
             cond: $7,
             body: $9,
         });
@@ -681,9 +681,9 @@ Expr
         |$1: Expr, $2: Token, $3: Expr, $5: Expr| -> Expr;
         $$ = Expr::Range(Range {
             loc: $2.get_loc(),
-            array: Box::new($1),
-            lower: Box::new($3),
-            upper: Box::new($5),
+            arr: Box::new($1),
+            lb: Box::new($3),
+            ub: Box::new($5),
             type_: D::default(),
         });
     }
@@ -691,9 +691,9 @@ Expr
         |$1: Expr, $2: Token, $3: Expr, $6: Expr| -> Expr;
         $$ = Expr::Default(Default {
             loc: $2.get_loc(),
-            array: Box::new($1),
-            index: Box::new($3),
-            default: Box::new($6),
+            arr: Box::new($1),
+            idx: Box::new($3),
+            dft: Box::new($6),
             type_: D::default(),
         });
     }
@@ -703,7 +703,7 @@ Expr
             loc: $1.get_loc(),
             expr: Box::new($2),
             name: $4.value,
-            array: Box::new($6),
+            arr: Box::new($6),
             cond: None,
             type_: D::default(),
         });
@@ -714,7 +714,7 @@ Expr
             loc: $1.get_loc(),
             expr: Box::new($2),
             name: $4.value,
-            array: Box::new($6),
+            arr: Box::new($6),
             cond: Some(Box::new($8)),
             type_: D::default(),
         });
@@ -754,7 +754,7 @@ Expr
         |$1: Token, $2: Type, $4: Expr| -> Expr;
         $$ = Expr::NewArray(NewArray {
             loc: $1.get_loc(),
-            elem_type: $2,
+            elem_t: $2,
             len: Box::new($4),
             type_: D::default(),
         });
@@ -796,8 +796,8 @@ LValue
         |$1: Expr, $3: Expr| -> Expr;
         $$ = Expr::Indexed(Indexed {
             loc: $1.get_loc(),
-            array: Box::new($1),
-            index: Box::new($3),
+            arr: Box::new($1),
+            idx: Box::new($3),
             type_: D::default(),
         });
     }
@@ -824,7 +824,7 @@ Call
                 None => None,
             },
             name: $2.value,
-            args: $4,
+            arg: $4,
             type_: D::default(),
             method: ptr::null(),
         });

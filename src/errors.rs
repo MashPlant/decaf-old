@@ -154,13 +154,13 @@ impl IError for BadOverride {
 }
 
 pub struct IncompatibleUnary {
-  pub opt: &'static str,
-  pub type_: String,
+  pub op: &'static str,
+  pub r_t: String,
 }
 
 impl IError for IncompatibleUnary {
   fn get_msg(&self) -> String {
-    format!("incompatible operand: {} {}", self.opt, self.type_)
+    format!("incompatible operand: {} {}", self.op, self.r_t)
   }
 }
 
@@ -173,14 +173,14 @@ impl IError for TestNotBool {
 }
 
 pub struct IncompatibleBinary {
-  pub left_t: String,
-  pub opt: &'static str,
-  pub right_t: String,
+  pub l_t: String,
+  pub op: &'static str,
+  pub r_t: String,
 }
 
 impl IError for IncompatibleBinary {
   fn get_msg(&self) -> String {
-    format!("incompatible operands: {} {} {}", self.left_t, self.opt, self.right_t)
+    format!("incompatible operands: {} {} {}", self.l_t, self.op, self.r_t)
   }
 }
 
@@ -403,13 +403,13 @@ impl IError for ForeachMismatch {
 }
 
 pub struct ConcatMismatch {
-  pub left_t: String,
-  pub right_t: String,
+  pub l_t: String,
+  pub r_t: String,
 }
 
 impl IError for ConcatMismatch {
   fn get_msg(&self) -> String {
-    format!("concat {} with {}", self.left_t, self.right_t)
+    format!("concat {} with {}", self.l_t, self.r_t)
   }
 }
 
