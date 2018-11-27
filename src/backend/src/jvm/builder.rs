@@ -1,6 +1,8 @@
 use super::class::*;
 use super::types::*;
 use super::writer::*;
+use super::class::*;
+use super::class::Instruction::*;
 
 use std::collections::HashMap;
 
@@ -44,24 +46,51 @@ impl ClassBuilder {
     let string_index = self.define_utf8(value);
     self.push_constant(Constant::String { string_index })
   }
+
+  fn define_field_ref(&mut self, class: &str, name: &str, field_type: &JavaType) -> u16 {
+    let class_index = self.define_class(class);
+    let descriptor = format!("{}", field_type);
+    let name_and_type_index = self.define_name_and_type(name, &descriptor);
+    self.push_constant(Constant::FieldRef { class_index, name_and_type_index })
+  }
+
+  fn define_method_ref(&mut self, class: &str, name: &str, argument_types: &[JavaType], return_type: &JavaType) -> u16 {
+    let class_index = self.define_class(class);
+    let descriptor = make_method_type(argument_types, return_type);
+    let name_and_type_index = self.define_name_and_type(name, &descriptor);
+    self.push_constant(Constant::MethodRef { class_index, name_and_type_index })
+  }
+
+  fn define_name_and_type(&mut self, name: &str, descriptor: &str) -> u16 {
+    let name_index = self.define_utf8(name);
+    let descriptor_index = self.define_utf8(&descriptor);
+    self.push_constant(Constant::NameAndType { name_index, descriptor_index })
+  }
+
+//  pub fn done(self) -> Classfile {
+//    Classfile::new(self.constants, self.access_flags, self.this_class_index, self.super_class_index, self.methods)
+//  }
 }
 
-#[derive(Debug)]
-pub enum DelayedInstruction {
-  Ok(Instruction),
-  Unfilled(u16, Instruction),
-}
+//#[derive(Debug)]
+//pub enum DelayedInstruction {
+//  Ok(Instruction),
+//  Unfilled(u16, Instruction),
+//}
 
 pub struct MethodBuilder<'a> {
   class_builder: &'a mut ClassBuilder,
   access_flags: u16,
   name_index: u16,
   descriptor_index: u16,
-  instructions: Vec<(u16, DelayedInstruction)>,
+  //  instructions: Vec<(u16, DelayedInstruction)>,
+  code: Vec<u8>,
+  // map label to the index of code with the label
   labels: HashMap<u16, u16>,
-  // map label to the index of instructions with the label
-  cur_stack_depth: u16,
-  max_stack_depth: u16,
+  // map index of code to label, that piece of code need to be filled with the label
+  fills: HashMap<u16, u16>,
+  cur_stack: u16,
+  max_stack: u16,
 }
 
 impl<'a> MethodBuilder<'a> {
@@ -77,259 +106,244 @@ impl<'a> MethodBuilder<'a> {
       access_flags,
       name_index,
       descriptor_index,
-      instructions: Vec::new(),
+      code: Vec::new(),
       labels: HashMap::new(),
-      cur_stack_depth: 0,
-      max_stack_depth: 0,
+      fills: HashMap::new(),
+      cur_stack: 0,
+      max_stack: 0,
     }
   }
 
-  pub fn iconstm1(&mut self) {
-    self.push_instruction(Instruction::IconstM1);
-    self.increase_stack_depth();
+  fn inc_stack(&mut self) {
+    self.cur_stack += 1;
+    if self.cur_stack > self.max_stack {
+      self.max_stack = self.cur_stack
+    }
   }
 
-  pub fn iconst0(&mut self) {
-    self.push_instruction(Instruction::Iconst0);
-    self.increase_stack_depth();
+  fn dec_stack(&mut self) {
+    self.cur_stack -= 1;
   }
 
-  pub fn iconst1(&mut self) {
-    self.push_instruction(Instruction::Iconst1);
-    self.increase_stack_depth();
+  fn dec_stack_n(&mut self, n: u16) {
+    self.cur_stack -= n;
   }
 
-  pub fn iconst2(&mut self) {
-    self.push_instruction(Instruction::Iconst2);
-    self.increase_stack_depth();
+  pub fn i_const_m1(&mut self) {
+    self.push_code(IConstM1);
+    self.inc_stack();
   }
 
-  pub fn iconst3(&mut self) {
-    self.push_instruction(Instruction::Iconst3);
-    self.increase_stack_depth();
+  pub fn i_const_0(&mut self) {
+    self.push_code(IConst0);
+    self.inc_stack();
   }
 
-  pub fn iconst4(&mut self) {
-    self.push_instruction(Instruction::Iconst4);
-    self.increase_stack_depth();
+  pub fn i_const_1(&mut self) {
+    self.push_code(IConst1);
+    self.inc_stack();
   }
 
-  pub fn iconst5(&mut self) {
-    self.push_instruction(Instruction::Iconst5);
-    self.increase_stack_depth();
+  pub fn i_const_2(&mut self) {
+    self.push_code(IConst2);
+    self.inc_stack();
   }
 
-  pub fn bipush(&mut self, value: i8) {
-    self.push_instruction(Instruction::Bipush(value as u8));
-    self.increase_stack_depth();
+  pub fn i_const_3(&mut self) {
+    self.push_code(IConst3);
+    self.inc_stack();
+  }
+
+  pub fn i_const_4(&mut self) {
+    self.push_code(IConst4);
+    self.inc_stack();
+  }
+
+  pub fn i_const_5(&mut self) {
+    self.push_code(IConst5);
+    self.inc_stack();
+  }
+
+  pub fn b_i_push(&mut self, value: i8) {
+    self.push_code(BIPush(value as u8));
+    self.inc_stack();
   }
 
   pub fn load_constant(&mut self, value: &str) {
-    let string_index = self.classfile.define_string(value);
+    let string_index = self.class_builder.define_string(value);
     if string_index > ::std::u8::MAX as u16 {
       panic!("Placed a constant in too high of an index: {}", string_index)
     }
-    self.push_instruction(Instruction::LoadConstant(string_index as u8));
-    self.increase_stack_depth();
+    self.push_code(LoadConstant(string_index as u8));
+    self.inc_stack();
   }
 
-  pub fn aload0(&mut self) {
-    self.push_instruction(Instruction::Aload0);
-    self.increase_stack_depth();
+  pub fn a_load_0(&mut self) {
+    self.push_code(ALoad0);
+    self.inc_stack();
   }
 
-  pub fn aload1(&mut self) {
-    self.push_instruction(Instruction::Aload1);
-    self.increase_stack_depth();
+  pub fn a_load_1(&mut self) {
+    self.push_code(ALoad1);
+    self.inc_stack();
   }
 
-  pub fn aload2(&mut self) {
-    self.push_instruction(Instruction::Aload2);
-    self.increase_stack_depth();
+  pub fn a_load_2(&mut self) {
+    self.push_code(ALoad2);
+    self.inc_stack();
   }
 
-  pub fn aload3(&mut self) {
-    self.push_instruction(Instruction::Aload3);
-    self.increase_stack_depth();
+  pub fn a_load_3(&mut self) {
+    self.push_code(ALoad3);
+    self.inc_stack();
   }
 
-  pub fn aaload(&mut self) {
-    self.push_instruction(Instruction::Aaload);
-    self.decrease_stack_depth();
+  pub fn a_a_load(&mut self) {
+    self.push_code(AALoad);
+    self.dec_stack();
   }
 
-  pub fn iadd(&mut self) {
-    self.push_instruction(Instruction::Iadd);
-    self.decrease_stack_depth();
+  pub fn i_add(&mut self) {
+    self.push_code(IAdd);
+    self.dec_stack();
   }
 
-  pub fn ifeq(&mut self, label: &'a str) {
-    self.delay_instruction(label, Instruction::IfEq(0));
-    self.decrease_stack_depth();
+  pub fn if_eq(&mut self, label: u16) {
+    self.delay_code(label, IfEq(0));
+    self.dec_stack();
   }
 
-  pub fn ifne(&mut self, label: &'a str) {
-    self.delay_instruction(label, Instruction::IfNe(0));
-    self.decrease_stack_depth();
+  pub fn if_ne(&mut self, label: u16) {
+    self.delay_code(label, IfNe(0));
+    self.dec_stack();
   }
 
-  pub fn iflt(&mut self, label: &'a str) {
-    self.delay_instruction(label, Instruction::IfLt(0));
-    self.decrease_stack_depth();
+  pub fn if_lt(&mut self, label: u16) {
+    self.delay_code(label, IfLt(0));
+    self.dec_stack();
   }
 
-  pub fn ifge(&mut self, label: &'a str) {
-    self.delay_instruction(label, Instruction::IfGe(0));
-    self.decrease_stack_depth();
+  pub fn if_ge(&mut self, label: u16) {
+    self.delay_code(label, IfGe(0));
+    self.dec_stack();
   }
 
-  pub fn ifgt(&mut self, label: &'a str) {
-    self.delay_instruction(label, Instruction::IfGt(0));
-    self.decrease_stack_depth();
+  pub fn if_gt(&mut self, label: u16) {
+    self.delay_code(label, IfGt(0));
+    self.dec_stack();
   }
 
-  pub fn ifle(&mut self, label: &'a str) {
-    self.delay_instruction(label, Instruction::IfLe(0));
-    self.decrease_stack_depth();
+  pub fn if_le(&mut self, label: u16) {
+    self.delay_code(label, IfLe(0));
+    self.dec_stack();
   }
 
-  pub fn if_icmp_eq(&mut self, label: &'a str) {
-    self.delay_instruction(label, Instruction::IfIcmpEq(0));
-    self.decrease_stack_depth_by(2);
+  pub fn if_i_cmp_eq(&mut self, label: u16) {
+    self.delay_code(label, IfICmpEq(0));
+    self.dec_stack_n(2);
   }
 
-  pub fn if_icmp_ne(&mut self, label: &'a str) {
-    self.delay_instruction(label, Instruction::IfIcmpNe(0));
-    self.decrease_stack_depth_by(2);
+  pub fn if_i_cmp_ne(&mut self, label: u16) {
+    self.delay_code(label, IfICmpNe(0));
+    self.dec_stack_n(2);
   }
 
-  pub fn if_icmp_lt(&mut self, label: &'a str) {
-    self.delay_instruction(label, Instruction::IfIcmpLt(0));
-    self.decrease_stack_depth_by(2);
+  pub fn if_i_cmp_lt(&mut self, label: u16) {
+    self.delay_code(label, IfICmpLt(0));
+    self.dec_stack_n(2);
   }
 
-  pub fn if_icmp_ge(&mut self, label: &'a str) {
-    self.delay_instruction(label, Instruction::IfIcmpGe(0));
-    self.decrease_stack_depth_by(2);
+  pub fn if_i_cmp_ge(&mut self, label: u16) {
+    self.delay_code(label, IfICmpGe(0));
+    self.dec_stack_n(2);
   }
 
-  pub fn if_icmp_gt(&mut self, label: &'a str) {
-    self.delay_instruction(label, Instruction::IfIcmpGt(0));
-    self.decrease_stack_depth_by(2);
+  pub fn if_i_cmp_gt(&mut self, label: u16) {
+    self.delay_code(label, IfICmpGt(0));
+    self.dec_stack_n(2);
   }
 
-  pub fn if_icmp_le(&mut self, label: &'a str) {
-    self.delay_instruction(label, Instruction::IfIcmpLe(0));
-    self.decrease_stack_depth_by(2);
+  pub fn if_i_cmp_le(&mut self, label: u16) {
+    self.delay_code(label, IfICmpLe(0));
+    self.dec_stack_n(2);
   }
 
-  pub fn goto(&mut self, label: &'a str) {
-    self.delay_instruction(label, Instruction::Goto(0));
+  pub fn goto(&mut self, label: u16) {
+    self.delay_code(label, Goto(0));
   }
 
   pub fn do_return(&mut self) {
-    self.push_instruction(Instruction::Return);
+    self.push_code(Return);
   }
 
-  pub fn get_static(&mut self, class: &str, name: &str, argument_type: &Java) {
-    let fieldref_index = self.classfile.define_fieldref(class, name, argument_type);
-    self.push_instruction(Instruction::GetStatic(fieldref_index));
-    self.increase_stack_depth();
+  pub fn get_static(&mut self, class: &str, name: &str, argument_type: &JavaType) {
+    let index = self.class_builder.define_field_ref(class, name, argument_type);
+    self.push_code(GetStatic(index));
+    self.inc_stack();
   }
 
-  pub fn invoke_virtual(&mut self, class: &str, name: &str, argument_types: &[Java], return_type: &Java) {
-    let methodref_index = self.classfile.define_methodref(class, name, argument_types, return_type);
-    self.push_instruction(Instruction::InvokeVirtual(methodref_index));
-    self.decrease_stack_depth_by(argument_types.len() as u8 + 1);
-    if *return_type != Java::Void { self.increase_stack_depth(); }
+  pub fn invoke_virtual(&mut self, class: &str, name: &str, argument_types: &[JavaType], return_type: &JavaType) {
+    let index = self.class_builder.define_method_ref(class, name, argument_types, return_type);
+    self.push_code(InvokeVirtual(index));
+    self.dec_stack_n(argument_types.len() as u16 + 1);
+    if *return_type != JavaType::Void { self.inc_stack(); }
   }
 
-  pub fn invoke_special(&mut self, class: &str, name: &str, argument_types: &[Java], return_type: &Java) {
-    let methodref_index = self.classfile.define_methodref(class, name, argument_types, return_type);
-    self.push_instruction(Instruction::InvokeSpecial(methodref_index));
-    self.decrease_stack_depth_by(argument_types.len() as u8 + 1);
-    if *return_type != Java::Void { self.increase_stack_depth(); }
+  pub fn invoke_special(&mut self, class: &str, name: &str, argument_types: &[JavaType], return_type: &JavaType) {
+    let index = self.class_builder.define_method_ref(class, name, argument_types, return_type);
+    self.push_code(InvokeSpecial(index));
+    self.dec_stack_n(argument_types.len() as u16 + 1);
+    if *return_type != JavaType::Void { self.inc_stack(); }
   }
 
-  pub fn invoke_static(&mut self, class: &str, name: &str, argument_types: &[Java], return_type: &Java) {
-    let methodref_index = self.classfile.define_methodref(class, name, argument_types, return_type);
-    self.push_instruction(Instruction::InvokeStatic(methodref_index));
-    self.decrease_stack_depth_by(argument_types.len() as u8);
-    if *return_type != Java::Void { self.increase_stack_depth(); }
+  pub fn invoke_static(&mut self, class: &str, name: &str, argument_types: &[JavaType], return_type: &JavaType) {
+    let index = self.class_builder.define_method_ref(class, name, argument_types, return_type);
+    self.push_code(InvokeStatic(index));
+    self.dec_stack_n(argument_types.len() as u16);
+    if *return_type != JavaType::Void { self.inc_stack(); }
   }
 
   pub fn array_length(&mut self) {
-    self.push_instruction(Instruction::ArrayLength);
+    self.push_code(ArrayLength);
   }
 
-  pub fn label(&mut self, name: &str) {
-    self.labels.insert(name.to_owned(), self.stack_index);
-
-    // create a stack map table entry
-    let offset = match self.last_stack_frame_index {
-      Some(i) => self.stack_index - i - 1,
-      None => self.stack_index
-    };
-    let frame = if offset > ::std::u8::MAX as u16 {
-      StackMapFrame::SameFrameExtended(offset)
-    } else {
-      StackMapFrame::SameFrame(offset as u8)
-    };
-    self.stack_frames.push(frame);
-    self.last_stack_frame_index = Some(self.stack_index);
+  pub fn label(&mut self, label: u16) {
+    self.labels.insert(label, self.code.len() as u16);
   }
 
-  fn push_instruction(&mut self, instruction: Instruction) {
-    let index = self.stack_index;
-    self.stack_index += instruction.size() as u16;
-    self.instructions.push((index, IntermediateInstruction::Ready(instruction)));
+  fn push_code(&mut self, instruction: Instruction) {
+    instruction.write_to(&mut self.code);
   }
 
-  fn delay_instruction(&mut self, label: &'a str, instruction: Instruction) {
-    let index = self.stack_index;
-    self.stack_index += instruction.size() as u16;
-    self.instructions.push((index, IntermediateInstruction::Waiting(label, instruction)));
+  fn delay_code(&mut self, label: u16, instruction: Instruction) {
+    instruction.write_to(&mut self.code);
+    self.fills.insert(self.code.len() as u16 - 2, label);
   }
 
-  fn increase_stack_depth(&mut self) {
-    self.curr_stack_depth += 1;
-    if self.curr_stack_depth > self.max_stack_depth {
-      self.max_stack_depth = self.curr_stack_depth;
-    }
-  }
-
-  fn decrease_stack_depth(&mut self) {
-    self.curr_stack_depth -= 1;
-  }
-
-  fn decrease_stack_depth_by(&mut self, n: u8) {
-    self.curr_stack_depth -= n as u16;
-  }
-
-  pub fn done(self) {
-    if self.curr_stack_depth != 0 {
-      println!("Warning: stack depth at the end of a method should be 0, but is {} instead", self.curr_stack_depth);
+  pub fn done(mut self) {
+    if self.cur_stack != 0 {
+      println!("Warning: stack depth at the end of a method should be 0, but is {} instead", self.cur_stack);
     }
 
-    let classfile = self.classfile;
-    let labels = self.labels;
-    let real_instructions = self.instructions.into_iter().map(|(pos, ir)| match ir {
-      IntermediateInstruction::Ready(i) => i,
-      IntermediateInstruction::Waiting(l, i) => {
-        let label_pos = labels.get(l).unwrap();
-        let offset = label_pos - pos;
-        fill_offset(i, offset)
-      }
-    }).collect();
+    for (index, label) in self.fills {
+      let ptr = &mut self.code[index as usize] as *mut u8 as *mut u16;
+      // TODO: sub the two posinstead of set to the label pos
+      unsafe { *ptr = *self.labels.get(&label).unwrap() };
+    }
 
-    let stack_map_table_index = classfile.define_utf8("StackMapTable");
-    let stack_map_table = Attribute::StackMapTable(stack_map_table_index, self.stack_frames);
+    let attribute_name_index = self.class_builder.define_utf8("Code");
+    let code = Code {
+      attribute_name_index,
+      max_stack: self.max_stack,
+      max_locals: 1,
+      code: self.code,
+    };
 
-    // TODO track max_locals counts instead of hard-coding to 1
-    let code_index = classfile.define_utf8("Code");
-    let code = Attribute::Code(code_index, self.max_stack_depth, 1, real_instructions, vec![], vec![stack_map_table]);
-
-    let method = Method::new(self.access_flags, self.name_index, self.descriptor_index, vec![code]);
-    classfile.methods.push(method);
+    self.class_builder.methods.push(Method {
+      access_flags: self.access_flags,
+      name_index: self.name_index,
+      descriptor_index: self.descriptor_index,
+      code,
+    });
   }
 }

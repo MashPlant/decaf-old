@@ -52,7 +52,7 @@ pub struct Code {
   // attribute_length: u32 : calculated instead of stored
   pub max_stack: u16,
   pub max_locals: u16,
-  pub code: Vec<Instruction>,
+  pub code: Vec<u8>,
   // exception_table: Vec<Exception>: not implemented
   // attributes: Vec<Attribute>: not implemented
 }
