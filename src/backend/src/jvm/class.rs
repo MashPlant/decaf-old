@@ -46,6 +46,7 @@ pub struct Method {
 // actually Code is a kind of Attribute
 // but the only Attribute I will implement is Code
 // so it is extracted out
+#[derive(Clone, Debug, PartialEq)]
 pub struct Code {
   pub attribute_name_index: u16,
   // attribute_length: u32 : calculated instead of stored
@@ -92,4 +93,12 @@ pub enum Instruction {
   /* 0xB7 */ InvokeSpecial(u16),
   /* 0xB8 */ InvokeStatic(u16),
   /* 0xBE */ ArrayLength,
+}
+
+impl Code {
+//  pub fn attribute_length(&self) -> u32 {
+//    2 /* max_stack */ + 2 /* max_locals */
+//      + 4 /* code_length */ + self.code.len() as u32 /* code */
+//      + 2 /* exception_table_length */ + 2 /* attributes_count */
+//  }
 }
