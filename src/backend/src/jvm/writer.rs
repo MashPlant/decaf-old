@@ -141,6 +141,7 @@ impl Writer<Vec<u8>> for Instruction {
       BIPush(byte) => dst.write(0x10 as u8).write(byte),
       SIPush(bytes) => dst.write(0x11 as u8).write(bytes),
       Ldc(index) => dst.write(0x12 as u8).write(index),
+      LdcW(index) => dst.write(0x13 as u8).write(index),
       ILoad(stack_index) => dst.write(0x15 as u8).write(stack_index),
       ALoad(stack_index) => dst.write(0x19 as u8).write(stack_index),
       IALoad => dst.write(0x2E as u8),

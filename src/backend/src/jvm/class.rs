@@ -71,6 +71,7 @@ pub enum Instruction {
   /* 0x10 */ BIPush(u8),
   /* 0x11 */ SIPush(u16),
   /* 0x12 */ Ldc(u8),
+  /* 0x13 */ LdcW(u16),
   /* 0x15 */ ILoad(u8),
   /* 0x19 */ ALoad(u8),
   /* 0x2E */ IALoad,

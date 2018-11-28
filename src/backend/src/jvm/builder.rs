@@ -46,7 +46,6 @@ impl ClassBuilder {
     self.push_constant(Constant::Utf8(string.to_owned()))
   }
 
-  // only be used to define this_class & super_class
   fn define_class(&mut self, class: &str) -> u16 {
     let name_index = self.define_utf8(class);
     self.push_constant(Constant::Class { name_index })
@@ -128,26 +127,15 @@ impl<'a> MethodBuilder<'a> {
     }
   }
 
-  fn inc_stack(&mut self) {
-    self.cur_stack += 1;
-    if self.cur_stack > self.max_stack {
-      self.max_stack = self.cur_stack
-    }
-  }
-
-  fn dec_stack(&mut self) {
-    self.cur_stack -= 1;
-  }
-
-  fn dec_stack_n(&mut self, n: u16) {
-    self.cur_stack -= n;
-  }
-
+  // some wrapper function for convenience
   pub fn int_const(&mut self, value: i32) {
     match value {
       -128...127 => self.b_i_push(value as i8),
       -32768...32767 => self.s_i_push(value as i16),
-      x => self.ldc(self.class_builder.define_int(x) as u8),
+      value => {
+        let index = self.class_builder.define_int(value);
+        self.ldc(index);
+      }
     };
     self.inc_stack();
   }
@@ -157,8 +145,28 @@ impl<'a> MethodBuilder<'a> {
   }
 
   pub fn string_const(&mut self, value: &str) {
-    self.ldc(self.class_builder.define_string(value) as u8);
+    let index = self.class_builder.define_string(value);
+    self.ldc(index);
     self.inc_stack();
+  }
+
+  pub fn new_bool_array(&mut self) {
+    self.new_array(4);
+  }
+
+  pub fn new_int_array(&mut self) {
+    self.new_array(10);
+  }
+
+  pub fn new_multi_array(&mut self, mut elem_type: JavaType, dim: u8) {
+    for _ in 0..dim {
+      elem_type = JavaType::Array(Box::new(elem_type));
+    }
+    self.multi_a_new_array(&elem_type.to_string(), dim);
+  }
+
+  pub fn label(&mut self, label: u16) {
+    self.labels.insert(label, self.code.len() as u16);
   }
 
   pub fn a_const_null(&mut self) {
@@ -188,8 +196,13 @@ impl<'a> MethodBuilder<'a> {
     self.inc_stack();
   }
 
-  pub fn ldc(&mut self, index: u8) {
-    self.push_code(Ldc(index));
+  // accept u16 and do judgement to simplify the design of user
+  pub fn ldc(&mut self, index: u16) {
+    match index {
+      0...255 => self.push_code(Ldc(index as u8)),
+      256...65535 => self.push_code(LdcW(index)),
+      _ => unreachable!(),
+    };
     self.inc_stack();
   }
 
@@ -388,18 +401,58 @@ impl<'a> MethodBuilder<'a> {
     if *return_type != JavaType::Void { self.inc_stack(); }
   }
 
-  pub fn new_(&mut self, class: &str) {}
+  pub fn new_(&mut self, class: &str) {
+    let index = self.class_builder.define_class(class);
+    self.push_code(New(index));
+    self.inc_stack();
+  }
 
-  pub fn new_array(&mut self, class: &str) {}
+  // a_type can only be int(10) / bool(4) in decaf
+  pub fn new_array(&mut self, a_type: u8) {
+    self.push_code(NewArray(a_type));
+  }
 
-  pub fn a_new_array(&mut self, class: &str) {}
+  pub fn a_new_array(&mut self, class: &str) {
+    let index = self.class_builder.define_class(class);
+    self.push_code(ANewArray(index));
+  }
 
   pub fn array_length(&mut self) {
     self.push_code(ArrayLength);
   }
 
-  pub fn label(&mut self, label: u16) {
-    self.labels.insert(label, self.code.len() as u16);
+  pub fn check_cast(&mut self, class: &str) {
+    let index = self.class_builder.define_class(class);
+    self.push_code(CheckCast(index));
+  }
+
+  pub fn instance_of(&mut self, class: &str) {
+    let index = self.class_builder.define_class(class);
+    self.push_code(InstanceOf(index));
+  }
+
+  // class is a array object, instead of the element object
+  // e.g.: multi_a_new_array("[[I", 2) means create a 2-dim int array
+  // this take 2 int from stack, and put 1 array ref to the stack
+  pub fn multi_a_new_array(&mut self, class: &str, dim: u8) {
+    let index = self.class_builder.define_class(class);
+    self.push_code(MultiANewArray(index, dim));
+    self.dec_stack_n(dim as u16 - 1);
+  }
+
+  fn inc_stack(&mut self) {
+    self.cur_stack += 1;
+    if self.cur_stack > self.max_stack {
+      self.max_stack = self.cur_stack
+    }
+  }
+
+  fn dec_stack(&mut self) {
+    self.cur_stack -= 1;
+  }
+
+  fn dec_stack_n(&mut self, n: u16) {
+    self.cur_stack -= n;
   }
 
   fn push_code(&mut self, instruction: Instruction) {
