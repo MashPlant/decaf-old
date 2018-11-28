@@ -26,7 +26,7 @@ fn main() {
         method.invoke_virtual("java/io/PrintStream", "println", &[JavaType::Int], &JavaType::Void);
 
         // add return statement
-        method.do_return();
+        method.return_();
 
         // finish!
         method.done();

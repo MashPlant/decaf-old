@@ -13,7 +13,7 @@ fn main() {
     method.invoke_static("Static", "hello_world", &[], &JavaType::Void);
     method.load_constant("Rust");
     method.invoke_static("Static", "hello_someone", &[JavaType::Class("java/lang/String")], &JavaType::Void);
-    method.do_return();
+    method.return_();
     method.done();
   }
 
@@ -22,7 +22,7 @@ fn main() {
     method.get_static("java/lang/System", "out", &JavaType::Class("java/io/PrintStream"));
     method.load_constant("Hello, World!");
     method.invoke_virtual("java/io/PrintStream", "println", &[JavaType::Class("java/lang/String")], &JavaType::Void);
-    method.do_return();
+    method.return_();
     method.done();
   }
 
@@ -40,7 +40,7 @@ fn main() {
     method.load_constant("!");
     method.invoke_virtual("java/io/PrintStream", "println", &[JavaType::Class("java/lang/String")], &JavaType::Void);
 
-    method.do_return();
+    method.return_();
     method.done();
   }
 

@@ -35,7 +35,7 @@ fn main() {
 
     // after
     method.label(1);
-    method.do_return();
+    method.return_();
 
     // finish!
     method.done();

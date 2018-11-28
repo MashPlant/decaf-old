@@ -76,6 +76,10 @@ impl ClassBuilder {
     self.push_constant(Constant::NameAndType { name_index, descriptor_index })
   }
 
+  fn define_int(&mut self, value: i32) -> u16 {
+    self.push_constant(Constant::Integer { bytes: value as u32 })
+  }
+
   pub fn done(self) -> Class {
     Class {
       constant_pool: self.constants,
@@ -139,8 +143,30 @@ impl<'a> MethodBuilder<'a> {
     self.cur_stack -= n;
   }
 
-  pub fn i_const_m1(&mut self) {
-    self.push_code(IConstM1);
+  pub fn int_const(&mut self, value: i32) {
+    match value {
+      -128...127 => self.b_i_push(value as i8),
+      -32768...32767 => self.s_i_push(value as i16),
+      x => {
+        let int_index = self.class_builder.define_int(x);
+        self.push_code(Ldc(int_index as u8));
+      }
+    };
+    self.inc_stack();
+  }
+
+  pub fn bool_const(&mut self, value: bool) {
+    if value { self.i_const_1(); } else { self.i_const_1(); }
+  }
+
+  pub fn string_const(&mut self, value: &str) {
+    let string_index = self.class_builder.define_string(value);
+    self.push_code(Ldc(string_index as u8));
+    self.inc_stack();
+  }
+
+  pub fn a_const_null(&mut self) {
+    self.push_code(AConstNull);
     self.inc_stack();
   }
 
@@ -154,57 +180,21 @@ impl<'a> MethodBuilder<'a> {
     self.inc_stack();
   }
 
-  pub fn i_const_2(&mut self) {
-    self.push_code(IConst2);
-    self.inc_stack();
-  }
-
-  pub fn i_const_3(&mut self) {
-    self.push_code(IConst3);
-    self.inc_stack();
-  }
-
-  pub fn i_const_4(&mut self) {
-    self.push_code(IConst4);
-    self.inc_stack();
-  }
-
-  pub fn i_const_5(&mut self) {
-    self.push_code(IConst5);
-    self.inc_stack();
-  }
-
+  // [-128, 127]
   pub fn b_i_push(&mut self, value: i8) {
     self.push_code(BIPush(value as u8));
     self.inc_stack();
   }
 
-  pub fn load_constant(&mut self, value: &str) {
-    let string_index = self.class_builder.define_string(value);
-    if string_index > ::std::u8::MAX as u16 {
-      panic!("Placed a constant in too high of an index: {}", string_index)
-    }
-    self.push_code(LoadConstant(string_index as u8));
+  // [-32768, 32767] \ [-128, 127]
+  pub fn s_i_push(&mut self, value: i16) {
+    self.push_code(SIPush(value as u16));
     self.inc_stack();
   }
 
-  pub fn a_load_0(&mut self) {
-    self.push_code(ALoad0);
-    self.inc_stack();
-  }
-
-  pub fn a_load_1(&mut self) {
-    self.push_code(ALoad1);
-    self.inc_stack();
-  }
-
-  pub fn a_load_2(&mut self) {
-    self.push_code(ALoad2);
-    self.inc_stack();
-  }
-
-  pub fn a_load_3(&mut self) {
-    self.push_code(ALoad3);
+  pub fn a_load(&mut self, value: i32) {
+    let int_index = self.class_builder.define_int(value);
+    self.push_code(Ldc(int_index as u8));
     self.inc_stack();
   }
 
@@ -282,7 +272,7 @@ impl<'a> MethodBuilder<'a> {
     self.delay_code(label, Goto(0));
   }
 
-  pub fn do_return(&mut self) {
+  pub fn return_(&mut self) {
     self.push_code(Return);
   }
 

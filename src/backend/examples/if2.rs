@@ -64,7 +64,7 @@ fn main() {
 
     // after outer if
     method.label(1);
-    method.do_return();
+    method.return_();
 
     // finish!
     method.done();
