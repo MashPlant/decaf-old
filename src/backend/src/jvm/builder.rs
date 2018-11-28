@@ -147,10 +147,7 @@ impl<'a> MethodBuilder<'a> {
     match value {
       -128...127 => self.b_i_push(value as i8),
       -32768...32767 => self.s_i_push(value as i16),
-      x => {
-        let int_index = self.class_builder.define_int(x);
-        self.push_code(Ldc(int_index as u8));
-      }
+      x => self.ldc(self.class_builder.define_int(x) as u8),
     };
     self.inc_stack();
   }
@@ -160,8 +157,7 @@ impl<'a> MethodBuilder<'a> {
   }
 
   pub fn string_const(&mut self, value: &str) {
-    let string_index = self.class_builder.define_string(value);
-    self.push_code(Ldc(string_index as u8));
+    self.ldc(self.class_builder.define_string(value) as u8);
     self.inc_stack();
   }
 
@@ -192,10 +188,24 @@ impl<'a> MethodBuilder<'a> {
     self.inc_stack();
   }
 
-  pub fn a_load(&mut self, value: i32) {
-    let int_index = self.class_builder.define_int(value);
-    self.push_code(Ldc(int_index as u8));
+  pub fn ldc(&mut self, index: u8) {
+    self.push_code(Ldc(index));
     self.inc_stack();
+  }
+
+  pub fn i_load(&mut self, stack_index: u8) {
+    self.push_code(ILoad(stack_index));
+    self.inc_stack();
+  }
+
+  pub fn a_load(&mut self, stack_index: u8) {
+    self.push_code(ALoad(stack_index));
+    self.inc_stack();
+  }
+
+  pub fn i_a_load(&mut self) {
+    self.push_code(IALoad);
+    self.dec_stack();
   }
 
   pub fn a_a_load(&mut self) {
@@ -203,9 +213,53 @@ impl<'a> MethodBuilder<'a> {
     self.dec_stack();
   }
 
+  pub fn b_a_load(&mut self) {
+    self.push_code(BALoad);
+    self.dec_stack();
+  }
+
+  pub fn i_a_store(&mut self) {
+    self.push_code(IAStore);
+    self.dec_stack();
+  }
+
+  pub fn a_a_store(&mut self) {
+    self.push_code(AAStore);
+    self.dec_stack();
+  }
+
+  pub fn b_a_store(&mut self) {
+    self.push_code(BAStore);
+    self.dec_stack();
+  }
+
   pub fn i_add(&mut self) {
     self.push_code(IAdd);
     self.dec_stack();
+  }
+
+  pub fn i_sub(&mut self) {
+    self.push_code(ISub);
+    self.dec_stack();
+  }
+
+  pub fn i_mul(&mut self) {
+    self.push_code(IMul);
+    self.dec_stack();
+  }
+
+  pub fn i_div(&mut self) {
+    self.push_code(IDiv);
+    self.dec_stack();
+  }
+
+  pub fn i_rem(&mut self) {
+    self.push_code(IRem);
+    self.dec_stack();
+  }
+
+  pub fn i_neg(&mut self) {
+    self.push_code(INeg);
   }
 
   pub fn if_eq(&mut self, label: u16) {
@@ -268,18 +322,49 @@ impl<'a> MethodBuilder<'a> {
     self.dec_stack_n(2);
   }
 
+  pub fn if_a_cmp_eq(&mut self, label: u16) {
+    self.delay_code(label, IfACmpEq(0));
+    self.dec_stack_n(2);
+  }
+
+  pub fn if_a_cmp_ne(&mut self, label: u16) {
+    self.delay_code(label, IfACmpNe(0));
+    self.dec_stack_n(2);
+  }
+
   pub fn goto(&mut self, label: u16) {
     self.delay_code(label, Goto(0));
+  }
+
+  pub fn i_return(&mut self) {
+    self.push_code(IReturn);
+    self.dec_stack();
+  }
+
+  pub fn a_return(&mut self) {
+    self.push_code(AReturn);
+    self.dec_stack();
   }
 
   pub fn return_(&mut self) {
     self.push_code(Return);
   }
 
-  pub fn get_static(&mut self, class: &str, name: &str, argument_type: &JavaType) {
-    let index = self.class_builder.define_field_ref(class, name, argument_type);
+  pub fn get_static(&mut self, class: &str, name: &str, field_type: &JavaType) {
+    let index = self.class_builder.define_field_ref(class, name, field_type);
     self.push_code(GetStatic(index));
     self.inc_stack();
+  }
+
+  pub fn get_field(&mut self, class: &str, name: &str, field_type: &JavaType) {
+    let index = self.class_builder.define_field_ref(class, name, field_type);
+    self.push_code(GetField(index));
+  }
+
+  pub fn put_field(&mut self, class: &str, name: &str, field_type: &JavaType) {
+    let index = self.class_builder.define_field_ref(class, name, field_type);
+    self.push_code(PutField(index));
+    self.dec_stack();
   }
 
   pub fn invoke_virtual(&mut self, class: &str, name: &str, argument_types: &[JavaType], return_type: &JavaType) {
@@ -302,6 +387,12 @@ impl<'a> MethodBuilder<'a> {
     self.dec_stack_n(argument_types.len() as u16);
     if *return_type != JavaType::Void { self.inc_stack(); }
   }
+
+  pub fn new_(&mut self, class: &str) {}
+
+  pub fn new_array(&mut self, class: &str) {}
+
+  pub fn a_new_array(&mut self, class: &str) {}
 
   pub fn array_length(&mut self) {
     self.push_code(ArrayLength);
