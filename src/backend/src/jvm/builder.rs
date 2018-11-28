@@ -11,6 +11,7 @@ pub struct ClassBuilder {
   this_class_index: u16,
   super_class_index: u16,
   constants: Vec<Constant>,
+  constant_cache: HashMap<Constant, u16>,
   methods: Vec<Method>,
 }
 
@@ -21,6 +22,7 @@ impl ClassBuilder {
       this_class_index: 0,
       super_class_index: 0,
       constants: Vec::new(),
+      constant_cache: HashMap::new(),
       methods: Vec::new(),
     };
     builder.this_class_index = builder.define_class(this_class);
@@ -29,8 +31,13 @@ impl ClassBuilder {
   }
 
   fn push_constant(&mut self, constant: Constant) -> u16 {
-    self.constants.push(constant);
-    self.constants.len() as u16
+    {
+      if let Some(index) = self.constant_cache.get(&constant) { return *index; }
+    }
+    self.constants.push(constant.clone());
+    let ret = self.constants.len() as u16; // 1 indexed
+    self.constant_cache.insert(constant, ret);
+    ret
   }
 
   fn define_utf8(&mut self, string: &str) -> u16 {
@@ -326,9 +333,9 @@ impl<'a> MethodBuilder<'a> {
     }
 
     for (index, label) in self.fills {
-      let ptr = &mut self.code[index as usize] as *mut u8 as *mut u16;
-      // TODO: sub the two posinstead of set to the label pos
-      unsafe { *ptr = *self.labels.get(&label).unwrap() };
+      let fill = *self.labels.get(&label).unwrap() - index;
+      self.code[index as usize] = (fill >> 8) as u8;
+      self.code[index as usize + 1] = fill as u8;
     }
 
     let attribute_name_index = self.class_builder.define_utf8("Code");

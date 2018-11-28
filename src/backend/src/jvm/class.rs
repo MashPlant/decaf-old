@@ -1,6 +1,6 @@
-const MAGIC: u32 = 0xCAFEBABE;
-const MAJOR_VERSION: u16 = 52;
-const MINOR_VERSION: u16 = 0;
+pub const MAGIC: u32 = 0xCAFEBABE;
+pub const MAJOR_VERSION: u16 = 52;
+pub const MINOR_VERSION: u16 = 0;
 pub const ACC_PUBLIC: u16 = 0x1;
 pub const ACC_PRIVATE: u16 = 0x2;
 pub const ACC_STATIC: u16 = 0x8;
@@ -20,7 +20,7 @@ pub struct Class {
   // attributes: Vec<Attribute> : not implemented
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Constant {
   /* 1 */ Utf8(String),
   /* 3 */ Integer { bytes: u32 },

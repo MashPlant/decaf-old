@@ -32,17 +32,63 @@ impl Writer<Vec<u8>> for u8 {
 
 impl Writer<Vec<u8>> for u16 {
   fn write_to(self, dst: &mut Vec<u8>) {
-    dst.push((self & 0xff00 >> 8) as u8);
+    dst.push((self >> 8) as u8);
     dst.push(self as u8);
   }
 }
 
 impl Writer<Vec<u8>> for u32 {
   fn write_to(self, dst: &mut Vec<u8>) {
-    dst.push((self & 0xff000000 >> 24) as u8);
-    dst.push((self & 0xff0000 >> 16) as u8);
-    dst.push((self & 0xff00 >> 8) as u8);
+    dst.push((self >> 24) as u8);
+    dst.push((self >> 16) as u8);
+    dst.push((self >> 8) as u8);
     dst.push(self as u8);
+  }
+}
+
+impl Writer<Vec<u8>> for Class {
+  fn write_to(self, dst: &mut Vec<u8>) {
+    dst.write(MAGIC).write(self.minor_version).write(self.major_version)
+      .write(self.constant_pool)
+      .write(self.access_flags)
+      .write(self.this_class).write(self.super_class)
+      .write(1 as u8) // interfaces, count = 0, len = 1
+      .write(self.fields)
+      .write(self.methods)
+      .write(1 as u8) // attributes, count = 0, len = 1
+    ;
+  }
+}
+
+impl Writer<Vec<u8>> for Vec<Constant> {
+  fn write_to(self, dst: &mut Vec<u8>) {
+    unimplemented!()
+  }
+}
+
+impl Writer<Vec<u8>> for Vec<Field> {
+  fn write_to(self, dst: &mut Vec<u8>) {
+//    unimplemented!()
+  }
+}
+
+impl Writer<Vec<u8>> for Vec<Method> {
+  fn write_to(self, dst: &mut Vec<u8>) {
+    dst.write(self.len() as u16);
+    for method in self {
+      dst.write(method.access_flags)
+        .write(method.name_index)
+        .write(method.descriptor_index)
+        .write(2 as u8) // attributes, count = 1, len = 2
+        .write(method.code) // the only attribute
+      ;
+    }
+  }
+}
+
+impl Writer<Vec<u8>> for Code {
+  fn write_to(mut self, dst: &mut Vec<u8>) {
+    dst.append(&mut self.code);
   }
 }
 
