@@ -1,13 +1,3 @@
-//use std::ops::Add;
-//
-//pub trait Writer<Dst> {
-//  fn write_to(&self, dst: &mut Dst);
-//}
-//
-//pub trait FluentVec {
-//  fn write() -> &FluentVec;
-//}
-
 use super::class::*;
 
 pub trait Writer<DST> {
@@ -46,29 +36,54 @@ impl Writer<Vec<u8>> for u32 {
   }
 }
 
+impl Writer<Vec<u8>> for Vec<u8> {
+  fn write_to(mut self, dst: &mut Vec<u8>) {
+    dst.write(self.len() as u32)
+      .append(&mut self);
+  }
+}
+
 impl Writer<Vec<u8>> for Class {
   fn write_to(self, dst: &mut Vec<u8>) {
-    dst.write(MAGIC).write(self.minor_version).write(self.major_version)
+    dst.write(MAGIC).write(MINOR_VERSION).write(MAJOR_VERSION)
       .write(self.constant_pool)
       .write(self.access_flags)
       .write(self.this_class).write(self.super_class)
-      .write(1 as u8) // interfaces, count = 0, len = 1
+      .write(0 as u16) // interfaces_count
       .write(self.fields)
       .write(self.methods)
-      .write(1 as u8) // attributes, count = 0, len = 1
+      .write(0 as u16) // attributes_count
     ;
   }
 }
 
 impl Writer<Vec<u8>> for Vec<Constant> {
   fn write_to(self, dst: &mut Vec<u8>) {
-    unimplemented!()
+    use super::class::Constant::*;
+    dst.write(self.len() as u16 + 1);
+    for constant in self {
+      match constant {
+        Utf8(s) => { dst.write(1 as u8).append(&mut s.into_bytes()); }
+        Integer { bytes } => { dst.write(3 as u8).write(bytes); }
+        Class { name_index } => { dst.write(7 as u8).write(name_index); }
+        String { string_index } => { dst.write(8 as u8).write(string_index); }
+        FieldRef { class_index, name_and_type_index } => { dst.write(9 as u8).write(class_index).write(name_and_type_index); }
+        MethodRef { class_index, name_and_type_index } => { dst.write(10 as u8).write(class_index).write(name_and_type_index); }
+        NameAndType { name_index, descriptor_index } => { dst.write(12 as u8).write(name_index).write(descriptor_index); }
+      };
+    }
   }
 }
 
 impl Writer<Vec<u8>> for Vec<Field> {
   fn write_to(self, dst: &mut Vec<u8>) {
-//    unimplemented!()
+    dst.write(self.len() as u16);
+    for field in self {
+      dst.write(field.access_flags)
+        .write(field.name_index)
+        .write(field.descriptor_index)
+        .write(0 as u16);
+    }
   }
 }
 
@@ -79,7 +94,7 @@ impl Writer<Vec<u8>> for Vec<Method> {
       dst.write(method.access_flags)
         .write(method.name_index)
         .write(method.descriptor_index)
-        .write(2 as u8) // attributes, count = 1, len = 2
+        .write(1 as u16) // attributes_count
         .write(method.code) // the only attribute
       ;
     }
@@ -88,7 +103,16 @@ impl Writer<Vec<u8>> for Vec<Method> {
 
 impl Writer<Vec<u8>> for Code {
   fn write_to(mut self, dst: &mut Vec<u8>) {
-    dst.append(&mut self.code);
+    dst.write(self.attribute_name_index)
+      .write(2 /* max_stack */ + 2 /* max_locals */
+               + 4 /* code_length */ + self.code.len() as u32 /* code */
+               + 2 /* exception_table_length */ + 2 /* attributes_count */)
+      .write(self.max_stack)
+      .write(self.max_locals)
+      .write(self.code)
+      .write(0 as u16) // exception_table_length
+      .write(0 as u16) // attributes_count
+    ;
   }
 }
 

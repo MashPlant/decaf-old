@@ -8,8 +8,8 @@ pub const ACC_FINAL: u16 = 0x10;
 
 pub struct Class {
   // magic: u32 : doesn't need it here since it is const
-  pub minor_version: u16,
-  pub major_version: u16,
+  // minor_version: u16 : same as above
+  // major_version: u16 : same as above
   pub constant_pool: Vec<Constant>,
   pub access_flags: u16,
   pub this_class: u16,
@@ -32,7 +32,12 @@ pub enum Constant {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Field {}
+pub struct Field {
+  pub access_flags: u16,
+  pub name_index: u16,
+  pub descriptor_index: u16,
+  // attributes: Vec<Attribute> : not implemented
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Method {
