@@ -1,7 +1,22 @@
 use super::class::*;
+use std::fs;
 
 pub trait Writer<DST> {
   fn write_to(self, dst: &mut DST);
+}
+
+pub trait FileWriter {
+  fn write_to_file(self, file: &str);
+}
+
+impl<T: Writer<Vec<u8>>> FileWriter for T {
+  fn write_to_file(self, file: &str) {
+    use std::io::Write;
+    let mut file = fs::File::create(file).unwrap();
+    let mut dst = Vec::new();
+    self.write_to(&mut dst);
+    file.write_all(&dst).unwrap();
+  }
 }
 
 trait FluentVec {
@@ -63,7 +78,7 @@ impl Writer<Vec<u8>> for Vec<Constant> {
     dst.write(self.len() as u16 + 1);
     for constant in self {
       match constant {
-        Utf8(s) => { dst.write(1 as u8).append(&mut s.into_bytes()); }
+        Utf8(s) => { dst.write(1 as u8).write(s.len() as u16).append(&mut s.into_bytes()); }
         Integer { bytes } => { dst.write(3 as u8).write(bytes); }
         Class { name_index } => { dst.write(7 as u8).write(name_index); }
         String { string_index } => { dst.write(8 as u8).write(string_index); }
@@ -102,7 +117,7 @@ impl Writer<Vec<u8>> for Vec<Method> {
 }
 
 impl Writer<Vec<u8>> for Code {
-  fn write_to(mut self, dst: &mut Vec<u8>) {
+  fn write_to(self, dst: &mut Vec<u8>) {
     dst.write(self.attribute_name_index)
       .write(2 /* max_stack */ + 2 /* max_locals */
                + 4 /* code_length */ + self.code.len() as u32 /* code */

@@ -4,3 +4,4 @@
 /testcases/s1/output/*
 /testcases/s2/output/*
 .idea/*
+/src/backend/.idea/*

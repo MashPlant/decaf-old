@@ -1,5 +1,5 @@
 pub const MAGIC: u32 = 0xCAFEBABE;
-pub const MAJOR_VERSION: u16 = 52;
+pub const MAJOR_VERSION: u16 = 49; // low enough, so that it doesn't need StackMapTable
 pub const MINOR_VERSION: u16 = 0;
 pub const ACC_PUBLIC: u16 = 0x1;
 pub const ACC_PRIVATE: u16 = 0x2;
@@ -98,12 +98,4 @@ pub enum Instruction {
   /* 0xB7 */ InvokeSpecial(u16),
   /* 0xB8 */ InvokeStatic(u16),
   /* 0xBE */ ArrayLength,
-}
-
-impl Code {
-//  pub fn attribute_length(&self) -> u32 {
-//    2 /* max_stack */ + 2 /* max_locals */
-//      + 4 /* code_length */ + self.code.len() as u32 /* code */
-//      + 2 /* exception_table_length */ + 2 /* attributes_count */
-//  }
 }

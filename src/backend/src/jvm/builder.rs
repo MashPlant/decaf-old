@@ -1,10 +1,10 @@
 use super::class::*;
 use super::types::*;
 use super::writer::*;
-use super::class::*;
 use super::class::Instruction::*;
 
 use std::collections::HashMap;
+use std::string::ToString;
 
 pub struct ClassBuilder {
   access_flags: u16,
@@ -12,6 +12,7 @@ pub struct ClassBuilder {
   super_class_index: u16,
   constants: Vec<Constant>,
   constant_cache: HashMap<Constant, u16>,
+  fields: Vec<Field>,
   methods: Vec<Method>,
 }
 
@@ -23,6 +24,7 @@ impl ClassBuilder {
       super_class_index: 0,
       constants: Vec::new(),
       constant_cache: HashMap::new(),
+      fields: Vec::new(),
       methods: Vec::new(),
     };
     builder.this_class_index = builder.define_class(this_class);
@@ -31,8 +33,8 @@ impl ClassBuilder {
   }
 
   fn push_constant(&mut self, constant: Constant) -> u16 {
-    {
-      if let Some(index) = self.constant_cache.get(&constant) { return *index; }
+    if let Some(index) = self.constant_cache.get(&constant) {
+      return *index;
     }
     self.constants.push(constant.clone());
     let ret = self.constants.len() as u16; // 1 indexed
@@ -44,6 +46,7 @@ impl ClassBuilder {
     self.push_constant(Constant::Utf8(string.to_owned()))
   }
 
+  // only be used to define this_class & super_class
   fn define_class(&mut self, class: &str) -> u16 {
     let name_index = self.define_utf8(class);
     self.push_constant(Constant::Class { name_index })
@@ -56,8 +59,7 @@ impl ClassBuilder {
 
   fn define_field_ref(&mut self, class: &str, name: &str, field_type: &JavaType) -> u16 {
     let class_index = self.define_class(class);
-    let descriptor = format!("{}", field_type);
-    let name_and_type_index = self.define_name_and_type(name, &descriptor);
+    let name_and_type_index = self.define_name_and_type(name, &field_type.to_string());
     self.push_constant(Constant::FieldRef { class_index, name_and_type_index })
   }
 
@@ -74,16 +76,17 @@ impl ClassBuilder {
     self.push_constant(Constant::NameAndType { name_index, descriptor_index })
   }
 
-//  pub fn done(self) -> Classfile {
-//    Classfile::new(self.constants, self.access_flags, self.this_class_index, self.super_class_index, self.methods)
-//  }
+  pub fn done(self) -> Class {
+    Class {
+      constant_pool: self.constants,
+      access_flags: self.access_flags,
+      this_class: self.this_class_index,
+      super_class: self.super_class_index,
+      fields: self.fields,
+      methods: self.methods,
+    }
+  }
 }
-
-//#[derive(Debug)]
-//pub enum DelayedInstruction {
-//  Ok(Instruction),
-//  Unfilled(u16, Instruction),
-//}
 
 pub struct MethodBuilder<'a> {
   class_builder: &'a mut ClassBuilder,
@@ -94,17 +97,17 @@ pub struct MethodBuilder<'a> {
   code: Vec<u8>,
   // map label to the index of code with the label
   labels: HashMap<u16, u16>,
-  // map index of code to label, that piece of code need to be filled with the label
-  fills: HashMap<u16, u16>,
+  // map index of code to label, index points to the high byte of code need to be filled with the label
+  fills: Vec<(u16, u16)>,
   cur_stack: u16,
   max_stack: u16,
 }
 
 impl<'a> MethodBuilder<'a> {
-  fn new(class_builder: &'a mut ClassBuilder,
-         access_flags: u16, name: &str,
-         argument_types: &[JavaType],
-         return_type: &JavaType) -> MethodBuilder<'a> {
+  pub fn new(class_builder: &'a mut ClassBuilder,
+             access_flags: u16, name: &str,
+             argument_types: &[JavaType],
+             return_type: &JavaType) -> MethodBuilder<'a> {
     let name_index = class_builder.define_utf8(name);
     let descriptor = make_method_type(argument_types, return_type);
     let descriptor_index = class_builder.define_utf8(&descriptor);
@@ -115,7 +118,7 @@ impl<'a> MethodBuilder<'a> {
       descriptor_index,
       code: Vec::new(),
       labels: HashMap::new(),
-      fills: HashMap::new(),
+      fills: Vec::new(),
       cur_stack: 0,
       max_stack: 0,
     }
@@ -324,7 +327,7 @@ impl<'a> MethodBuilder<'a> {
 
   fn delay_code(&mut self, label: u16, instruction: Instruction) {
     instruction.write_to(&mut self.code);
-    self.fills.insert(self.code.len() as u16 - 2, label);
+    self.fills.push((self.code.len() as u16 - 2, label));
   }
 
   pub fn done(mut self) {
@@ -333,9 +336,9 @@ impl<'a> MethodBuilder<'a> {
     }
 
     for (index, label) in self.fills {
-      let fill = *self.labels.get(&label).unwrap() - index;
-      self.code[index as usize] = (fill >> 8) as u8;
-      self.code[index as usize + 1] = fill as u8;
+      let label = *self.labels.get(&label).unwrap() - index + 1;
+      self.code[index as usize] = (label >> 8) as u8;
+      self.code[index as usize + 1] = label as u8;
     }
 
     let attribute_name_index = self.class_builder.define_utf8("Code");
