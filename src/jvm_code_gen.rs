@@ -262,7 +262,17 @@ impl Visitor for JvmCodeGen {
         self.expr(&mut unary.r);
         self.method().i_neg();
       }
-      Operator::Not => unimplemented!(),
+      Operator::Not => {
+        let true_label = self.new_label();
+        let out_label = self.new_label();
+        self.expr(&mut unary.r);
+        self.method().if_eq(true_label);
+        self.method().bool_const(false);
+        self.method().goto(out_label);
+        self.method().label(true_label);
+        self.method().bool_const(true);
+        self.method().label(out_label);
+      }
       _ => unreachable!()
     }
   }
@@ -270,7 +280,33 @@ impl Visitor for JvmCodeGen {
   fn binary(&mut self, binary: &mut Binary) {
     use super::ast::Operator::*;
     match binary.op {
-      Add | Sub | Mul | Div | Mod | Le | Lt | Ge | Gt => {
+      And => {
+        let out_label = self.new_label();
+        let false_label = self.new_label();
+        self.expr(&mut binary.l);
+        self.method().if_eq(false_label);
+        self.expr(&mut binary.r);
+        self.method().if_eq(false_label);
+        self.method().bool_const(true);
+        self.method().goto(out_label);
+        self.method().label(false_label);
+        self.method().bool_const(false);
+        self.method().label(out_label);
+      }
+      Or => {
+        let out_label = self.new_label();
+        let true_label = self.new_label();
+        self.expr(&mut binary.l);
+        self.method().if_ne(true_label);
+        self.expr(&mut binary.r);
+        self.method().if_ne(true_label);
+        self.method().bool_const(false);
+        self.method().goto(out_label);
+        self.method().label(true_label);
+        self.method().bool_const(true);
+        self.method().label(out_label);
+      }
+      _ => {
         self.expr(&mut binary.l);
         self.expr(&mut binary.r);
         match binary.op {
@@ -283,12 +319,11 @@ impl Visitor for JvmCodeGen {
           Lt => cmp!(self, if_i_cmp_lt),
           Ge => cmp!(self, if_i_cmp_ge),
           Gt => cmp!(self, if_i_cmp_gt),
+          Eq => cmp!(self, if_i_cmp_ge),
+          Ne => cmp!(self, if_i_cmp_gt),
           _ => unreachable!(),
         }
       }
-      And => unimplemented!(),
-      Or => unimplemented!(),
-      _ => unreachable!(),
     }
   }
 

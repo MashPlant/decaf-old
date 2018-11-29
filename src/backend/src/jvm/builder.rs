@@ -99,19 +99,17 @@ impl ClassBuilder {
 }
 
 pub struct MethodBuilder {
-  // TODO: please give up using pointers...
-  pub class_builder: *mut ClassBuilder,
-  pub access_flags: u16,
-  pub name_index: u16,
-  pub descriptor_index: u16,
-  //  instructions: Vec<(u16, DelayedInstruction)>,
-  pub code: Vec<u8>,
+  class_builder: *mut ClassBuilder,
+  access_flags: u16,
+  name_index: u16,
+  descriptor_index: u16,
+  code: Vec<u8>,
   // map label to the index of code with the label
-  pub labels: HashMap<u16, u16>,
+  labels: HashMap<u16, u16>,
   // map index of code to label, index points to the high byte of code need to be filled with the label
-  pub fills: Vec<(u16, u16)>,
-  pub cur_stack: u16,
-  pub max_stack: u16,
+  fills: Vec<(u16, u16)>,
+  cur_stack: u16,
+  max_stack: u16,
   // only for debug
   instructions: Vec<Instruction>,
 }
@@ -504,10 +502,6 @@ impl MethodBuilder {
   }
 
   pub fn done(self, max_locals: u16) {
-    if self.cur_stack != 0 {
-      println!("Warning: stack depth at the end of a method should be 0, but is {} instead", self.cur_stack);
-    }
-    eprintln!("{:?}", self.instructions);
     let MethodBuilder { class_builder, access_flags, name_index, descriptor_index, mut code, labels, fills, cur_stack: _, max_stack, instructions: _ } = self;
 
     for (index, label) in fills {
