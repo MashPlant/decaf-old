@@ -595,6 +595,7 @@ Simple
             src: $4,
             scope: ptr::null(),
             type_: D::default(),
+            index: D::default(),
         });
     }
     | Expr {

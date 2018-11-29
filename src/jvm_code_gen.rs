@@ -54,6 +54,18 @@ impl JvmCodeGen {
   fn method(&self) -> &mut MethodBuilder {
     unsafe { &mut *self.method_builder }
   }
+
+  fn store_to_stack(&self, t: &SemanticType, index: u8) {
+    match t {
+      SemanticType::Basic(name) => match *name {
+        "int" | "bool" => self.method().i_store(index),
+        "string" => self.method().a_store(index),
+        _ => unreachable!(),
+      },
+      SemanticType::Object(_) => self.method().a_store(index),
+      _ => unreachable!(),
+    }
+  }
 }
 
 impl Visitor for JvmCodeGen {
@@ -64,8 +76,10 @@ impl Visitor for JvmCodeGen {
   }
 
   fn class_def(&mut self, class_def: &mut ClassDef) {
-    let mut class_builder = ClassBuilder::new(ACC_PUBLIC, class_def.name,
-                                              if let Some(parent) = class_def.parent { parent } else { "java/lang/Object" });
+    let mut class_builder =
+      ClassBuilder::new(ACC_PUBLIC | if class_def.sealed { ACC_FINAL } else { 0 }
+                        , class_def.name
+                        , if let Some(parent) = class_def.parent { parent } else { "java/lang/Object" });
     self.class_builder = &mut class_builder;
     for field_def in &mut class_def.field {
       self.field_def(field_def);
@@ -98,30 +112,39 @@ impl Visitor for JvmCodeGen {
     for stmt in &mut block.stmt { self.stmt(stmt); }
   }
 
-
   fn assign(&mut self, assign: &mut Assign) {
-    if let Expr::Indexed(indexed) = &mut assign.dst {
-      indexed.for_assign = true;
-    }
-    self.expr(&mut assign.dst);
-    self.expr(&mut assign.src);
-    match &assign.dst {
-      Expr::Identifier(identifier) => {
-
+    unsafe {
+      if let Expr::Indexed(indexed) = &mut assign.dst {
+        indexed.for_assign = true;
       }
-      Expr::Indexed(indexed) => {
-        match &indexed.type_ {
-          SemanticType::Basic(name) => match *name {
-            "int" => self.method().i_a_store(),
-            "bool" => self.method().b_a_store(),
-            "string" => self.method().a_a_store(),
-            _ => unreachable!(),
-          },
-          SemanticType::Object(_) => self.method().a_a_store(),
-          _ => unreachable!(),
+      self.expr(&mut assign.dst);
+      self.expr(&mut assign.src);
+      match &assign.dst {
+        Expr::Identifier(identifier) => match identifier.symbol {
+          Var::VarDef(var_def) => {
+            let var_def = &*var_def;
+            match (*var_def.scope).kind {
+              ScopeKind::Local(_) | ScopeKind::Parameter(_) => self.store_to_stack(&var_def.type_, var_def.index),
+              ScopeKind::Class(class) => self.method().put_field((*class).name, var_def.name, &var_def.type_.to_java_type()),
+              _ => unreachable!(),
+            }
+          }
+          Var::VarAssign(var_assign) => self.store_to_stack(&(*var_assign).type_, (*var_assign).index),
         }
+        Expr::Indexed(indexed) => {
+          match &indexed.type_ {
+            SemanticType::Basic(name) => match *name {
+              "int" => self.method().i_a_store(),
+              "bool" => self.method().b_a_store(),
+              "string" => self.method().a_a_store(),
+              _ => unreachable!(),
+            },
+            SemanticType::Object(_) => self.method().a_a_store(),
+            _ => unreachable!(),
+          }
+        }
+        _ => unreachable!(),
       }
-      _ => unreachable!(),
     }
   }
 

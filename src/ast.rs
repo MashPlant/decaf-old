@@ -254,6 +254,8 @@ pub struct VarAssign {
   pub scope: *const Scope,
   // determined during type check
   pub type_: SemanticType,
+  // stack index
+  pub index: u8,
 }
 
 #[derive(Debug)]
@@ -370,6 +372,8 @@ pub struct Identifier {
   pub owner: Option<Box<Expr>>,
   pub name: &'static str,
   pub type_: SemanticType,
+  // pointer to VarDef & VarAssign
+  pub symbol: Var,
 }
 
 #[derive(Debug)]

@@ -2306,6 +2306,7 @@ impl Parser {
       src: _4,
       scope: ptr::null(),
       type_: D::default(),
+      index: D::default(),
     });
     SV::_14(_0)
   }

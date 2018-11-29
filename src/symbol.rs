@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::fmt;
 use std::default::Default as D;
+use std::ptr;
 
 // ast node owns the scope
 #[derive(Debug, Default)]
@@ -85,6 +86,12 @@ impl D for ScopeKind {
 pub enum Var {
   VarDef(*const VarDef),
   VarAssign(*const VarAssign),
+}
+
+impl D for Var {
+  fn default() -> Self {
+    Var::VarDef(ptr::null())
+  }
 }
 
 impl Var {

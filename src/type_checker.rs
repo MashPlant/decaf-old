@@ -497,6 +497,7 @@ impl Visitor for TypeChecker {
                   match symbol {
                     Symbol::Var(var) => {
                       id.type_ = var.get_type().clone();
+                      id.symbol = var;
                       if !(*self.current_class).extends(class) {
                         issue!(self, id.loc, PrivateFieldAccess { name: id.name, owner_t: owner_t.to_string() });
                       }
@@ -523,6 +524,7 @@ impl Visitor for TypeChecker {
                 Symbol::Method(method) => id.type_ = SemanticType::Method(method),
                 Symbol::Var(var) => {
                   id.type_ = var.get_type().clone();
+                  id.symbol = var;
                   if var.get_scope().is_class() {
                     if (*self.current_method).static_ {
                       issue!(self, id.loc, RefInStatic { field: id.name, method: (*self.current_method).name });
