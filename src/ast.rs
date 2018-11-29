@@ -104,7 +104,7 @@ impl FieldDef {
   }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct MethodDef {
   pub loc: Loc,
   pub name: &'static str,
@@ -115,6 +115,7 @@ pub struct MethodDef {
   pub body: Block,
   // scope for parameters
   pub scope: Scope,
+  pub class: *const ClassDef,
 }
 
 #[derive(Debug)]
@@ -374,6 +375,7 @@ pub struct Identifier {
   pub type_: SemanticType,
   // pointer to VarDef & VarAssign
   pub symbol: Var,
+  pub for_assign: bool,
 }
 
 #[derive(Debug)]

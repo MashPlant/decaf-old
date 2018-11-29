@@ -63,7 +63,7 @@ pub struct Code {
   // attributes: Vec<Attribute>: not implemented
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Instruction {
   /* 0x01 */ AConstNull,
   /* 0x02 */ IConstM1,

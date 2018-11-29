@@ -19,7 +19,7 @@ fn main() {
     // add return statement
     method.return_();
 
-    method.done();
+    method.done(1);
   }
 
   let class = class.done();

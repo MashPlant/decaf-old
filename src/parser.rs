@@ -1801,7 +1801,8 @@ impl Parser {
       param: _5,
       static_: true,
       body: _7,
-      ..D::default()
+      scope: D::default(),
+      class: ptr::null(),
     };
     SV::_8(_0)
   }
@@ -1822,7 +1823,8 @@ impl Parser {
       param: _4,
       static_: false,
       body: _6,
-      ..D::default()
+      scope: D::default(),
+      class: ptr::null(),
     };
     SV::_8(_0)
   }

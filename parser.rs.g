@@ -283,7 +283,8 @@ MethodDef
             param: $5,
             static_: true,
             body: $7,
-            ..D::default()
+            scope: D::default(),
+            class: ptr::null(),
         };
     }
     | Type IDENTIFIER '(' VarDefListOrEmpty ')' Block {
@@ -295,7 +296,8 @@ MethodDef
             params: $4,
             static_: false,
             body: $6,
-            ..D::default()
+            scope: D::default(),
+            class: ptr::null(),
         };
     }
     ;

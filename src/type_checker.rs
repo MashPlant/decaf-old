@@ -168,6 +168,7 @@ impl Visitor for TypeChecker {
 
   fn method_def(&mut self, method_def: &mut MethodDef) {
     self.current_method = method_def;
+    method_def.class = self.current_class;
     self.scopes.open(&mut method_def.scope);
     self.block(&mut method_def.body);
     self.scopes.close();

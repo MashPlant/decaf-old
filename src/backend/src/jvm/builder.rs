@@ -100,18 +100,20 @@ impl ClassBuilder {
 
 pub struct MethodBuilder {
   // TODO: please give up using pointers...
-  class_builder: *mut ClassBuilder,
-  access_flags: u16,
-  name_index: u16,
-  descriptor_index: u16,
+  pub class_builder: *mut ClassBuilder,
+  pub access_flags: u16,
+  pub name_index: u16,
+  pub descriptor_index: u16,
   //  instructions: Vec<(u16, DelayedInstruction)>,
-  code: Vec<u8>,
+  pub code: Vec<u8>,
   // map label to the index of code with the label
-  labels: HashMap<u16, u16>,
+  pub labels: HashMap<u16, u16>,
   // map index of code to label, index points to the high byte of code need to be filled with the label
-  fills: Vec<(u16, u16)>,
-  cur_stack: u16,
-  max_stack: u16,
+  pub fills: Vec<(u16, u16)>,
+  pub cur_stack: u16,
+  pub max_stack: u16,
+  // only for debug
+  instructions: Vec<Instruction>,
 }
 
 impl MethodBuilder {
@@ -132,6 +134,7 @@ impl MethodBuilder {
       fills: Vec::new(),
       cur_stack: 0,
       max_stack: 0,
+      instructions: Vec::new(),
     }
   }
 
@@ -490,19 +493,21 @@ impl MethodBuilder {
 
   fn push_code(&mut self, instruction: Instruction) {
     instruction.write_to(&mut self.code);
+    self.instructions.push(instruction);
   }
 
   fn delay_code(&mut self, label: u16, instruction: Instruction) {
     instruction.write_to(&mut self.code);
     self.fills.push((self.code.len() as u16 - 2, label));
+    self.instructions.push(instruction);
   }
 
-  pub fn done(mut self) {
+  pub fn done(self, max_locals: u16) {
     if self.cur_stack != 0 {
       println!("Warning: stack depth at the end of a method should be 0, but is {} instead", self.cur_stack);
     }
-
-    let MethodBuilder { class_builder, access_flags, name_index, descriptor_index, mut code, labels, fills, cur_stack, max_stack, } = self;
+    eprintln!("{:?}", self.instructions);
+    let MethodBuilder { class_builder, access_flags, name_index, descriptor_index, mut code, labels, fills, cur_stack: _, max_stack, instructions: _ } = self;
 
     for (index, label) in fills {
       let label = labels.get(&label).unwrap() - index + 1;
@@ -514,7 +519,7 @@ impl MethodBuilder {
     let code = Code {
       attribute_name_index,
       max_stack,
-      max_locals: 1,
+      max_locals,
       code,
     };
 

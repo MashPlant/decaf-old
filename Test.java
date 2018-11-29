@@ -12,4 +12,7 @@ public class Test {
         boolean b = false;
         int [][]arr = new int[100][100];
     }
+    public void f(int a, int b, int c) {
+        int d = a;
+    }
 }

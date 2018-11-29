@@ -65,6 +65,8 @@ fn main() {
       let mut printer = print::IndentPrinter::new();
       program.print_scope(&mut printer);
       printer.flush(&mut io::stdout());
+      let mut code_gen = jvm_code_gen::JvmCodeGen::new();
+      code_gen.gen(program);
     }
     Err(errors) => for error in errors { println!("{}", error); },
   }
