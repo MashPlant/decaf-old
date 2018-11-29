@@ -3,6 +3,8 @@ extern crate regex;
 #[macro_use]
 extern crate lazy_static;
 
+extern crate backend;
+
 pub mod ast;
 pub mod types;
 pub mod errors;
@@ -13,6 +15,7 @@ pub mod symbol_builder;
 pub mod config;
 pub mod symbol;
 pub mod type_checker;
+pub mod jvm_code_gen;
 
 use symbol_builder::SymbolBuilder;
 use type_checker::TypeChecker;

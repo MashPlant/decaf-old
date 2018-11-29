@@ -434,6 +434,7 @@ Foreach
                 type_: $3,
                 name: $4.value,
                 scope: ptr::null(),
+                index: D::default(),
             },
             arr: $6,
             cond: $7,
@@ -920,6 +921,7 @@ VarDef
             name: $2.value,
             type_: $1,
             scope: ptr::null(),
+            index: D::default(),
         };
     }
     ;

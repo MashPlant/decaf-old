@@ -79,6 +79,13 @@ impl ClassBuilder {
     self.push_constant(Constant::Integer { bytes: value as u32 })
   }
 
+  pub fn define_field(&mut self, access_flags: u16, name: &str, field_type: &JavaType) {
+    let name_index = self.define_utf8(name);
+    let descriptor = field_type.to_string();
+    let descriptor_index = self.define_utf8(&descriptor);
+    self.fields.push(Field { access_flags, name_index, descriptor_index });
+  }
+
   pub fn done(self) -> Class {
     Class {
       constant_pool: self.constants,
@@ -91,8 +98,9 @@ impl ClassBuilder {
   }
 }
 
-pub struct MethodBuilder<'a> {
-  class_builder: &'a mut ClassBuilder,
+pub struct MethodBuilder {
+  // TODO: please give up using pointers...
+  class_builder: *mut ClassBuilder,
   access_flags: u16,
   name_index: u16,
   descriptor_index: u16,
@@ -106,11 +114,11 @@ pub struct MethodBuilder<'a> {
   max_stack: u16,
 }
 
-impl<'a> MethodBuilder<'a> {
-  pub fn new(class_builder: &'a mut ClassBuilder,
+impl MethodBuilder {
+  pub fn new(class_builder: &mut ClassBuilder,
              access_flags: u16, name: &str,
              argument_types: &[JavaType],
-             return_type: &JavaType) -> MethodBuilder<'a> {
+             return_type: &JavaType) -> MethodBuilder {
     let name_index = class_builder.define_utf8(name);
     let descriptor = make_method_type(argument_types, return_type);
     let descriptor_index = class_builder.define_utf8(&descriptor);
@@ -127,6 +135,10 @@ impl<'a> MethodBuilder<'a> {
     }
   }
 
+  fn builder(&self) -> &mut ClassBuilder {
+    unsafe { &mut *self.class_builder }
+  }
+
   // some wrapper function for convenience
   pub fn int_const(&mut self, value: i32) {
     match value {
@@ -140,7 +152,7 @@ impl<'a> MethodBuilder<'a> {
       -128...127 => self.push_code(BIPush(value as u8)),
       -32768...32767 => self.push_code(SIPush(value as u16)),
       _ => {
-        let index = self.class_builder.define_int(value);
+        let index = self.builder().define_int(value);
         self.ldc(index);
       }
     };
@@ -152,7 +164,7 @@ impl<'a> MethodBuilder<'a> {
   }
 
   pub fn string_const(&mut self, value: &str) {
-    let index = self.class_builder.define_string(value);
+    let index = self.builder().define_string(value);
     self.ldc(index);
     self.inc_stack();
   }
@@ -385,45 +397,45 @@ impl<'a> MethodBuilder<'a> {
   }
 
   pub fn get_static(&mut self, class: &str, name: &str, field_type: &JavaType) {
-    let index = self.class_builder.define_field_ref(class, name, field_type);
+    let index = self.builder().define_field_ref(class, name, field_type);
     self.push_code(GetStatic(index));
     self.inc_stack();
   }
 
   pub fn get_field(&mut self, class: &str, name: &str, field_type: &JavaType) {
-    let index = self.class_builder.define_field_ref(class, name, field_type);
+    let index = self.builder().define_field_ref(class, name, field_type);
     self.push_code(GetField(index));
   }
 
   pub fn put_field(&mut self, class: &str, name: &str, field_type: &JavaType) {
-    let index = self.class_builder.define_field_ref(class, name, field_type);
+    let index = self.builder().define_field_ref(class, name, field_type);
     self.push_code(PutField(index));
     self.dec_stack();
   }
 
   pub fn invoke_virtual(&mut self, class: &str, name: &str, argument_types: &[JavaType], return_type: &JavaType) {
-    let index = self.class_builder.define_method_ref(class, name, argument_types, return_type);
+    let index = self.builder().define_method_ref(class, name, argument_types, return_type);
     self.push_code(InvokeVirtual(index));
     self.dec_stack_n(argument_types.len() as u16 + 1);
     if *return_type != JavaType::Void { self.inc_stack(); }
   }
 
   pub fn invoke_special(&mut self, class: &str, name: &str, argument_types: &[JavaType], return_type: &JavaType) {
-    let index = self.class_builder.define_method_ref(class, name, argument_types, return_type);
+    let index = self.builder().define_method_ref(class, name, argument_types, return_type);
     self.push_code(InvokeSpecial(index));
     self.dec_stack_n(argument_types.len() as u16 + 1);
     if *return_type != JavaType::Void { self.inc_stack(); }
   }
 
   pub fn invoke_static(&mut self, class: &str, name: &str, argument_types: &[JavaType], return_type: &JavaType) {
-    let index = self.class_builder.define_method_ref(class, name, argument_types, return_type);
+    let index = self.builder().define_method_ref(class, name, argument_types, return_type);
     self.push_code(InvokeStatic(index));
     self.dec_stack_n(argument_types.len() as u16);
     if *return_type != JavaType::Void { self.inc_stack(); }
   }
 
   pub fn new_(&mut self, class: &str) {
-    let index = self.class_builder.define_class(class);
+    let index = self.builder().define_class(class);
     self.push_code(New(index));
     self.inc_stack();
   }
@@ -434,7 +446,7 @@ impl<'a> MethodBuilder<'a> {
   }
 
   pub fn a_new_array(&mut self, class: &str) {
-    let index = self.class_builder.define_class(class);
+    let index = self.builder().define_class(class);
     self.push_code(ANewArray(index));
   }
 
@@ -443,12 +455,12 @@ impl<'a> MethodBuilder<'a> {
   }
 
   pub fn check_cast(&mut self, class: &str) {
-    let index = self.class_builder.define_class(class);
+    let index = self.builder().define_class(class);
     self.push_code(CheckCast(index));
   }
 
   pub fn instance_of(&mut self, class: &str) {
-    let index = self.class_builder.define_class(class);
+    let index = self.builder().define_class(class);
     self.push_code(InstanceOf(index));
   }
 
@@ -456,7 +468,7 @@ impl<'a> MethodBuilder<'a> {
   // e.g.: multi_a_new_array("[[I", 2) means create a 2-dim int array
   // this take 2 int from stack, and put 1 array ref to the stack
   pub fn multi_a_new_array(&mut self, class: &str, dim: u8) {
-    let index = self.class_builder.define_class(class);
+    let index = self.builder().define_class(class);
     self.push_code(MultiANewArray(index, dim));
     self.dec_stack_n(dim as u16 - 1);
   }
@@ -490,25 +502,32 @@ impl<'a> MethodBuilder<'a> {
       println!("Warning: stack depth at the end of a method should be 0, but is {} instead", self.cur_stack);
     }
 
-    for (index, label) in self.fills {
-      let label = *self.labels.get(&label).unwrap() - index + 1;
-      self.code[index as usize] = (label >> 8) as u8;
-      self.code[index as usize + 1] = label as u8;
+    let MethodBuilder {
+      class_builder,
+      access_flags,
+      name_index,
+      descriptor_index,
+      mut code,
+      labels,
+      fills,
+      cur_stack,
+      max_stack,
+    } = self;
+
+    for (index, label) in fills {
+      let label = labels.get(&label).unwrap() - index + 1;
+      code[index as usize] = (label >> 8) as u8;
+      code[index as usize + 1] = label as u8;
     }
 
-    let attribute_name_index = self.class_builder.define_utf8("Code");
+    let attribute_name_index = unsafe { (*class_builder).define_utf8("Code") };
     let code = Code {
       attribute_name_index,
-      max_stack: self.max_stack,
+      max_stack,
       max_locals: 1,
-      code: self.code,
+      code,
     };
 
-    self.class_builder.methods.push(Method {
-      access_flags: self.access_flags,
-      name_index: self.name_index,
-      descriptor_index: self.descriptor_index,
-      code,
-    });
+    unsafe { (*class_builder).methods.push(Method { access_flags, name_index, descriptor_index, code }) };
   }
 }

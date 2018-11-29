@@ -97,7 +97,8 @@ impl Writer<Vec<u8>> for Vec<Field> {
       dst.write(field.access_flags)
         .write(field.name_index)
         .write(field.descriptor_index)
-        .write(0 as u16);
+        .write(0 as u16) // attributes_count
+      ;
     }
   }
 }

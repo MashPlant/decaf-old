@@ -123,6 +123,8 @@ pub struct VarDef {
   pub name: &'static str,
   pub type_: Type,
   pub scope: *const Scope,
+  // the index on the stack, only valid for local & parameter variable
+  pub index: u8,
 }
 
 #[derive(Debug, Default)]

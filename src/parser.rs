@@ -2067,6 +2067,7 @@ impl Parser {
         type_: _3,
         name: _4.value,
         scope: ptr::null(),
+        index: D::default(),
       },
       arr: _6,
       cond: _7,
@@ -2129,7 +2130,7 @@ impl Parser {
 
     let _0 = Stmt::SCopy(SCopy {
       loc: _1.get_loc(),
-      dst_loc:_3.get_loc(),
+      dst_loc: _3.get_loc(),
       dst: _3.value,
       src: _5,
     });
@@ -2907,6 +2908,7 @@ impl Parser {
       name: _2.value,
       type_: _1,
       scope: ptr::null(),
+      index: D::default(),
     };
     SV::_7(_0)
   }
