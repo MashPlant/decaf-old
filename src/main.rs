@@ -21,9 +21,7 @@ use symbol_builder::SymbolBuilder;
 use type_checker::TypeChecker;
 use ast::Program;
 use errors::Error;
-use print::*;
 
-use std::io;
 use std::mem;
 use std::env;
 use std::fs::File;
@@ -62,9 +60,6 @@ fn main() {
 
   match compile(input) {
     Ok(program) => {
-      let mut printer = print::IndentPrinter::new();
-      program.print_scope(&mut printer);
-      printer.flush(&mut io::stdout());
       let mut code_gen = jvm_code_gen::JvmCodeGen::new();
       code_gen.gen(program);
     }

@@ -9,6 +9,32 @@ use super::symbol::*;
 
 use std::ptr;
 
+macro_rules! handle {
+    ($t: expr, $int_bool: expr, $object: expr) => {
+      match $t {
+        SemanticType::Basic(name) => match *name {
+          "int" | "bool" => $int_bool,
+          "string" => $object,
+          _ => unreachable!(),
+        }
+        SemanticType::Object(_) => $object,
+        _ => unreachable!(),
+      }
+    };
+    ($t: expr, $int: expr, $bool: expr, $object: expr) => {
+      match $t {
+        SemanticType::Basic(name) => match *name {
+          "int" => $int,
+          "bool" => $bool,
+          "string" => $object,
+          _ => unreachable!(),
+        }
+        SemanticType::Object(_) => $object,
+        _ => unreachable!(),
+      }
+    };
+}
+
 pub struct JvmCodeGen {
   class_builder: *mut ClassBuilder,
   method_builder: *mut MethodBuilder,
@@ -62,27 +88,11 @@ impl JvmCodeGen {
   }
 
   fn store_to_stack(&self, t: &SemanticType, index: u8) {
-    match t {
-      SemanticType::Basic(name) => match *name {
-        "int" | "bool" => self.method().i_store(index),
-        "string" => self.method().a_store(index),
-        _ => unreachable!(),
-      },
-      SemanticType::Object(_) => self.method().a_store(index),
-      _ => unreachable!(),
-    }
+    handle!(t, self.method().i_store(index), self.method().a_store(index));
   }
 
   fn load_from_stack(&self, t: &SemanticType, index: u8) {
-    match t {
-      SemanticType::Basic(name) => match *name {
-        "int" | "bool" => self.method().i_load(index),
-        "string" => self.method().a_load(index),
-        _ => unreachable!(),
-      },
-      SemanticType::Object(_) => self.method().a_load(index),
-      _ => unreachable!(),
-    }
+    handle!(t, self.method().i_load(index), self.method().a_load(index));
   }
 }
 
@@ -125,7 +135,6 @@ impl Visitor for JvmCodeGen {
     self.method_builder = &mut method_builder;
     self.stack_index = method_def.param.len() as u8;
     self.block(&mut method_def.body);
-    // TODO: reject the code with non-void return type which doesn't return in some branches
     if &method_def.ret_t.sem == &VOID {
       method_builder.return_();
     }
@@ -146,6 +155,15 @@ impl Visitor for JvmCodeGen {
 
   fn block(&mut self, block: &mut Block) {
     for stmt in &mut block.stmt { self.stmt(stmt); }
+  }
+
+  fn return_(&mut self, return_: &mut Return) {
+    if let Some(expr) = &mut return_.expr {
+      self.expr(expr);
+      handle!(expr.get_type(), self.method().i_return(), self.method().a_return());
+    } else {
+      self.method().return_();
+    }
   }
 
   fn assign(&mut self, assign: &mut Assign) {
@@ -169,18 +187,7 @@ impl Visitor for JvmCodeGen {
           }
           Var::VarAssign(var_assign) => self.store_to_stack(&(*var_assign).type_, (*var_assign).index),
         }
-        Expr::Indexed(indexed) => {
-          match &indexed.type_ {
-            SemanticType::Basic(name) => match *name {
-              "int" => self.method().i_a_store(),
-              "bool" => self.method().b_a_store(),
-              "string" => self.method().a_a_store(),
-              _ => unreachable!(),
-            },
-            SemanticType::Object(_) => self.method().a_a_store(),
-            _ => unreachable!(),
-          }
-        }
+        Expr::Indexed(indexed) => handle!(&indexed.type_, self.method().i_a_store(), self.method().b_a_store(), self.method().a_a_store()),
         _ => unreachable!(),
       }
     }
@@ -246,16 +253,7 @@ impl Visitor for JvmCodeGen {
     self.expr(&mut indexed.arr);
     self.expr(&mut indexed.idx);
     if !indexed.for_assign {
-      match &indexed.type_ {
-        SemanticType::Basic(name) => match *name {
-          "int" => self.method().i_a_load(),
-          "bool" => self.method().b_a_load(),
-          "string" => self.method().a_a_load(),
-          _ => unreachable!(),
-        },
-        SemanticType::Object(_) => self.method().a_a_load(),
-        _ => unreachable!(),
-      }
+      handle!(&indexed.type_, self.method().i_a_load(), self.method().b_a_load(), self.method().a_a_load());
     }
   }
 
