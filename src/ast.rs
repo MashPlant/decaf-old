@@ -361,6 +361,7 @@ pub struct Indexed {
   pub arr: Box<Expr>,
   pub idx: Box<Expr>,
   pub type_: SemanticType,
+  pub for_assign: bool,
 }
 
 #[derive(Debug, Default)]

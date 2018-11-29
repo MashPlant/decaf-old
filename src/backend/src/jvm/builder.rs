@@ -502,17 +502,7 @@ impl MethodBuilder {
       println!("Warning: stack depth at the end of a method should be 0, but is {} instead", self.cur_stack);
     }
 
-    let MethodBuilder {
-      class_builder,
-      access_flags,
-      name_index,
-      descriptor_index,
-      mut code,
-      labels,
-      fills,
-      cur_stack,
-      max_stack,
-    } = self;
+    let MethodBuilder { class_builder, access_flags, name_index, descriptor_index, mut code, labels, fills, cur_stack, max_stack, } = self;
 
     for (index, label) in fills {
       let label = labels.get(&label).unwrap() - index + 1;

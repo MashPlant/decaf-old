@@ -19,6 +19,8 @@ trait ToJavaType {
   fn to_java_type(&self) -> JavaType;
 }
 
+// need to first judge whether it is string
+// which is regarded ad basic type in decaf
 impl ToJavaType for SemanticType {
   fn to_java_type(&self) -> JavaType {
     match self {
@@ -96,14 +98,29 @@ impl Visitor for JvmCodeGen {
     for stmt in &mut block.stmt { self.stmt(stmt); }
   }
 
+
   fn assign(&mut self, assign: &mut Assign) {
+    if let Expr::Indexed(indexed) = &mut assign.dst {
+      indexed.for_assign = true;
+    }
     self.expr(&mut assign.dst);
     self.expr(&mut assign.src);
     match &assign.dst {
       Expr::Identifier(identifier) => {
 
       }
-      Expr::Indexed(indexed) => {}
+      Expr::Indexed(indexed) => {
+        match &indexed.type_ {
+          SemanticType::Basic(name) => match *name {
+            "int" => self.method().i_a_store(),
+            "bool" => self.method().b_a_store(),
+            "string" => self.method().a_a_store(),
+            _ => unreachable!(),
+          },
+          SemanticType::Object(_) => self.method().a_a_store(),
+          _ => unreachable!(),
+        }
+      }
       _ => unreachable!(),
     }
   }
@@ -124,6 +141,23 @@ impl Visitor for JvmCodeGen {
         }
       }
       _ => unimplemented!(),
+    }
+  }
+
+  fn indexed(&mut self, indexed: &mut Indexed) {
+    self.expr(&mut indexed.arr);
+    self.expr(&mut indexed.idx);
+    if !indexed.for_assign {
+      match &indexed.type_ {
+        SemanticType::Basic(name) => match *name {
+          "int" => self.method().i_a_load(),
+          "bool" => self.method().b_a_load(),
+          "string" => self.method().a_a_load(),
+          _ => unreachable!(),
+        },
+        SemanticType::Object(_) => self.method().a_a_load(),
+        _ => unreachable!(),
+      }
     }
   }
 }

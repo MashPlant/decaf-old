@@ -2734,6 +2734,7 @@ impl Parser {
       arr: Box::new(_1),
       idx: Box::new(_3),
       type_: D::default(),
+      for_assign: D::default(),
     });
     SV::_15(_0)
   }

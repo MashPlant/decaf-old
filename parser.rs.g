@@ -800,6 +800,7 @@ LValue
             arr: Box::new($1),
             idx: Box::new($3),
             type_: D::default(),
+            for_assign: D::default(),
         });
     }
     ;
