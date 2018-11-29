@@ -831,6 +831,7 @@ Call
             name: $2.value,
             arg: $4,
             type_: D::default(),
+            is_arr_len: false,
             method: ptr::null(),
         });
     }

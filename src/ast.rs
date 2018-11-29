@@ -448,6 +448,7 @@ pub struct Call {
   pub name: &'static str,
   pub arg: Vec<Expr>,
   pub type_: SemanticType,
+  pub is_arr_len: bool,
   pub method: *const MethodDef,
 }
 

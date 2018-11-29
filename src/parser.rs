@@ -2776,6 +2776,7 @@ impl Parser {
       name: _2.value,
       arg: _4,
       type_: D::default(),
+      is_arr_len: false,
       method: ptr::null(),
     });
     SV::_15(_0)

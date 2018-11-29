@@ -363,7 +363,7 @@ impl Visitor for TypeChecker {
           }
           Operator::Eq | Operator::Ne => {
             binary.type_ = BOOL;
-            l_t == r_t
+            l_t.extends(r_t) || r_t.extends(l_t) 
           }
           Operator::And | Operator::Or => {
             binary.type_ = BOOL;
@@ -394,6 +394,7 @@ impl Visitor for TypeChecker {
               issue!(self, call.loc, LengthWithArgument { count: call.arg.len() as i32 });
             }
             call.type_ = INT;
+            call.is_arr_len = true;
             return;
           } else if !owner_t.is_object() && !owner_t.is_class() {
             issue!(self, call.loc, BadLength);

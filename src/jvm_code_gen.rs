@@ -17,8 +17,7 @@ macro_rules! handle {
         "string" => $object,
         _ => unreachable!(),
       }
-      SemanticType::Object(_) => $object,
-      SemanticType::Array(_) => $object,
+      SemanticType::Object(_) | SemanticType::Array(_) | SemanticType::Null => $object,
       _ => unreachable!(),
     }
   };
@@ -30,8 +29,7 @@ macro_rules! handle {
         "string" => $object,
         _ => unreachable!(),
       }
-      SemanticType::Object(_) => $object,
-      SemanticType::Array(_) => $object,
+      SemanticType::Object(_) | SemanticType::Array(_) | SemanticType::Null => $object,
       _ => unreachable!(),
     }
   };
@@ -191,9 +189,26 @@ impl Visitor for JvmCodeGen {
       self.var_def(var_def);
     }
     self.block(&mut method_def.body);
-    if &method_def.ret_t.sem == &VOID {
-      method_builder.return_();
-    }
+
+    // well, I don't know how to do control flow analysis, dirty hacks here
+    match &method_def.ret_t.sem {
+      SemanticType::Basic(name) => match *name {
+        "int" | "bool" => {
+          method_builder.int_const(0);
+          method_builder.i_return();
+        }
+        "void" => method_builder.return_(),
+        "string" => {
+          method_builder.a_const_null();
+          method_builder.a_return();
+        }
+        _ => unreachable!(),
+      }
+      _ => {
+        method_builder.a_const_null();
+        method_builder.a_return();
+      }
+    };
     method_builder.done(self.stack_index as u16);
     self.method_builder = ptr::null_mut();
   }
@@ -275,10 +290,24 @@ impl Visitor for JvmCodeGen {
   fn new_array(&mut self, new_array: &mut NewArray) {
     self.expr(&mut new_array.len);
     // new_array.elem_t is not set during type check, it may still be Named
-    match &new_array.type_ {
-      SemanticType::Array(elem_t) => handle!(elem_t.as_ref(), self.method().new_int_array(), self.method().new_bool_array(),
-                                            self.method().a_new_array(&elem_t.to_java().to_string())),
-      _ => unreachable!(),
+    unsafe {
+      match &new_array.type_ {
+        SemanticType::Array(elem_t) => match elem_t.as_ref() {
+          SemanticType::Basic(name) => match *name {
+            "int" => self.method().new_int_array(),
+            "bool" => self.method().new_bool_array(),
+            "string" => self.method().a_new_array("java/lang/String"),
+            _ => unreachable!(),
+          }
+          // I don't quite understand the design
+          // class A[] => A
+          // class A[][] => [[LA;
+          SemanticType::Object(class) => self.method().a_new_array((**class).name),
+          SemanticType::Array(_) => self.method().a_new_array(&elem_t.to_java().to_string()),
+          _ => unreachable!(),
+        }
+        _ => unreachable!(),
+      }
     }
   }
 
@@ -401,6 +430,10 @@ impl Visitor for JvmCodeGen {
       let method = &*call.method;
       if !method.static_ {
         self.expr(if let Some(owner) = &mut call.owner { owner } else { unreachable!() });
+      }
+      if call.is_arr_len {
+        self.method().array_length();
+        return;
       }
       for arg in &mut call.arg {
         self.expr(arg);
