@@ -18,6 +18,7 @@ macro_rules! handle {
         _ => unreachable!(),
       }
       SemanticType::Object(_) => $object,
+      SemanticType::Array(_) => $object,
       _ => unreachable!(),
     }
   };
@@ -30,6 +31,7 @@ macro_rules! handle {
         _ => unreachable!(),
       }
       SemanticType::Object(_) => $object,
+      SemanticType::Array(_) => $object,
       _ => unreachable!(),
     }
   };
@@ -58,13 +60,15 @@ pub struct JvmCodeGen {
 }
 
 trait ToJavaType {
-  fn to_java_type(&self) -> JavaType;
+  fn to_java(&self) -> JavaType;
+
+  fn to_java_with_dim(&self) -> (JavaType, u8);
 }
 
 // need to first judge whether it is string
 // which is regarded ad basic type in decaf
 impl ToJavaType for SemanticType {
-  fn to_java_type(&self) -> JavaType {
+  fn to_java(&self) -> JavaType {
     match self {
       SemanticType::Basic(name) => match *name {
         "int" => JavaType::Int,
@@ -74,8 +78,18 @@ impl ToJavaType for SemanticType {
         _ => unreachable!(),
       },
       SemanticType::Object(class) => JavaType::Class(unsafe { (**class).name }),
-      SemanticType::Array(elem) => JavaType::Array(Box::new(elem.to_java_type())),
+      SemanticType::Array(elem) => JavaType::Array(Box::new(elem.to_java())),
       _ => unreachable!(),
+    }
+  }
+
+  fn to_java_with_dim(&self) -> (JavaType, u8) {
+    match self {
+      SemanticType::Array(elem) => {
+        let ret = elem.to_java_with_dim();
+        (ret.0, ret.1 + 1)
+      }
+      _ => (self.to_java(), 1)
     }
   }
 }
@@ -128,11 +142,21 @@ impl Visitor for JvmCodeGen {
   }
 
   fn class_def(&mut self, class_def: &mut ClassDef) {
+    let parent = if let Some(parent) = class_def.parent { parent } else { "java/lang/Object" };
     let mut class_builder =
       ClassBuilder::new(ACC_PUBLIC | if class_def.sealed { ACC_FINAL } else { 0 }
-                        , class_def.name
-                        , if let Some(parent) = class_def.parent { parent } else { "java/lang/Object" });
+                        , class_def.name, parent);
     self.class_builder = &mut class_builder;
+
+    {
+      // generate constructor
+      let mut constructor = MethodBuilder::new(&mut class_builder, ACC_PUBLIC, "<init>", &[], &JavaType::Void);
+      constructor.a_load(0);
+      constructor.invoke_special(parent, "<init>", &[], &JavaType::Void);
+      constructor.return_();
+      constructor.done(1);
+    }
+
     for field_def in &mut class_def.field {
       self.field_def(field_def);
     }
@@ -150,14 +174,22 @@ impl Visitor for JvmCodeGen {
         index: 0,
       });
     }
-    let access_flags = ACC_PUBLIC | if method_def.static_ { ACC_STATIC } else { 0 };
-    let argument_types: Vec<JavaType> = method_def.param.iter().map(|var_def| var_def.type_.to_java_type()).collect();
-    let return_type = method_def.ret_t.to_java_type();
+    let argument_types: Vec<JavaType> = method_def.param.iter().map(|var_def| var_def.type_.to_java()).collect();
+    let return_type = method_def.ret_t.to_java();
+    // in type check, a virtual this is added to the param list
+    // but jvm doesn't need it, so take the slice from 1 to end
     let mut method_builder = MethodBuilder::new(self.class(),
-                                                access_flags, method_def.name, &argument_types, &return_type);
+                                                ACC_PUBLIC | if method_def.static_ { ACC_STATIC } else { 0 },
+                                                method_def.name,
+                                                &argument_types[if method_def.static_ { 0 } else { 1 }..],
+                                                &return_type);
     self.method_builder = &mut method_builder;
-    self.stack_index = method_def.param.len() as u8;
     self.label = 0;
+    self.stack_index = 0;
+    // this is counted here
+    for var_def in &mut method_def.param {
+      self.var_def(var_def);
+    }
     self.block(&mut method_def.body);
     if &method_def.ret_t.sem == &VOID {
       method_builder.return_();
@@ -172,7 +204,7 @@ impl Visitor for JvmCodeGen {
         var_def.index = self.stack_index;
         self.stack_index += 1;
       }
-      ScopeKind::Class(_) => self.class().define_field(ACC_PUBLIC, var_def.name, &var_def.type_.to_java_type()),
+      ScopeKind::Class(_) => self.class().define_field(ACC_PUBLIC, var_def.name, &var_def.type_.to_java()),
       _ => unreachable!(),
     }
   }
@@ -189,6 +221,21 @@ impl Visitor for JvmCodeGen {
     self.expr(&mut while_.cond);
     self.method().if_eq(after_body);
     self.block(&mut while_.body);
+    self.method().goto(before_cond);
+    self.method().label(after_body);
+    self.break_stack.pop();
+  }
+
+  fn for_(&mut self, for_: &mut For) {
+    let before_cond = self.new_label();
+    let after_body = self.new_label();
+    self.break_stack.push(after_body);
+    self.simple(&mut for_.init);
+    self.method().label(before_cond);
+    self.expr(&mut for_.cond);
+    self.method().if_eq(after_body);
+    self.block(&mut for_.body);
+    self.simple(&mut for_.update);
     self.method().goto(before_cond);
     self.method().label(after_body);
     self.break_stack.pop();
@@ -219,6 +266,22 @@ impl Visitor for JvmCodeGen {
     }
   }
 
+  fn new_class(&mut self, new_class: &mut NewClass) {
+    self.method().new_(new_class.name);
+    self.method().dup();
+    self.method().invoke_special(new_class.name, "<init>", &[], &JavaType::Void);
+  }
+
+  fn new_array(&mut self, new_array: &mut NewArray) {
+    self.expr(&mut new_array.len);
+    // new_array.elem_t is not set during type check, it may still be Named
+    match &new_array.type_ {
+      SemanticType::Array(elem_t) => handle!(elem_t.as_ref(), self.method().new_int_array(), self.method().new_bool_array(),
+                                            self.method().a_new_array(&elem_t.to_java().to_string())),
+      _ => unreachable!(),
+    }
+  }
+
   fn assign(&mut self, assign: &mut Assign) {
     unsafe {
       match &mut assign.dst {
@@ -234,7 +297,7 @@ impl Visitor for JvmCodeGen {
             let var_def = &*var_def;
             match (*var_def.scope).kind {
               ScopeKind::Local(_) | ScopeKind::Parameter(_) => self.store_to_stack(&var_def.type_, var_def.index),
-              ScopeKind::Class(class) => self.method().put_field((*class).name, var_def.name, &var_def.type_.to_java_type()),
+              ScopeKind::Class(class) => self.method().put_field((*class).name, var_def.name, &var_def.type_.to_java()),
               _ => unreachable!(),
             }
           }
@@ -319,8 +382,14 @@ impl Visitor for JvmCodeGen {
           Lt => cmp!(self, if_i_cmp_lt),
           Ge => cmp!(self, if_i_cmp_ge),
           Gt => cmp!(self, if_i_cmp_gt),
-          Eq => cmp!(self, if_i_cmp_ge),
-          Ne => cmp!(self, if_i_cmp_gt),
+          Eq => match binary.l.get_type() {
+            SemanticType::Null | SemanticType::Object(_) => cmp!(self, if_a_cmp_eq),
+            _ => cmp!(self, if_i_cmp_eq),
+          }
+          Ne => match binary.l.get_type() {
+            SemanticType::Null | SemanticType::Object(_) => cmp!(self, if_a_cmp_ne),
+            _ => cmp!(self, if_i_cmp_ne),
+          }
           _ => unreachable!(),
         }
       }
@@ -336,12 +405,12 @@ impl Visitor for JvmCodeGen {
       for arg in &mut call.arg {
         self.expr(arg);
       }
-      let argument_types: Vec<JavaType> = method.param.iter().map(|var_def| var_def.type_.to_java_type()).collect();
-      let return_type = method.ret_t.to_java_type();
+      let argument_types: Vec<JavaType> = method.param.iter().map(|var_def| var_def.type_.to_java()).collect();
+      let return_type = method.ret_t.to_java();
       if method.static_ {
         self.method().invoke_static((*method.class).name, method.name, &argument_types, &return_type);
       } else {
-        self.method().invoke_virtual((*method.class).name, method.name, &argument_types, &return_type);
+        self.method().invoke_virtual((*method.class).name, method.name, &argument_types[1..], &return_type);
       }
     }
   }
@@ -350,8 +419,12 @@ impl Visitor for JvmCodeGen {
     for print in &mut print.print {
       self.method().get_static("java/lang/System", "out", &JavaType::Class("java/io/PrintStream"));
       self.expr(print);
-      self.method().invoke_virtual("java/io/PrintStream", "println", &[print.get_type().to_java_type()], &JavaType::Void);
+      self.method().invoke_virtual("java/io/PrintStream", "print", &[print.get_type().to_java()], &JavaType::Void);
     }
+  }
+
+  fn this(&mut self, _this: &mut This) {
+    self.method().a_load(0);
   }
 
   fn indexed(&mut self, indexed: &mut Indexed) {
@@ -370,12 +443,17 @@ impl Visitor for JvmCodeGen {
             let var_def = &*var_def;
             match (*var_def.scope).kind {
               ScopeKind::Local(_) | ScopeKind::Parameter(_) => self.load_from_stack(&var_def.type_, var_def.index),
-              ScopeKind::Class(class) => self.method().get_field((*class).name, var_def.name, &var_def.type_.to_java_type()),
+              ScopeKind::Class(class) => {
+                self.expr(if let Some(owner) = &mut identifier.owner { owner } else { unreachable!() });
+                self.method().get_field((*class).name, var_def.name, &var_def.type_.to_java())
+              }
               _ => unreachable!(),
             }
           }
           Var::VarAssign(var_assign) => self.load_from_stack(&(*var_assign).type_, (*var_assign).index),
         }
+      } else {
+        if let Some(owner) = &mut identifier.owner { self.expr(owner); }
       }
     }
   }

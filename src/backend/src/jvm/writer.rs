@@ -174,6 +174,7 @@ impl Writer<Vec<u8>> for Instruction {
       IAStore => dst.write(0x4F as u8),
       AAStore => dst.write(0x53 as u8),
       BAStore => dst.write(0x54 as u8),
+      Dup => dst.write(0x59 as u8),
       IAdd => dst.write(0x60 as u8),
       ISub => dst.write(0x64 as u8),
       IMul => dst.write(0x68 as u8),

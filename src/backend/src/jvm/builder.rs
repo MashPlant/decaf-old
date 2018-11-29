@@ -179,13 +179,6 @@ impl MethodBuilder {
     self.new_array(10);
   }
 
-  pub fn new_multi_array(&mut self, mut elem_type: JavaType, dim: u8) {
-    for _ in 0..dim {
-      elem_type = JavaType::Array(Box::new(elem_type));
-    }
-    self.multi_a_new_array(&elem_type.to_string(), dim);
-  }
-
   pub fn label(&mut self, label: u16) {
     self.labels.insert(label, self.code.len() as u16);
   }
@@ -279,6 +272,11 @@ impl MethodBuilder {
   pub fn b_a_store(&mut self) {
     self.push_code(BAStore);
     self.dec_stack_n(3);
+  }
+
+  pub fn dup(&mut self) {
+    self.push_code(Dup);
+    self.inc_stack();
   }
 
   pub fn i_add(&mut self) {
