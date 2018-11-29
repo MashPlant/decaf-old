@@ -16,10 +16,10 @@ fn main() {
         method.get_static("java/lang/System", "out", &JavaType::Class("java/io/PrintStream"));
 
         // execute 11 + 37 + 42
-        method.b_i_push(11);
-        method.b_i_push(37);
+        method.int_const(11);
+        method.int_const(37);
         method.i_add();
-        method.b_i_push(42);
+        method.int_const(42);
         method.i_add();
 
         // print the result

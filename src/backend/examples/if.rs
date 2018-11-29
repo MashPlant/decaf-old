@@ -17,20 +17,20 @@ fn main() {
     // } else {
     //     System.out.println("Hello without args!");
     // }
-    method.a_load_0();
+    method.a_load(0);
     method.array_length();
     method.if_le(0);
 
     // true case
     method.get_static("java/lang/System", "out", &JavaType::Class("java/io/PrintStream"));
-    method.load_constant("Hello with args!");
+    method.string_const("Hello with args!");
     method.invoke_virtual("java/io/PrintStream", "println", &[JavaType::Class("java/lang/String")], &JavaType::Void);
     method.goto(1);
 
     // false case
     method.label(0);
     method.get_static("java/lang/System", "out", &JavaType::Class("java/io/PrintStream"));
-    method.load_constant("Hello without args!");
+    method.string_const("Hello without args!");
     method.invoke_virtual("java/io/PrintStream", "println", &[JavaType::Class("java/lang/String")], &JavaType::Void);
 
     // after

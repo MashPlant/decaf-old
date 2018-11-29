@@ -13,7 +13,7 @@ fn main() {
 
     // push PrintStream object and string to print onto the stack, and then call println function
     method.get_static("java/lang/System", "out", &JavaType::Class("java/io/PrintStream"));
-    method.load_constant("Hello, World!");
+    method.string_const("Hello, World!");
     method.invoke_virtual("java/io/PrintStream", "println", &[JavaType::Class("java/lang/String")], &JavaType::Void);
 
     // add return statement

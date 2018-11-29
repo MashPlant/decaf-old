@@ -130,9 +130,16 @@ impl<'a> MethodBuilder<'a> {
   // some wrapper function for convenience
   pub fn int_const(&mut self, value: i32) {
     match value {
-      -128...127 => self.b_i_push(value as i8),
-      -32768...32767 => self.s_i_push(value as i16),
-      value => {
+      -1 => self.push_code(IConstM1),
+      0 => self.push_code(IConst0),
+      1 => self.push_code(IConst1),
+      2 => self.push_code(IConst2),
+      3 => self.push_code(IConst3),
+      4 => self.push_code(IConst4),
+      5 => self.push_code(IConst5),
+      -128...127 => self.push_code(BIPush(value as u8)),
+      -32768...32767 => self.push_code(SIPush(value as u16)),
+      _ => {
         let index = self.class_builder.define_int(value);
         self.ldc(index);
       }
@@ -141,7 +148,7 @@ impl<'a> MethodBuilder<'a> {
   }
 
   pub fn bool_const(&mut self, value: bool) {
-    if value { self.i_const_1(); } else { self.i_const_1(); }
+    self.push_code(if value { IConst1 } else { IConst0 });
   }
 
   pub fn string_const(&mut self, value: &str) {
@@ -169,50 +176,42 @@ impl<'a> MethodBuilder<'a> {
     self.labels.insert(label, self.code.len() as u16);
   }
 
+  // some instructions are not implemented(generate by wrapper function)
+  // some instructions are merged
+
   pub fn a_const_null(&mut self) {
     self.push_code(AConstNull);
     self.inc_stack();
   }
 
-  pub fn i_const_0(&mut self) {
-    self.push_code(IConst0);
-    self.inc_stack();
-  }
-
-  pub fn i_const_1(&mut self) {
-    self.push_code(IConst1);
-    self.inc_stack();
-  }
-
-  // [-128, 127]
-  pub fn b_i_push(&mut self, value: i8) {
-    self.push_code(BIPush(value as u8));
-    self.inc_stack();
-  }
-
-  // [-32768, 32767] \ [-128, 127]
-  pub fn s_i_push(&mut self, value: i16) {
-    self.push_code(SIPush(value as u16));
-    self.inc_stack();
-  }
-
-  // accept u16 and do judgement to simplify the design of user
-  pub fn ldc(&mut self, index: u16) {
+  // stack is not inc-ed!!!
+  fn ldc(&mut self, index: u16) {
     match index {
       0...255 => self.push_code(Ldc(index as u8)),
       256...65535 => self.push_code(LdcW(index)),
       _ => unreachable!(),
     };
-    self.inc_stack();
   }
 
   pub fn i_load(&mut self, stack_index: u8) {
-    self.push_code(ILoad(stack_index));
+    self.push_code(match stack_index {
+      0 => ILoad0,
+      1 => ILoad1,
+      2 => ILoad2,
+      3 => ILoad3,
+      _ => ILoad(stack_index),
+    });
     self.inc_stack();
   }
 
   pub fn a_load(&mut self, stack_index: u8) {
-    self.push_code(ALoad(stack_index));
+    self.push_code(match stack_index {
+      0 => ALoad0,
+      1 => ALoad1,
+      2 => ALoad2,
+      3 => ALoad3,
+      _ => ALoad(stack_index),
+    });
     self.inc_stack();
   }
 
@@ -231,19 +230,41 @@ impl<'a> MethodBuilder<'a> {
     self.dec_stack();
   }
 
+  pub fn i_store(&mut self, stack_index: u8) {
+    self.push_code(match stack_index {
+      0 => IStore0,
+      1 => IStore1,
+      2 => IStore2,
+      3 => IStore3,
+      _ => IStore(stack_index),
+    });
+    self.dec_stack();
+  }
+
+  pub fn a_store(&mut self, stack_index: u8) {
+    self.push_code(match stack_index {
+      0 => AStore0,
+      1 => AStore1,
+      2 => AStore2,
+      3 => AStore3,
+      _ => AStore(stack_index),
+    });
+    self.dec_stack();
+  }
+
   pub fn i_a_store(&mut self) {
     self.push_code(IAStore);
-    self.dec_stack();
+    self.dec_stack_n(3);
   }
 
   pub fn a_a_store(&mut self) {
     self.push_code(AAStore);
-    self.dec_stack();
+    self.dec_stack_n(3);
   }
 
   pub fn b_a_store(&mut self) {
     self.push_code(BAStore);
-    self.dec_stack();
+    self.dec_stack_n(3);
   }
 
   pub fn i_add(&mut self) {

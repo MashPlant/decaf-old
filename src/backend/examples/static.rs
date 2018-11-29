@@ -11,7 +11,7 @@ fn main() {
   {
     let mut method = MethodBuilder::new(&mut class, ACC_PUBLIC | ACC_STATIC, "main", &[JavaType::Array(Box::new(JavaType::Class("java/lang/String")))], &JavaType::Void);
     method.invoke_static("Static", "hello_world", &[], &JavaType::Void);
-    method.load_constant("Rust");
+    method.string_const("Rust");
     method.invoke_static("Static", "hello_someone", &[JavaType::Class("java/lang/String")], &JavaType::Void);
     method.return_();
     method.done();
@@ -20,7 +20,7 @@ fn main() {
   {
     let mut method = MethodBuilder::new(&mut class,ACC_STATIC, "hello_world", &[], &JavaType::Void);
     method.get_static("java/lang/System", "out", &JavaType::Class("java/io/PrintStream"));
-    method.load_constant("Hello, World!");
+    method.string_const("Hello, World!");
     method.invoke_virtual("java/io/PrintStream", "println", &[JavaType::Class("java/lang/String")], &JavaType::Void);
     method.return_();
     method.done();
@@ -29,15 +29,15 @@ fn main() {
   {
     let mut method = MethodBuilder::new(&mut class,ACC_STATIC, "hello_someone", &[JavaType::Class("java/lang/String")], &JavaType::Void);
     method.get_static("java/lang/System", "out", &JavaType::Class("java/io/PrintStream"));
-    method.load_constant("Hello, ");
+    method.string_const("Hello, ");
     method.invoke_virtual("java/io/PrintStream", "print", &[JavaType::Class("java/lang/String")], &JavaType::Void);
 
     method.get_static("java/lang/System", "out", &JavaType::Class("java/io/PrintStream"));
-    method.a_load_0();
+    method.a_load(0);
     method.invoke_virtual("java/io/PrintStream", "print", &[JavaType::Class("java/lang/String")], &JavaType::Void);
 
     method.get_static("java/lang/System", "out", &JavaType::Class("java/io/PrintStream"));
-    method.load_constant("!");
+    method.string_const("!");
     method.invoke_virtual("java/io/PrintStream", "println", &[JavaType::Class("java/lang/String")], &JavaType::Void);
 
     method.return_();
