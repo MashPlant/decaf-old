@@ -164,6 +164,7 @@ impl MethodBuilder {
 
   pub fn bool_const(&mut self, value: bool) {
     self.push_code(if value { IConst1 } else { IConst0 });
+    self.inc_stack();
   }
 
   pub fn string_const(&mut self, value: &str) {
@@ -510,7 +511,8 @@ impl MethodBuilder {
     let MethodBuilder { class_builder, access_flags, name_index, descriptor_index, mut code, labels, fills, cur_stack: _, max_stack, instructions: _ } = self;
 
     for (index, label) in fills {
-      let label = labels.get(&label).unwrap() - index + 1;
+      // rust thinks it inappropriate to have unsigned int overflow
+      let label = (*labels.get(&label).unwrap() as i16 - index as i16 + 1) as u16;
       code[index as usize] = (label >> 8) as u8;
       code[index as usize + 1] = label as u8;
     }

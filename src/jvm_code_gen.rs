@@ -10,35 +10,50 @@ use super::symbol::*;
 use std::ptr;
 
 macro_rules! handle {
-    ($t: expr, $int_bool: expr, $object: expr) => {
-      match $t {
-        SemanticType::Basic(name) => match *name {
-          "int" | "bool" => $int_bool,
-          "string" => $object,
-          _ => unreachable!(),
-        }
-        SemanticType::Object(_) => $object,
+  ($t: expr, $int_bool: expr, $object: expr) => {
+    match $t {
+      SemanticType::Basic(name) => match *name {
+        "int" | "bool" => $int_bool,
+        "string" => $object,
         _ => unreachable!(),
       }
-    };
-    ($t: expr, $int: expr, $bool: expr, $object: expr) => {
-      match $t {
-        SemanticType::Basic(name) => match *name {
-          "int" => $int,
-          "bool" => $bool,
-          "string" => $object,
-          _ => unreachable!(),
-        }
-        SemanticType::Object(_) => $object,
+      SemanticType::Object(_) => $object,
+      _ => unreachable!(),
+    }
+  };
+  ($t: expr, $int: expr, $bool: expr, $object: expr) => {
+    match $t {
+      SemanticType::Basic(name) => match *name {
+        "int" => $int,
+        "bool" => $bool,
+        "string" => $object,
         _ => unreachable!(),
       }
-    };
+      SemanticType::Object(_) => $object,
+      _ => unreachable!(),
+    }
+  };
+}
+
+macro_rules! cmp {
+  ($self_: expr, $cond: ident) => { {
+    let before_else = $self_.new_label();
+    let after_else = $self_.new_label();
+    $self_.method().$cond(before_else);
+    $self_.method().bool_const(false);
+    $self_.method().goto(after_else);
+    $self_.method().label(before_else);
+    $self_.method().bool_const(true);
+    $self_.method().label(after_else);
+  } };
 }
 
 pub struct JvmCodeGen {
   class_builder: *mut ClassBuilder,
   method_builder: *mut MethodBuilder,
   main: *const ClassDef,
+  break_stack: Vec<u16>,
+  label: u16,
   stack_index: u8,
 }
 
@@ -71,6 +86,8 @@ impl JvmCodeGen {
       class_builder: ptr::null_mut(),
       method_builder: ptr::null_mut(),
       main: ptr::null(),
+      break_stack: Vec::new(),
+      label: 0,
       stack_index: 0,
     }
   }
@@ -93,6 +110,12 @@ impl JvmCodeGen {
 
   fn load_from_stack(&self, t: &SemanticType, index: u8) {
     handle!(t, self.method().i_load(index), self.method().a_load(index));
+  }
+
+  fn new_label(&mut self) -> u16 {
+    let ret = self.label;
+    self.label += 1;
+    ret
   }
 }
 
@@ -134,6 +157,7 @@ impl Visitor for JvmCodeGen {
                                                 access_flags, method_def.name, &argument_types, &return_type);
     self.method_builder = &mut method_builder;
     self.stack_index = method_def.param.len() as u8;
+    self.label = 0;
     self.block(&mut method_def.body);
     if &method_def.ret_t.sem == &VOID {
       method_builder.return_();
@@ -155,6 +179,35 @@ impl Visitor for JvmCodeGen {
 
   fn block(&mut self, block: &mut Block) {
     for stmt in &mut block.stmt { self.stmt(stmt); }
+  }
+
+  fn while_(&mut self, while_: &mut While) {
+    let before_cond = self.new_label();
+    let after_body = self.new_label();
+    self.break_stack.push(after_body);
+    self.method().label(before_cond);
+    self.expr(&mut while_.cond);
+    self.method().if_eq(after_body);
+    self.block(&mut while_.body);
+    self.method().goto(before_cond);
+    self.method().label(after_body);
+    self.break_stack.pop();
+  }
+
+  fn if_(&mut self, if_: &mut If) {
+    let before_else = self.new_label();
+    let after_else = self.new_label();
+    self.expr(&mut if_.cond);
+    self.method().if_eq(before_else); // if_eq jump to before_else if stack_top == 0
+    self.block(&mut if_.on_true);
+    self.method().goto(after_else);
+    self.method().label(before_else);
+    if let Some(on_false) = &mut if_.on_false { self.block(on_false); }
+    self.method().label(after_else);
+  }
+
+  fn break_(&mut self, _break: &mut Break) {
+    self.method().goto(*self.break_stack.last().unwrap());
   }
 
   fn return_(&mut self, return_: &mut Return) {
@@ -203,10 +256,21 @@ impl Visitor for JvmCodeGen {
     }
   }
 
+  fn unary(&mut self, unary: &mut Unary) {
+    match unary.op {
+      Operator::Neg => {
+        self.expr(&mut unary.r);
+        self.method().i_neg();
+      }
+      Operator::Not => unimplemented!(),
+      _ => unreachable!()
+    }
+  }
+
   fn binary(&mut self, binary: &mut Binary) {
     use super::ast::Operator::*;
     match binary.op {
-      Add | Sub | Mul | Div | Mod => {
+      Add | Sub | Mul | Div | Mod | Le | Lt | Ge | Gt => {
         self.expr(&mut binary.l);
         self.expr(&mut binary.r);
         match binary.op {
@@ -215,10 +279,16 @@ impl Visitor for JvmCodeGen {
           Mul => self.method().i_mul(),
           Div => self.method().i_div(),
           Mod => self.method().i_rem(),
+          Le => cmp!(self, if_i_cmp_le),
+          Lt => cmp!(self, if_i_cmp_lt),
+          Ge => cmp!(self, if_i_cmp_ge),
+          Gt => cmp!(self, if_i_cmp_gt),
           _ => unreachable!(),
         }
       }
-      _ => unimplemented!(),
+      And => unimplemented!(),
+      Or => unimplemented!(),
+      _ => unreachable!(),
     }
   }
 

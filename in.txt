@@ -1,6 +1,10 @@
 class Main {
     static void main() {
-        Print("Hello world!");
-        return;
+        int a;
+        a = 0;
+        while (a <= 10) {
+            Print(a);
+            a = a + 1;
+        }
     }
 }
