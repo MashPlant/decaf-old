@@ -482,6 +482,7 @@ SCopy
             loc: $1.get_loc(),
             dst_loc:$3.get_loc(),
             dst: $3.value,
+            dst_sym: D::default(),
             src: $5,
         });
     }

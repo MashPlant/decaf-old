@@ -245,6 +245,7 @@ impl Visitor for TypeChecker {
         } else if !src_t.error_or(&dst_t) {
           issue!(self, s_copy.loc, SCopyMismatch { dst_t: dst_t.to_string(), src_t: src_t.to_string() });
         }
+        if let Symbol::Var(var) = symbol { s_copy.dst_sym = var; }
       }
       None => {
         issue!(self, s_copy.dst_loc, UndeclaredVar { name: s_copy.dst });

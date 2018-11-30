@@ -2134,6 +2134,7 @@ impl Parser {
       loc: _1.get_loc(),
       dst_loc: _3.get_loc(),
       dst: _3.value,
+      dst_sym: D::default(),
       src: _5,
     });
     SV::_13(_0)

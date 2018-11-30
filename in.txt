@@ -1,9 +1,0 @@
-class Main {
-    static void main() {
-        string[] a;
-        a = "111" %% 10;
-        foreach(var x in a) {
-            Print(x, " ");
-        }
-    }
-}

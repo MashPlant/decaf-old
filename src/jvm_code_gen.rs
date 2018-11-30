@@ -317,6 +317,35 @@ impl Visitor for JvmCodeGen {
     }
   }
 
+  fn s_copy(&mut self, s_copy: &mut SCopy) {
+    unsafe {
+      let src = self.new_local();
+      let class = if let SemanticType::Object(class) = s_copy.src.get_type() { &**class } else { unreachable!() };
+      let dst = match s_copy.dst_sym {
+        Var::VarAssign(var_assign) => (*var_assign).index,
+        Var::VarDef(var_def) => (*var_def).index,
+      };
+      let tmp = self.new_local();
+      self.expr(&mut s_copy.src);
+      self.a_store(src);
+      self.new_(class.name);
+      self.dup();
+      self.invoke_special(class.name, "<init>", &[], &JavaType::Void);
+      self.a_store(tmp);
+      for field in &class.field {
+        if let FieldDef::VarDef(var_def) = field {
+          let field_type = &var_def.type_.to_java();
+          self.a_load(tmp);
+          self.a_load(src);
+          self.get_field(class.name, var_def.name, field_type);
+          self.put_field(class.name, var_def.name, field_type);
+        }
+      }
+      self.a_load(tmp);
+      self.a_store(dst);
+    }
+  }
+
   fn foreach(&mut self, foreach: &mut Foreach) {
     // for (it = 0, arr = foreach.arr; it < arr.length; ++it)
     //   x = array[it]

@@ -1,2 +1,3 @@
 testing division by 0 runtime error1
-Decaf runtime error: Division by zero error.
+Exception in thread "main" java.lang.ArithmeticException: / by zero
+	at Main.main(Unknown Source)

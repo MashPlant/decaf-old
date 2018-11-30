@@ -18,7 +18,7 @@ class Father {
         this.a.seta(a);
     }
     int getA() {
-        this.a.getA();
+        return this.a.getA();
     }
 }
 

@@ -231,6 +231,7 @@ pub struct SCopy {
   pub loc: Loc,
   pub dst_loc: Loc,
   pub dst: &'static str,
+  pub dst_sym: Var,
   pub src: Expr,
 }
 
