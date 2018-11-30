@@ -279,6 +279,10 @@ impl MethodBuilder {
     self.inc_stack();
   }
 
+  pub fn swap(&mut self) {
+    self.push_code(Swap);
+  }
+
   pub fn i_add(&mut self) {
     self.push_code(IAdd);
     self.dec_stack();

@@ -321,6 +321,17 @@ impl Visitor for JvmCodeGen {
     self.mb().i_inc(it, 1);
     self.mb().goto(before_cond);
     self.mb().label(after_body);
+    self.break_stack.pop();
+  }
+
+  fn guarded(&mut self, guarded: &mut Guarded) {
+    for (e, b) in &mut guarded.guarded {
+      let after = self.new_label();
+      self.expr(e);
+      self.mb().if_eq(after);
+      self.block(b);
+      self.mb().label(after);
+    }
   }
 
   fn new_class(&mut self, new_class: &mut NewClass) {
@@ -455,10 +466,12 @@ impl Visitor for JvmCodeGen {
           Gt => cmp!(self, if_i_cmp_gt),
           Eq => match binary.l.get_type() {
             SemanticType::Null | SemanticType::Object(_) => cmp!(self, if_a_cmp_eq),
+            SemanticType::Basic(name) if name == &"string" => cmp!(self, if_a_cmp_eq),
             _ => cmp!(self, if_i_cmp_eq),
           }
           Ne => match binary.l.get_type() {
             SemanticType::Null | SemanticType::Object(_) => cmp!(self, if_a_cmp_ne),
+            SemanticType::Basic(name) if name == &"string" => cmp!(self, if_a_cmp_eq),
             _ => cmp!(self, if_i_cmp_ne),
           }
           _ => unreachable!(),
@@ -475,9 +488,7 @@ impl Visitor for JvmCodeGen {
         return;
       }
       let method = &*call.method;
-      if !method.static_ {
-        if let Some(owner) = &mut call.owner { self.expr(owner); }
-      }
+      if let Some(owner) = &mut call.owner { self.expr(owner); }
       for arg in &mut call.arg {
         self.expr(arg);
       }
@@ -532,5 +543,28 @@ impl Visitor for JvmCodeGen {
         if let Some(owner) = &mut identifier.owner { self.expr(owner); }
       }
     }
+  }
+
+  fn default(&mut self, default: &mut Default) {
+    let arr = self.new_local();
+    let dft = self.new_label();
+    let after = self.new_label();
+    self.expr(&mut default.arr);
+    self.mb().a_store(arr);
+    self.expr(&mut default.idx);
+    self.mb().dup();
+    self.mb().if_le(dft); // notice the difference between if_le & if_i_cmp_le
+    self.mb().dup();
+    self.mb().a_load(arr);
+    self.mb().array_length();
+    self.mb().if_i_cmp_ge(dft);
+    self.mb().dup();
+    self.mb().a_load(arr);
+    self.mb().swap();
+    handle!(&default.type_, self.mb().i_a_load(), self.mb().b_a_load(), self.mb().a_a_load());
+    self.mb().goto(after);
+    self.mb().label(dft);
+    self.expr(&mut default.dft);
+    self.mb().label(after);
   }
 }

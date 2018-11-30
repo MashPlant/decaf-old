@@ -1,13 +1,10 @@
 class Main {
     static void main() {
-        int []a;
-        a = new int[10];
-        int i;
-        for (i = 0; i < a.length(); i = i + 1) {
-            a[i] = i;
-        }
-        foreach(var x in a while x != 5) {
-            Print(x);
-        }
+        string[] a;
+        a = new string[1];
+        a[0] = "pa2";
+        string b;
+        b= a[1] default "pa3";
+        Print(b);
     }
 }

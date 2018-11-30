@@ -104,6 +104,7 @@ pub enum Instruction {
   /* 0x53 */ AAStore,
   /* 0x54 */ BAStore,
   /* 0x59 */ Dup,
+  /* 0x5F */ Swap,
   /* 0x60 */ IAdd,
   /* 0x64 */ ISub,
   /* 0x68 */ IMul,
