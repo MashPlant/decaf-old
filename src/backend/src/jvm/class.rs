@@ -110,6 +110,7 @@ pub enum Instruction {
   /* 0x6C */ IDiv,
   /* 0x70 */ IRem,
   /* 0x74 */ INeg,
+  /* 0x84 */ IInc(u8, u8),
   /* 0x99 */ IfEq(u16),
   /* 0x9A */ IfNe(u16),
   /* 0x9B */ IfLt(u16),
@@ -140,5 +141,4 @@ pub enum Instruction {
   /* 0xBE */ ArrayLength,
   /* 0xC0 */ CheckCast(u16),
   /* 0xC1 */ InstanceOf(u16),
-  /* 0xC5 */ MultiANewArray(u16, u8),
 }

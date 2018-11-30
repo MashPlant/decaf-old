@@ -181,6 +181,7 @@ impl Writer<Vec<u8>> for Instruction {
       IDiv => dst.write(0x6C as u8),
       IRem => dst.write(0x70 as u8),
       INeg => dst.write(0x74 as u8),
+      IInc(index, value) => dst.write(0x84 as u8).write(index).write(value),
       IfEq(offset) => dst.write(0x99 as u8).write(offset),
       IfNe(offset) => dst.write(0x9A as u8).write(offset),
       IfLt(offset) => dst.write(0x9B as u8).write(offset),
@@ -211,7 +212,6 @@ impl Writer<Vec<u8>> for Instruction {
       ArrayLength => dst.write(0xBE as u8),
       CheckCast(index) => dst.write(0xC0 as u8).write(index),
       InstanceOf(index) => dst.write(0xC1 as u8).write(index),
-      MultiANewArray(index, dim) => dst.write(0xC5 as u8).write(index).write(dim),
     };
   }
 }

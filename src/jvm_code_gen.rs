@@ -3,6 +3,7 @@ extern crate backend;
 use backend::*;
 use backend::jvm::class::{ACC_PUBLIC, ACC_STATIC, ACC_FINAL};
 use backend::jvm::writer::*;
+
 use super::ast::*;
 use super::types::*;
 use super::symbol::*;
@@ -218,6 +219,12 @@ impl Visitor for JvmCodeGen {
     }
   }
 
+  fn var_assign(&mut self, var_assign: &mut VarAssign) {
+    var_assign.index = self.new_local();
+    self.expr(&mut var_assign.src);
+    self.store_to_stack(&var_assign.type_, var_assign.index);
+  }
+
   fn block(&mut self, block: &mut Block) {
     for stmt in &mut block.stmt { self.stmt(stmt); }
   }
@@ -273,6 +280,47 @@ impl Visitor for JvmCodeGen {
     } else {
       self.mb().return_();
     }
+  }
+
+  fn foreach(&mut self, foreach: &mut Foreach) {
+    // for (it = 0, arr = foreach.arr; it < arr.length; ++it)
+    //   x = array[it]
+    //   if (!cond) break
+    //   <body>
+    self.var_def(&mut foreach.def);
+    let it = self.new_local();
+    // it = 0
+    self.mb().int_const(0);
+    self.mb().i_store(it);
+    // arr = foreach.arr
+    let arr = self.new_local();
+    self.expr(&mut foreach.arr);
+    self.mb().a_store(arr);
+
+    let before_cond = self.new_label();
+    let after_body = self.new_label();
+    self.break_stack.push(after_body);
+    self.mb().label(before_cond);
+    // it < arr.length
+    self.mb().i_load(it);
+    self.mb().a_load(arr);
+    self.mb().array_length();
+    self.mb().if_i_cmp_ge(after_body);
+    // x = arr[i]
+    self.mb().a_load(arr);
+    self.mb().i_load(it);
+    handle!(&foreach.def.type_.sem, { self.mb().i_a_load(); self.mb().i_store(foreach.def.index); },
+            { self.mb().b_a_load(); self.mb().i_store(foreach.def.index); }, { self.mb().a_a_load(); self.mb().a_store(foreach.def.index); });
+    // if (!cond) break
+    if let Some(cond) = &mut foreach.cond {
+      self.expr(cond);
+      self.mb().if_eq(after_body);
+    }
+    self.block(&mut foreach.body);
+    // ++it
+    self.mb().i_inc(it, 1);
+    self.mb().goto(before_cond);
+    self.mb().label(after_body);
   }
 
   fn new_class(&mut self, new_class: &mut NewClass) {
@@ -421,23 +469,24 @@ impl Visitor for JvmCodeGen {
 
   fn call(&mut self, call: &mut Call) {
     unsafe {
-      let mb = &*call.mb;
-      if !mb.static_ {
-        self.expr(if let Some(owner) = &mut call.owner { owner } else { unreachable!() });
-      }
       if call.is_arr_len {
+        self.expr(if let Some(owner) = &mut call.owner { owner } else { unreachable!() });
         self.mb().array_length();
         return;
+      }
+      let method = &*call.method;
+      if !method.static_ {
+        if let Some(owner) = &mut call.owner { self.expr(owner); }
       }
       for arg in &mut call.arg {
         self.expr(arg);
       }
-      let argument_types: Vec<JavaType> = mb.param.iter().map(|var_def| var_def.type_.to_java()).collect();
-      let return_type = mb.ret_t.to_java();
-      if mb.static_ {
-        self.mb().invoke_static((*mb.class).name, mb.name, &argument_types, &return_type);
+      let argument_types: Vec<JavaType> = method.param.iter().map(|var_def| var_def.type_.to_java()).collect();
+      let return_type = method.ret_t.to_java();
+      if method.static_ {
+        self.mb().invoke_static((*method.class).name, method.name, &argument_types, &return_type);
       } else {
-        self.mb().invoke_virtual((*mb.class).name, mb.name, &argument_types[1..], &return_type);
+        self.mb().invoke_virtual((*method.class).name, method.name, &argument_types[1..], &return_type);
       }
     }
   }

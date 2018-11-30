@@ -200,24 +200,24 @@ impl MethodBuilder {
     };
   }
 
-  pub fn i_load(&mut self, stack_index: u8) {
-    self.push_code(match stack_index {
+  pub fn i_load(&mut self, index: u8) {
+    self.push_code(match index {
       0 => ILoad0,
       1 => ILoad1,
       2 => ILoad2,
       3 => ILoad3,
-      _ => ILoad(stack_index),
+      _ => ILoad(index),
     });
     self.inc_stack();
   }
 
-  pub fn a_load(&mut self, stack_index: u8) {
-    self.push_code(match stack_index {
+  pub fn a_load(&mut self, index: u8) {
+    self.push_code(match index {
       0 => ALoad0,
       1 => ALoad1,
       2 => ALoad2,
       3 => ALoad3,
-      _ => ALoad(stack_index),
+      _ => ALoad(index),
     });
     self.inc_stack();
   }
@@ -237,24 +237,24 @@ impl MethodBuilder {
     self.dec_stack();
   }
 
-  pub fn i_store(&mut self, stack_index: u8) {
-    self.push_code(match stack_index {
+  pub fn i_store(&mut self, index: u8) {
+    self.push_code(match index {
       0 => IStore0,
       1 => IStore1,
       2 => IStore2,
       3 => IStore3,
-      _ => IStore(stack_index),
+      _ => IStore(index),
     });
     self.dec_stack();
   }
 
-  pub fn a_store(&mut self, stack_index: u8) {
-    self.push_code(match stack_index {
+  pub fn a_store(&mut self, index: u8) {
+    self.push_code(match index {
       0 => AStore0,
       1 => AStore1,
       2 => AStore2,
       3 => AStore3,
-      _ => AStore(stack_index),
+      _ => AStore(index),
     });
     self.dec_stack();
   }
@@ -306,6 +306,10 @@ impl MethodBuilder {
 
   pub fn i_neg(&mut self) {
     self.push_code(INeg);
+  }
+
+  pub fn i_inc(&mut self, index: u8, value: u8) {
+    self.push_code(IInc(index, value));
   }
 
   pub fn if_eq(&mut self, label: u16) {
@@ -462,15 +466,6 @@ impl MethodBuilder {
   pub fn instance_of(&mut self, class: &str) {
     let index = self.builder().define_class(class);
     self.push_code(InstanceOf(index));
-  }
-
-  // class is a array object, instead of the element object
-  // e.g.: multi_a_new_array("[[I", 2) means create a 2-dim int array
-  // this take 2 int from stack, and put 1 array ref to the stack
-  pub fn multi_a_new_array(&mut self, class: &str, dim: u8) {
-    let index = self.builder().define_class(class);
-    self.push_code(MultiANewArray(index, dim));
-    self.dec_stack_n(dim as u16 - 1);
   }
 
   fn inc_stack(&mut self) {

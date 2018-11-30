@@ -260,7 +260,11 @@ impl Visitor for TypeChecker {
     let arr_t = foreach.arr.get_type();
     match arr_t {
       SemanticType::Array(elem) => match foreach.def.type_.sem {
-        ref mut t if t == &VAR => *t = *elem.clone(),
+        ref mut t if t == &VAR => {
+          *t = *elem.clone();
+          foreach.body.scope.kind = ScopeKind::Local(&mut foreach.body);
+          foreach.def.scope = &foreach.body.scope;
+        }
         ref t if !elem.extends(t) => issue!(self, foreach.def.loc, ForeachMismatch{ elem_t: elem.to_string(), def_t: t.to_string() }),
         _ => {}
       }
@@ -276,8 +280,11 @@ impl Visitor for TypeChecker {
         }
       }
     };
+    // first open the scope, where the loop variable is defined
+    self.scopes.open(&mut foreach.body.scope);
     if let Some(cond) = &mut foreach.cond { self.check_bool(cond); }
-    self.block(&mut foreach.body);
+    for stmt in &mut foreach.body.stmt { self.stmt(stmt); }
+    self.scopes.close();
   }
 
   fn guarded(&mut self, guarded: &mut Guarded) {
@@ -363,7 +370,7 @@ impl Visitor for TypeChecker {
           }
           Operator::Eq | Operator::Ne => {
             binary.type_ = BOOL;
-            l_t.extends(r_t) || r_t.extends(l_t) 
+            l_t.extends(r_t) || r_t.extends(l_t)
           }
           Operator::And | Operator::Or => {
             binary.type_ = BOOL;
