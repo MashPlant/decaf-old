@@ -125,6 +125,26 @@ impl JvmCodeGen {
     self.label += 1;
     ret
   }
+
+  // assume there is already a length on the top
+  fn gen_new_array(&mut self, elem_t: &SemanticType) {
+    unsafe {
+      match elem_t {
+        SemanticType::Basic(name) => match *name {
+          "int" => self.new_int_array(),
+          "bool" => self.new_bool_array(),
+          "string" => self.a_new_array("java/lang/String"),
+          _ => unreachable!(),
+        }
+        // I don't quite understand the design
+        // class A[] => A
+        // class A[][] => [[LA;
+        SemanticType::Object(class) => self.a_new_array((**class).name),
+        SemanticType::Array(_) => self.a_new_array(&elem_t.to_java().to_string()),
+        _ => unreachable!(),
+      }
+    }
+  }
 }
 
 impl Deref for JvmCodeGen {
@@ -358,25 +378,7 @@ impl Visitor for JvmCodeGen {
   fn new_array(&mut self, new_array: &mut NewArray) {
     self.expr(&mut new_array.len);
     // new_array.elem_t is not set during type check, it may still be Named
-    unsafe {
-      match &new_array.type_ {
-        SemanticType::Array(elem_t) => match elem_t.as_ref() {
-          SemanticType::Basic(name) => match *name {
-            "int" => self.new_int_array(),
-            "bool" => self.new_bool_array(),
-            "string" => self.a_new_array("java/lang/String"),
-            _ => unreachable!(),
-          }
-          // I don't quite understand the design
-          // class A[] => A
-          // class A[][] => [[LA;
-          SemanticType::Object(class) => self.a_new_array((**class).name),
-          SemanticType::Array(_) => self.a_new_array(&elem_t.to_java().to_string()),
-          _ => unreachable!(),
-        }
-        _ => unreachable!(),
-      }
-    }
+    self.gen_new_array(if let SemanticType::Array(elem_t) = &new_array.type_ { elem_t } else { unreachable!() });
   }
 
   fn assign(&mut self, assign: &mut Assign) {
@@ -441,44 +443,32 @@ impl Visitor for JvmCodeGen {
     use super::ast::Operator::*;
     match binary.op {
       Repeat => {
-
-//        that.left.accept(this);
-//        that.right.accept(this);
-//        // check neg before creating new array
-//        Label ok = Label.createLabel();
-//        tr.genBnez(tr.genGeq(that.right.val, tr.genLoadImm4(0)), ok);
-//        Temp msg = tr.genLoadStrConst(RuntimeError.REPEAT_NEG_ERROR);
-//        tr.genParm(msg);
-//        tr.genIntrinsicCall(Intrinsic.PRINT_STRING);
-//        tr.genIntrinsicCall(Intrinsic.HALT);
-//        tr.genMark(ok);
-//        that.val = tr.genNewArray(that.right.val);
-//        Temp it = tr.genLoadImm4(0);
-//        Label before = Label.createLabel();
-//        Label exit = Label.createLabel();
-//        tr.genMark(before);
-//        // if it >= array length, jump out
-//        tr.genBnez(tr.genGeq(it, tr.genLoad(that.val, -OffsetCounter.WORD_SIZE)), exit);
-//        // load to array
-//        Temp esz = tr.genLoadImm4(OffsetCounter.WORD_SIZE);
-//        Temp t = tr.genMul(it, esz);
-//        Temp base = tr.genAdd(that.val, t);
-//        if (that.left.type.isClassType()) {
-//          // perform scopy
-//          // this spec is really uncommon in a reference semantics language
-//          ClassType classType = (ClassType) that.left.type;
-//          Temp t1 = tr.genDirectCall(classType.getSymbol().getNewFuncLabel(), BaseType.INT);
-//          for (int i = OffsetCounter.POINTER_SIZE; i < classType.getSymbol().getSize(); i += OffsetCounter.WORD_SIZE) {
-//            tr.genStore(tr.genLoad(that.left.val, i), t1, i);
-//          }
-//          tr.genStore(t1, base, 0);
-//        } else {
-//          tr.genStore(that.left.val, base, 0);
-//        }
-//        // ++it
-//        tr.genAssign(it, tr.genAdd(it, tr.genLoadImm4(1)));
-//        tr.genBranch(before);
-//        tr.genMark(exit);
+        let before = self.new_label();
+        let after = self.new_label();
+        let val = self.new_local();
+        let it = self.new_local();
+        let arr = self.new_local();
+        self.expr(&mut binary.l);
+        let val_t = binary.l.get_type();
+        self.store_to_stack(binary.l.get_type(), val);
+        self.expr(&mut binary.r);
+        self.gen_new_array(val_t);
+        self.a_store(arr);
+        self.int_const(0);
+        self.i_store(it);
+        self.label(before);
+        self.i_load(it);
+        self.a_load(arr);
+        self.array_length();
+        self.if_i_cmp_ge(after);
+        self.a_load(arr);
+        self.i_load(it);
+        self.load_from_stack(val_t, val);
+        handle!(val_t, self.i_a_store(), self.b_a_store(), self.a_a_store());
+        self.i_inc(it, 1);
+        self.goto(before);
+        self.label(after);
+        self.a_load(arr);
       }
       And => {
         let out_label = self.new_label();
