@@ -9,6 +9,7 @@ use super::types::*;
 use super::symbol::*;
 
 use std::ptr;
+use std::ops::{DerefMut, Deref};
 
 macro_rules! handle {
   ($t: expr, $int_bool: expr, $object: expr) => {
@@ -105,12 +106,12 @@ impl JvmCodeGen {
     unsafe { &mut *self.method_builder }
   }
 
-  fn store_to_stack(&self, t: &SemanticType, index: u8) {
-    handle!(t, self.mb().i_store(index), self.mb().a_store(index));
+  fn store_to_stack(&mut self, t: &SemanticType, index: u8) {
+    handle!(t, self.i_store(index), self.a_store(index));
   }
 
-  fn load_from_stack(&self, t: &SemanticType, index: u8) {
-    handle!(t, self.mb().i_load(index), self.mb().a_load(index));
+  fn load_from_stack(&mut self, t: &SemanticType, index: u8) {
+    handle!(t, self.i_load(index), self.a_load(index));
   }
 
   fn new_local(&mut self) -> u8 {
@@ -123,6 +124,19 @@ impl JvmCodeGen {
     let ret = self.label;
     self.label += 1;
     ret
+  }
+}
+
+impl Deref for JvmCodeGen {
+  type Target = MethodBuilder;
+  fn deref(&self) -> &MethodBuilder {
+    self.mb()
+  }
+}
+
+impl DerefMut for JvmCodeGen {
+  fn deref_mut(&mut self) -> &mut MethodBuilder {
+    self.mb()
   }
 }
 
@@ -233,12 +247,12 @@ impl Visitor for JvmCodeGen {
     let before_cond = self.new_label();
     let after_body = self.new_label();
     self.break_stack.push(after_body);
-    self.mb().label(before_cond);
+    self.label(before_cond);
     self.expr(&mut while_.cond);
-    self.mb().if_eq(after_body);
+    self.if_eq(after_body);
     self.block(&mut while_.body);
-    self.mb().goto(before_cond);
-    self.mb().label(after_body);
+    self.goto(before_cond);
+    self.label(after_body);
     self.break_stack.pop();
   }
 
@@ -247,13 +261,13 @@ impl Visitor for JvmCodeGen {
     let after_body = self.new_label();
     self.break_stack.push(after_body);
     self.simple(&mut for_.init);
-    self.mb().label(before_cond);
+    self.label(before_cond);
     self.expr(&mut for_.cond);
-    self.mb().if_eq(after_body);
+    self.if_eq(after_body);
     self.block(&mut for_.body);
     self.simple(&mut for_.update);
-    self.mb().goto(before_cond);
-    self.mb().label(after_body);
+    self.goto(before_cond);
+    self.label(after_body);
     self.break_stack.pop();
   }
 
@@ -261,22 +275,23 @@ impl Visitor for JvmCodeGen {
     let before_else = self.new_label();
     let after_else = self.new_label();
     self.expr(&mut if_.cond);
-    self.mb().if_eq(before_else); // if_eq jump to before_else if stack_top == 0
+    self.if_eq(before_else); // if_eq jump to before_else if stack_top == 0
     self.block(&mut if_.on_true);
-    self.mb().goto(after_else);
-    self.mb().label(before_else);
+    self.goto(after_else);
+    self.label(before_else);
     if let Some(on_false) = &mut if_.on_false { self.block(on_false); }
-    self.mb().label(after_else);
+    self.label(after_else);
   }
 
   fn break_(&mut self, _break: &mut Break) {
-    self.mb().goto(*self.break_stack.last().unwrap());
+    let out = *self.break_stack.last().unwrap();
+    self.goto(out);
   }
 
   fn return_(&mut self, return_: &mut Return) {
     if let Some(expr) = &mut return_.expr {
       self.expr(expr);
-      handle!(expr.get_type(), self.mb().i_return(), self.mb().a_return());
+      handle!(expr.get_type(), self.i_return(), self.a_return());
     } else {
       self.mb().return_();
     }
@@ -290,37 +305,37 @@ impl Visitor for JvmCodeGen {
     self.var_def(&mut foreach.def);
     let it = self.new_local();
     // it = 0
-    self.mb().int_const(0);
-    self.mb().i_store(it);
+    self.int_const(0);
+    self.i_store(it);
     // arr = foreach.arr
     let arr = self.new_local();
     self.expr(&mut foreach.arr);
-    self.mb().a_store(arr);
+    self.a_store(arr);
 
     let before_cond = self.new_label();
     let after_body = self.new_label();
     self.break_stack.push(after_body);
-    self.mb().label(before_cond);
+    self.label(before_cond);
     // it < arr.length
-    self.mb().i_load(it);
-    self.mb().a_load(arr);
-    self.mb().array_length();
-    self.mb().if_i_cmp_ge(after_body);
+    self.i_load(it);
+    self.a_load(arr);
+    self.array_length();
+    self.if_i_cmp_ge(after_body);
     // x = arr[i]
-    self.mb().a_load(arr);
-    self.mb().i_load(it);
-    handle!(&foreach.def.type_.sem, { self.mb().i_a_load(); self.mb().i_store(foreach.def.index); },
-            { self.mb().b_a_load(); self.mb().i_store(foreach.def.index); }, { self.mb().a_a_load(); self.mb().a_store(foreach.def.index); });
+    self.a_load(arr);
+    self.i_load(it);
+    handle!(&foreach.def.type_.sem, { self.i_a_load(); self.i_store(foreach.def.index); },
+            { self.b_a_load(); self.i_store(foreach.def.index); }, { self.a_a_load(); self.a_store(foreach.def.index); });
     // if (!cond) break
     if let Some(cond) = &mut foreach.cond {
       self.expr(cond);
-      self.mb().if_eq(after_body);
+      self.if_eq(after_body);
     }
     self.block(&mut foreach.body);
     // ++it
-    self.mb().i_inc(it, 1);
-    self.mb().goto(before_cond);
-    self.mb().label(after_body);
+    self.i_inc(it, 1);
+    self.goto(before_cond);
+    self.label(after_body);
     self.break_stack.pop();
   }
 
@@ -328,16 +343,16 @@ impl Visitor for JvmCodeGen {
     for (e, b) in &mut guarded.guarded {
       let after = self.new_label();
       self.expr(e);
-      self.mb().if_eq(after);
+      self.if_eq(after);
       self.block(b);
-      self.mb().label(after);
+      self.label(after);
     }
   }
 
   fn new_class(&mut self, new_class: &mut NewClass) {
-    self.mb().new_(new_class.name);
-    self.mb().dup();
-    self.mb().invoke_special(new_class.name, "<init>", &[], &JavaType::Void);
+    self.new_(new_class.name);
+    self.dup();
+    self.invoke_special(new_class.name, "<init>", &[], &JavaType::Void);
   }
 
   fn new_array(&mut self, new_array: &mut NewArray) {
@@ -347,16 +362,16 @@ impl Visitor for JvmCodeGen {
       match &new_array.type_ {
         SemanticType::Array(elem_t) => match elem_t.as_ref() {
           SemanticType::Basic(name) => match *name {
-            "int" => self.mb().new_int_array(),
-            "bool" => self.mb().new_bool_array(),
-            "string" => self.mb().a_new_array("java/lang/String"),
+            "int" => self.new_int_array(),
+            "bool" => self.new_bool_array(),
+            "string" => self.a_new_array("java/lang/String"),
             _ => unreachable!(),
           }
           // I don't quite understand the design
           // class A[] => A
           // class A[][] => [[LA;
-          SemanticType::Object(class) => self.mb().a_new_array((**class).name),
-          SemanticType::Array(_) => self.mb().a_new_array(&elem_t.to_java().to_string()),
+          SemanticType::Object(class) => self.a_new_array((**class).name),
+          SemanticType::Array(_) => self.a_new_array(&elem_t.to_java().to_string()),
           _ => unreachable!(),
         }
         _ => unreachable!(),
@@ -379,13 +394,13 @@ impl Visitor for JvmCodeGen {
             let var_def = &*var_def;
             match (*var_def.scope).kind {
               ScopeKind::Local(_) | ScopeKind::Parameter(_) => self.store_to_stack(&var_def.type_, var_def.index),
-              ScopeKind::Class(class) => self.mb().put_field((*class).name, var_def.name, &var_def.type_.to_java()),
+              ScopeKind::Class(class) => self.put_field((*class).name, var_def.name, &var_def.type_.to_java()),
               _ => unreachable!(),
             }
           }
           Var::VarAssign(var_assign) => self.store_to_stack(&(*var_assign).type_, (*var_assign).index),
         }
-        Expr::Indexed(indexed) => handle!(&indexed.type_, self.mb().i_a_store(), self.mb().b_a_store(), self.mb().a_a_store()),
+        Expr::Indexed(indexed) => handle!(&indexed.type_, self.i_a_store(), self.b_a_store(), self.a_a_store()),
         _ => unreachable!(),
       }
     }
@@ -393,10 +408,10 @@ impl Visitor for JvmCodeGen {
 
   fn const_(&mut self, const_: &mut Const) {
     match const_ {
-      Const::IntConst(int_const) => self.mb().int_const(int_const.value),
-      Const::BoolConst(bool_const) => self.mb().bool_const(bool_const.value),
-      Const::StringConst(string_const) => self.mb().string_const(&string_const.value),
-      Const::Null(_) => self.mb().a_const_null(),
+      Const::IntConst(int_const) => self.int_const(int_const.value),
+      Const::BoolConst(bool_const) => self.bool_const(bool_const.value),
+      Const::StringConst(string_const) => self.string_const(&string_const.value),
+      Const::Null(_) => self.a_const_null(),
       _ => unimplemented!(),
     }
   }
@@ -405,18 +420,18 @@ impl Visitor for JvmCodeGen {
     match unary.op {
       Operator::Neg => {
         self.expr(&mut unary.r);
-        self.mb().i_neg();
+        self.i_neg();
       }
       Operator::Not => {
         let true_label = self.new_label();
         let out_label = self.new_label();
         self.expr(&mut unary.r);
-        self.mb().if_eq(true_label);
-        self.mb().bool_const(false);
-        self.mb().goto(out_label);
-        self.mb().label(true_label);
-        self.mb().bool_const(true);
-        self.mb().label(out_label);
+        self.if_eq(true_label);
+        self.bool_const(false);
+        self.goto(out_label);
+        self.label(true_label);
+        self.bool_const(true);
+        self.label(out_label);
       }
       _ => unreachable!()
     }
@@ -425,41 +440,81 @@ impl Visitor for JvmCodeGen {
   fn binary(&mut self, binary: &mut Binary) {
     use super::ast::Operator::*;
     match binary.op {
+      Repeat => {
+
+//        that.left.accept(this);
+//        that.right.accept(this);
+//        // check neg before creating new array
+//        Label ok = Label.createLabel();
+//        tr.genBnez(tr.genGeq(that.right.val, tr.genLoadImm4(0)), ok);
+//        Temp msg = tr.genLoadStrConst(RuntimeError.REPEAT_NEG_ERROR);
+//        tr.genParm(msg);
+//        tr.genIntrinsicCall(Intrinsic.PRINT_STRING);
+//        tr.genIntrinsicCall(Intrinsic.HALT);
+//        tr.genMark(ok);
+//        that.val = tr.genNewArray(that.right.val);
+//        Temp it = tr.genLoadImm4(0);
+//        Label before = Label.createLabel();
+//        Label exit = Label.createLabel();
+//        tr.genMark(before);
+//        // if it >= array length, jump out
+//        tr.genBnez(tr.genGeq(it, tr.genLoad(that.val, -OffsetCounter.WORD_SIZE)), exit);
+//        // load to array
+//        Temp esz = tr.genLoadImm4(OffsetCounter.WORD_SIZE);
+//        Temp t = tr.genMul(it, esz);
+//        Temp base = tr.genAdd(that.val, t);
+//        if (that.left.type.isClassType()) {
+//          // perform scopy
+//          // this spec is really uncommon in a reference semantics language
+//          ClassType classType = (ClassType) that.left.type;
+//          Temp t1 = tr.genDirectCall(classType.getSymbol().getNewFuncLabel(), BaseType.INT);
+//          for (int i = OffsetCounter.POINTER_SIZE; i < classType.getSymbol().getSize(); i += OffsetCounter.WORD_SIZE) {
+//            tr.genStore(tr.genLoad(that.left.val, i), t1, i);
+//          }
+//          tr.genStore(t1, base, 0);
+//        } else {
+//          tr.genStore(that.left.val, base, 0);
+//        }
+//        // ++it
+//        tr.genAssign(it, tr.genAdd(it, tr.genLoadImm4(1)));
+//        tr.genBranch(before);
+//        tr.genMark(exit);
+      }
       And => {
         let out_label = self.new_label();
         let false_label = self.new_label();
         self.expr(&mut binary.l);
-        self.mb().if_eq(false_label);
+        self.if_eq(false_label);
         self.expr(&mut binary.r);
-        self.mb().if_eq(false_label);
-        self.mb().bool_const(true);
-        self.mb().goto(out_label);
-        self.mb().label(false_label);
-        self.mb().bool_const(false);
-        self.mb().label(out_label);
+        self.if_eq(false_label);
+        self.bool_const(true);
+        self.goto(out_label);
+        self.label(false_label);
+        self.bool_const(false);
+        self.label(out_label);
       }
       Or => {
         let out_label = self.new_label();
         let true_label = self.new_label();
         self.expr(&mut binary.l);
-        self.mb().if_ne(true_label);
+        self.if_ne(true_label);
         self.expr(&mut binary.r);
-        self.mb().if_ne(true_label);
-        self.mb().bool_const(false);
-        self.mb().goto(out_label);
-        self.mb().label(true_label);
-        self.mb().bool_const(true);
-        self.mb().label(out_label);
+        self.if_ne(true_label);
+        self.bool_const(false);
+        self.goto(out_label);
+        self.label(true_label);
+        self.bool_const(true);
+        self.label(out_label);
       }
       _ => {
         self.expr(&mut binary.l);
         self.expr(&mut binary.r);
         match binary.op {
-          Add => self.mb().i_add(),
-          Sub => self.mb().i_sub(),
-          Mul => self.mb().i_mul(),
-          Div => self.mb().i_div(),
-          Mod => self.mb().i_rem(),
+          Add => self.i_add(),
+          Sub => self.i_sub(),
+          Mul => self.i_mul(),
+          Div => self.i_div(),
+          Mod => self.i_rem(),
           Le => cmp!(self, if_i_cmp_le),
           Lt => cmp!(self, if_i_cmp_lt),
           Ge => cmp!(self, if_i_cmp_ge),
@@ -484,7 +539,7 @@ impl Visitor for JvmCodeGen {
     unsafe {
       if call.is_arr_len {
         self.expr(if let Some(owner) = &mut call.owner { owner } else { unreachable!() });
-        self.mb().array_length();
+        self.array_length();
         return;
       }
       let method = &*call.method;
@@ -495,30 +550,30 @@ impl Visitor for JvmCodeGen {
       let argument_types: Vec<JavaType> = method.param.iter().map(|var_def| var_def.type_.to_java()).collect();
       let return_type = method.ret_t.to_java();
       if method.static_ {
-        self.mb().invoke_static((*method.class).name, method.name, &argument_types, &return_type);
+        self.invoke_static((*method.class).name, method.name, &argument_types, &return_type);
       } else {
-        self.mb().invoke_virtual((*method.class).name, method.name, &argument_types[1..], &return_type);
+        self.invoke_virtual((*method.class).name, method.name, &argument_types[1..], &return_type);
       }
     }
   }
 
   fn print(&mut self, print: &mut Print) {
     for print in &mut print.print {
-      self.mb().get_static("java/lang/System", "out", &JavaType::Class("java/io/PrintStream"));
+      self.get_static("java/lang/System", "out", &JavaType::Class("java/io/PrintStream"));
       self.expr(print);
-      self.mb().invoke_virtual("java/io/PrintStream", "print", &[print.get_type().to_java()], &JavaType::Void);
+      self.invoke_virtual("java/io/PrintStream", "print", &[print.get_type().to_java()], &JavaType::Void);
     }
   }
 
   fn this(&mut self, _this: &mut This) {
-    self.mb().a_load(0);
+    self.a_load(0);
   }
 
   fn indexed(&mut self, indexed: &mut Indexed) {
     self.expr(&mut indexed.arr);
     self.expr(&mut indexed.idx);
     if !indexed.for_assign {
-      handle!(&indexed.type_, self.mb().i_a_load(), self.mb().b_a_load(), self.mb().a_a_load());
+      handle!(&indexed.type_, self.i_a_load(), self.b_a_load(), self.a_a_load());
     }
   }
 
@@ -532,7 +587,7 @@ impl Visitor for JvmCodeGen {
               ScopeKind::Local(_) | ScopeKind::Parameter(_) => self.load_from_stack(&var_def.type_, var_def.index),
               ScopeKind::Class(class) => {
                 self.expr(if let Some(owner) = &mut identifier.owner { owner } else { unreachable!() });
-                self.mb().get_field((*class).name, var_def.name, &var_def.type_.to_java())
+                self.get_field((*class).name, var_def.name, &var_def.type_.to_java())
               }
               _ => unreachable!(),
             }
@@ -550,21 +605,21 @@ impl Visitor for JvmCodeGen {
     let dft = self.new_label();
     let after = self.new_label();
     self.expr(&mut default.arr);
-    self.mb().a_store(arr);
+    self.a_store(arr);
     self.expr(&mut default.idx);
-    self.mb().dup();
-    self.mb().if_le(dft); // notice the difference between if_le & if_i_cmp_le
-    self.mb().dup();
-    self.mb().a_load(arr);
-    self.mb().array_length();
-    self.mb().if_i_cmp_ge(dft);
-    self.mb().dup();
-    self.mb().a_load(arr);
-    self.mb().swap();
-    handle!(&default.type_, self.mb().i_a_load(), self.mb().b_a_load(), self.mb().a_a_load());
-    self.mb().goto(after);
-    self.mb().label(dft);
+    self.dup();
+    self.if_le(dft); // notice the difference between if_le & if_i_cmp_le
+    self.dup();
+    self.a_load(arr);
+    self.array_length();
+    self.if_i_cmp_ge(dft);
+    self.dup();
+    self.a_load(arr);
+    self.swap();
+    handle!(&default.type_, self.i_a_load(), self.b_a_load(), self.a_a_load());
+    self.goto(after);
+    self.label(dft);
     self.expr(&mut default.dft);
-    self.mb().label(after);
+    self.label(after);
   }
 }
