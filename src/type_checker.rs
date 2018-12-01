@@ -380,13 +380,13 @@ impl Visitor for TypeChecker {
         let (l_t, r_t) = (l.get_type(), r.get_type());
         if l_t == &ERROR || r_t == &ERROR {
           match binary.op {
-            Add | Sub | Mul | Div | Mod | BAnd | BOr | BXor => binary.type_ = l_t.clone(),
+            Add | Sub | Mul | Div | Mod | BAnd | BOr | BXor | Shl | Shr => binary.type_ = l_t.clone(),
             _ => binary.type_ = BOOL,
           }
           return;
         }
         if !match binary.op {
-          Add | Sub | Mul | Div | Mod | BAnd | BOr | BXor => {
+          Add | Sub | Mul | Div | Mod | BAnd | BOr | BXor | Shl | Shr => {
             binary.type_ = l_t.clone();
             l_t == &INT && r_t == &INT
           }

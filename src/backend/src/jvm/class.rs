@@ -115,6 +115,8 @@ pub enum Instruction {
   /* 0x6C */ IDiv,
   /* 0x70 */ IRem,
   /* 0x74 */ INeg,
+  /* 0x78 */ IShl,
+  /* 0x7C */ IUShr,
   /* 0x7E */ IAnd,
   /* 0x80 */ IOr,
   /* 0x82 */ IXor,

@@ -658,6 +658,8 @@ impl Visitor for JvmCodeGen {
           BAnd => self.i_and(),
           BOr => self.i_or(),
           BXor => self.i_xor(),
+          Shl => self.i_shl(),
+          Shr => self.i_u_shr(),
           Le => cmp!(self, if_i_cmp_le),
           Lt => cmp!(self, if_i_cmp_lt),
           Ge => cmp!(self, if_i_cmp_ge),

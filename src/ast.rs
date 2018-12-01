@@ -298,6 +298,8 @@ pub enum Operator {
   BAnd,
   BOr,
   BXor,
+  Shl,
+  Shr,
 }
 
 impl Operator {
@@ -328,6 +330,8 @@ impl Operator {
       BAnd => "&",
       BOr => "|",
       BXor => "^",
+      Shl => "<<",
+      Shr => ">>",
     }
   }
 }

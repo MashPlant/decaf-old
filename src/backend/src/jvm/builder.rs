@@ -335,6 +335,16 @@ impl MethodBuilder {
     self.push_code(INeg);
   }
 
+  pub fn i_shl(&mut self) {
+    self.push_code(IShl);
+    self.dec_stack();
+  }
+
+  pub fn i_u_shr(&mut self) {
+    self.push_code(IUShr);
+    self.dec_stack();
+  }
+
   pub fn i_and(&mut self) {
     self.push_code(IAnd);
     self.dec_stack();

@@ -551,6 +551,8 @@ impl ASTData for Binary {
       BAnd => "bitand",
       BOr => "bitand",
       BXor => "bitxor",
+      Shl => "shl",
+      Shr => "shr",
       _ => unreachable!(),
     };
     printer.println(opname);

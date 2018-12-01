@@ -1,0 +1,59 @@
+class Random {
+    int seed;
+    void init() {
+        seed = 19260817;
+    }
+    int next() {
+        seed = seed ^ (seed << 13);
+        seed = seed ^ (seed >> 17);
+        seed = seed ^ (seed << 5);
+        return seed & 2147483647;
+    }
+}
+class Main {
+    static void radixSort(int []a) {
+        int n = a.length();
+        int[] cnt = new int[256];
+        int[] aux = new int[n];
+        for (int i = 0; i < n; ++i)
+            ++cnt[a[i] & 255];
+        for (int i = 1; i < 256; ++i)
+            cnt[i] = cnt[i] + cnt[i - 1];
+        for (int i = n - 1; i >= 0; --i)
+            aux[--cnt[a[i] & 255]] = a[i];
+        for (int i = 0; i < 256; ++i)
+            cnt[i] = 0;
+        for (int i = 0; i < n; ++i)
+            ++cnt[aux[i] >> 8 & 255];
+        for (int i = 1; i < 256; ++i)
+            cnt[i] = cnt[i] + cnt[i - 1];
+        for (int i = n - 1; i >= 0; --i)
+            a[--cnt[aux[i] >> 8 & 255]] = aux[i];
+        for (int i = 0; i < 256; ++i)
+            cnt[i] = 0;
+        for (int i = 0; i < n; ++i)
+            ++cnt[a[i] >> 16 & 255];
+        for (int i = 1; i < 256; ++i)
+            cnt[i] = cnt[i] + cnt[i - 1];
+        for (int i = n - 1; i >= 0; --i)
+            aux[--cnt[a[i] >> 16 & 255]] = a[i];
+        for (int i = 0; i < 256; ++i)
+            cnt[i] = 0;
+        for (int i = 0; i < n; ++i)
+            ++cnt[aux[i] >> 24 & 255];
+        for (int i = 1; i < 256; ++i)
+            cnt[i] = cnt[i] + cnt[i - 1];
+        for (int i = n - 1; i >= 0; --i)
+            a[--cnt[aux[i] >> 24 & 255]] = aux[i];
+    }
+
+    static void main() {
+        class Random r = new Random();
+        r.init();
+        int []a = new int[100000000];
+        for (int i = 0; i < 100000000; ++i)
+            a[i] = r.next();
+        radixSort(a);
+        Print("Ok!\n");
+    }
+}

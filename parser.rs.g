@@ -45,6 +45,8 @@
 "%%"                return "REPEAT";
 "++"                return "INC";
 "--"                return "DEC";
+"<<"                return "SHL";
+">>"                return "SHR";
 
 // simple operators
 "+"                 return "'+'";
@@ -117,8 +119,9 @@
 %nonassoc EQUAL NOT_EQUAL
 %nonassoc LESS_EQUAL GREATER_EQUAL '<' '>'
 %left REPEAT
-%left  '+' '-'
-%left  '*' '/' '%'
+%left SHL SHR
+%left '+' '-'
+%left '*' '/' '%'
 %nonassoc UMINUS '!' INC DEC
 %nonassoc '[' '.' DEFAULT
 %nonassoc ')' EMPTY
@@ -596,6 +599,7 @@ Simple
         |$1: Type, $2: Token, $3: Token, $4: Expr| -> Simple;
         $$ = Simple::VarAssign(VarAssign {
             loc: $2.get_loc(),
+            finish_loc: self.get_loc(),
             name: $2.value,
             src: Some($4),
             scope: ptr::null(),
@@ -607,6 +611,7 @@ Simple
         |$1: Token, $2: Token, $3: Token, $4: Expr| -> Simple;
         $$ = Simple::VarAssign(VarAssign {
             loc: $2.get_loc(),
+            finish_loc: self.get_loc(),
             name: $2.value,
             src: Some($4),
             scope: ptr::null(),
@@ -618,6 +623,7 @@ Simple
         |$1: Type, $2: Token| -> Simple;
         $$ = Simple::VarAssign(VarAssign {
             loc: $2.get_loc(),
+            finish_loc: self.get_loc(),
             name: $2.value,
             src: None,
             scope: ptr::null(),
@@ -713,6 +719,14 @@ Expr
     | Expr '^' Expr {
         |$1: Expr, $2: Token, $3: Expr| -> Expr;
         $$ = gen_binary($1, $2, $3, Operator::BXor);
+    }
+    | Expr SHL Expr {
+        |$1: Expr, $2: Token, $3: Expr| -> Expr;
+        $$ = gen_binary($1, $2, $3, Operator::Shl);
+    }
+    | Expr SHR Expr {
+        |$1: Expr, $2: Token, $3: Expr| -> Expr;
+        $$ = gen_binary($1, $2, $3, Operator::Shr);
     }
     | Expr '[' Expr ':' Expr ']' {
         |$1: Expr, $2: Token, $3: Expr, $5: Expr| -> Expr;

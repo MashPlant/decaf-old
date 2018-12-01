@@ -186,6 +186,8 @@ impl Writer<Vec<u8>> for Instruction {
       IDiv => dst.write(0x6C as u8),
       IRem => dst.write(0x70 as u8),
       INeg => dst.write(0x74 as u8),
+      IShl => dst.write(0x78 as u8),
+      IUShr => dst.write(0x7C as u8),
       IAnd => dst.write(0x7E as u8),
       IOr => dst.write(0x80 as u8),
       IXor => dst.write(0x82 as u8),
