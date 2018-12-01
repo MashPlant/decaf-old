@@ -254,9 +254,15 @@ impl Visitor for JvmCodeGen {
   }
 
   fn var_assign(&mut self, var_assign: &mut VarAssign) {
-    var_assign.index = self.new_local();
-    self.expr(&mut var_assign.src);
-    self.store_to_stack(&var_assign.type_, var_assign.index);
+    let index = self.new_local();
+    var_assign.index = index;
+    if let Some(src) = &mut var_assign.src {
+      self.expr(src);
+      self.store_to_stack(&var_assign.type_, index);
+    } else {
+      // default init, int/bool => 0, string/class/object => null
+      handle!(&var_assign.type_.sem, { self.int_const(0); self.i_store(index); }, { self.a_const_null(); self.a_store(index); });
+    }
   }
 
   fn block(&mut self, block: &mut Block) {

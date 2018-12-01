@@ -293,7 +293,7 @@ MethodDef
             loc: $2.get_loc(),
             name: $2.value,
             ret_t: $1,
-            params: $4,
+            param: $4,
             static_: false,
             body: $6,
             scope: D::default(),
@@ -348,11 +348,7 @@ StmtList
     ;
 
 Stmt
-    : VarDef ';' {
-        |$1: VarDef| -> Stmt;
-        $$ = Stmt::VarDef($1);
-    }
-    | Simple ';' {
+    : Simple ';' {
         |$1: Simple| -> Stmt;
         $$ = Stmt::Simple($1);
     }
@@ -590,14 +586,36 @@ Simple
             src: $3,
         });
     }
-    | VAR IDENTIFIER '=' Expr {
-        |$2: Token, $3: Token, $4: Expr| -> Simple;
+    | Type IDENTIFIER '=' Expr {
+        |$1: Type, $2: Token, $3: Token, $4: Expr| -> Simple;
         $$ = Simple::VarAssign(VarAssign {
             loc: $2.get_loc(),
             name: $2.value,
-            src: $4,
+            src: Some($4),
             scope: ptr::null(),
-            type_: D::default(),
+            type_: $1,
+            index: D::default(),
+        });
+    }
+    | VAR IDENTIFIER '=' Expr {
+        |$1: Token, $2: Token, $3: Token, $4: Expr| -> Simple;
+        $$ = Simple::VarAssign(VarAssign {
+            loc: $2.get_loc(),
+            name: $2.value,
+            src: Some($4),
+            scope: ptr::null(),
+            type_: Type { loc: $1.get_loc(), sem: VAR },
+            index: D::default(),
+        });
+    }
+    | Type IDENTIFIER {
+        |$1: Type, $2: Token| -> Simple;
+        $$ = Simple::VarAssign(VarAssign {
+            loc: $2.get_loc(),
+            name: $2.value,
+            src: None,
+            scope: ptr::null(),
+            type_: $1,
             index: D::default(),
         });
     }

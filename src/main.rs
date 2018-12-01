@@ -21,11 +21,13 @@ use symbol_builder::SymbolBuilder;
 use type_checker::TypeChecker;
 use ast::Program;
 use errors::Error;
+//use print::*;
 
 use std::mem;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
+//use std::io;
 
 fn string_to_static_str(s: String) -> &'static str {
   unsafe {
@@ -49,9 +51,9 @@ fn main() {
   let mut input = String::new();
   {
     let filename = env::args().nth(1).unwrap_or_else(|| {
-//      "in.txt".to_string()
-      eprintln!("Please specify input filename");
-      std::process::exit(1);
+      "in.txt".to_string()
+//      eprintln!("Please specify input filename");
+//      std::process::exit(1);
     });
     let mut f = File::open(filename).unwrap();
     f.read_to_string(&mut input).unwrap();
@@ -60,6 +62,9 @@ fn main() {
 
   match compile(input) {
     Ok(program) => {
+//      let mut printer = IndentPrinter::new();
+//      program.print_scope(&mut printer);
+//      printer.flush(&mut io::stdout());
       let mut code_gen = jvm_code_gen::JvmCodeGen::new();
       code_gen.gen(program);
     }

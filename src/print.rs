@@ -1,4 +1,5 @@
 use super::ast::*;
+use super::types::*;
 use std::io;
 
 pub fn quote(s: &str) -> String {
@@ -188,7 +189,6 @@ impl ASTData for Stmt {
   fn print_ast(&self, printer: &mut IndentPrinter) {
     use ast::Stmt::*;
     match &self {
-      VarDef(var_def) => var_def.print_ast(printer),
       Simple(simple) => simple.print_ast(printer),
       If(if_) => if_.print_ast(printer),
       While(while_) => while_.print_ast(printer),
@@ -364,12 +364,26 @@ impl ASTData for Assign {
 
 impl ASTData for VarAssign {
   fn print_ast(&self, printer: &mut IndentPrinter) {
-    printer.println("assign");
-    printer.inc_indent();
-    printer.print("var");
-    printer.println(self.name);
-    self.src.print_ast(printer);
-    printer.dec_indent();
+    if self.type_.sem == VAR {
+      printer.println("assign");
+      printer.inc_indent();
+      printer.print("var");
+      printer.println(self.name);
+      if let Some(src) = &self.src { src.print_ast(printer); } else { unreachable!(); }
+      printer.dec_indent();
+    } else {
+      printer.print("vardef");
+      printer.print(self.name);
+      self.type_.print_ast(printer);
+      printer.newline();
+      if let Some(src) = &self.src {
+        printer.println("assign");
+        printer.inc_indent();
+        printer.println(self.name);
+        src.print_ast(printer);
+        printer.dec_indent();
+      }
+    }
   }
 }
 
@@ -402,7 +416,7 @@ impl ASTData for Expr {
 }
 
 impl ASTData for Identifier {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.print("varref");
     printer.println(self.name);
     if let Some(owner) = &self.owner {
@@ -414,7 +428,7 @@ impl ASTData for Identifier {
 }
 
 impl ASTData for Indexed {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.println("arrref");
     printer.inc_indent();
     self.arr.print_ast(printer);
@@ -424,7 +438,7 @@ impl ASTData for Indexed {
 }
 
 impl ASTData for Const {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     use self::Const::*;
     match &self {
       IntConst(int_const) => int_const.print_ast(printer),
@@ -437,28 +451,28 @@ impl ASTData for Const {
 }
 
 impl ASTData for IntConst {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.print("intconst");
     printer.println(&self.value.to_string());
   }
 }
 
 impl ASTData for BoolConst {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.print("boolconst");
     printer.println(&self.value.to_string());
   }
 }
 
 impl ASTData for StringConst {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.print("stringconst");
     printer.println(&quote(&self.value));
   }
 }
 
 impl ASTData for ArrayConst {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.println("array const");
     printer.inc_indent();
     if self.value.is_empty() {
@@ -471,13 +485,13 @@ impl ASTData for ArrayConst {
 }
 
 impl ASTData for Null {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.println("null");
   }
 }
 
 impl ASTData for Call {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.print("call");
     printer.println(self.name);
     printer.inc_indent();
@@ -491,7 +505,7 @@ impl ASTData for Call {
 }
 
 impl ASTData for Unary {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     use ast::Operator::*;
     let opname = match self.op {
       Neg => "neg",
@@ -506,7 +520,7 @@ impl ASTData for Unary {
 }
 
 impl ASTData for Binary {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     use self::Operator::*;
     let opname = match self.op {
       Add => "add",
@@ -535,32 +549,32 @@ impl ASTData for Binary {
 }
 
 impl ASTData for This {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.println("this");
   }
 }
 
 impl ASTData for ReadInt {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.println("readint");
   }
 }
 
 impl ASTData for ReadLine {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.println("readline");
   }
 }
 
 impl ASTData for NewClass {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.print("newobj");
     printer.println(self.name);
   }
 }
 
 impl ASTData for NewArray {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.print("newarray");
     self.elem_t.print_ast(printer);
     printer.newline();
@@ -571,7 +585,7 @@ impl ASTData for NewArray {
 }
 
 impl ASTData for TypeTest {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.println("instanceof");
     printer.inc_indent();
     self.expr.print_ast(printer);
@@ -581,7 +595,7 @@ impl ASTData for TypeTest {
 }
 
 impl ASTData for TypeCast {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.println("classcast");
     printer.inc_indent();
     printer.println(self.name);
@@ -591,7 +605,7 @@ impl ASTData for TypeCast {
 }
 
 impl ASTData for Range {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.println("arrref");
     printer.inc_indent();
     self.arr.print_ast(printer);
@@ -605,7 +619,7 @@ impl ASTData for Range {
 }
 
 impl ASTData for Default {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.println("arrref");
     printer.inc_indent();
     self.arr.print_ast(printer);
@@ -619,7 +633,7 @@ impl ASTData for Default {
 }
 
 impl ASTData for Comprehension {
-   fn print_ast(&self, printer: &mut IndentPrinter) {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     printer.println("array comp");
     printer.inc_indent();
     printer.print("varbind");

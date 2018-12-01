@@ -240,6 +240,11 @@ impl Visitor for SymbolBuilder {
 
   fn var_assign(&mut self, var_assign: &mut VarAssign) {
     unsafe {
+      self.type_(&mut var_assign.type_);
+      if var_assign.type_.sem == VOID {
+        issue!(self, var_assign.loc, VoidVar { name: var_assign.name });
+        return;
+      }
       if self.check_var_declaration(var_assign.name, var_assign.loc) {
         var_assign.scope = self.scopes.cur_scope() as *const _;
         self.scopes.declare(Symbol::Var(Var::VarAssign(var_assign)));

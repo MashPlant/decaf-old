@@ -7,7 +7,7 @@ use super::symbol::Symbol;
 use std::default::Default as D;
 use std::fmt;
 
-// the struct SemanticType in ast.rs is syntactic type(so it have field `loc`)
+// the struct Type in ast.rs is syntactic type(so it have field `loc`)
 #[derive(Debug)]
 pub enum SemanticType {
   Error,
@@ -61,7 +61,7 @@ impl fmt::Display for SemanticType {
   fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
     match self {
       SemanticType::Error => write!(f, "error"),
-      SemanticType::Var => write!(f, "var"),
+      SemanticType::Var => write!(f, "unknown"),
       SemanticType::Null => write!(f, "null"),
       SemanticType::Basic(name) => write!(f, "{}", name),
       SemanticType::Named(name) => write!(f, "class : {}", name),
@@ -83,6 +83,8 @@ impl SemanticType {
   // a relationship of is-subclass-of
   pub fn extends(&self, rhs: &SemanticType) -> bool {
     match (self, rhs) {
+      (SemanticType::Var, SemanticType::Var) => false,
+      (_, SemanticType::Var) => true,
       (SemanticType::Error, _) => true,
       (_, SemanticType::Error) => true,
       (SemanticType::Basic(name1), SemanticType::Basic(name2)) => name1 == name2,

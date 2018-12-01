@@ -142,9 +142,11 @@ impl Deref for Type {
   }
 }
 
+// VarDef is no longer considered as a Stmt
+// there is only VarAssign(with an optional expr)
+// now VarAssigns refer to all local variable, while VarDef refers to parameter and fields
 #[derive(Debug)]
 pub enum Stmt {
-  VarDef(VarDef),
   Simple(Simple),
   If(If),
   While(While),
@@ -252,10 +254,10 @@ pub struct Assign {
 pub struct VarAssign {
   pub loc: Loc,
   pub name: &'static str,
-  pub src: Expr,
+  pub src: Option<Expr>,
   pub scope: *const Scope,
   // determined during type check
-  pub type_: SemanticType,
+  pub type_: Type,
   // stack index
   pub index: u8,
 }
@@ -562,7 +564,6 @@ pub trait Visitor {
   fn stmt(&mut self, stmt: &mut Stmt) {
     use self::Stmt::*;
     match stmt {
-      VarDef(var_def) => self.var_def(var_def),
       Simple(simple) => self.simple(simple),
       If(if_) => self.if_(if_),
       While(while_) => self.while_(while_),
