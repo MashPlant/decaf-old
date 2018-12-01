@@ -1,6 +1,12 @@
+class Random {
+    int seed;
+    int next() {
+
+    }
+}
 class Main {
 
     static void main() {
-        int x = x+1;
+
     }
 }

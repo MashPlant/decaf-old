@@ -99,7 +99,7 @@ impl Var {
     unsafe {
       match self {
         Var::VarDef(var_def) => (**var_def).loc,
-        Var::VarAssign(var_assign) => (**var_assign).loc,
+        Var::VarAssign(var_assign) => (**var_assign).finish_loc,
       }
     }
   }

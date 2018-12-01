@@ -176,15 +176,13 @@ impl Visitor for TypeChecker {
 
   fn var_assign(&mut self, var_assign: &mut VarAssign) {
     // if it doesn't have an src, it is an old var_def, and thus needn't handling
-    // it it is an old var_assign, will still judge whether type fits
-    // rule: var = var => error, var = anything else => ok
     if let Some(src) = &mut var_assign.src {
       self.expr(src);
       let src_t = src.get_type();
-      if !src_t.extends(&var_assign.type_.sem) {
-        issue!(self, var_assign.loc, IncompatibleBinary{l_t: var_assign.type_.sem.to_string(), op: "=", r_t: src_t.to_string() })
-      } else if var_assign.type_.sem == VAR {
+      if var_assign.type_.sem == VAR {
         var_assign.type_.sem = src_t.clone();
+      } else if !src_t.extends(&var_assign.type_.sem) {
+        issue!(self, var_assign.loc, IncompatibleBinary{l_t: var_assign.type_.sem.to_string(), op: "=", r_t: src_t.to_string() })
       }
     }
   }
@@ -269,6 +267,7 @@ impl Visitor for TypeChecker {
   }
 
   fn foreach(&mut self, foreach: &mut Foreach) {
+    // arr is visited before scope open, cond is after
     self.expr(&mut foreach.arr);
     let arr_t = foreach.arr.get_type();
     match arr_t {

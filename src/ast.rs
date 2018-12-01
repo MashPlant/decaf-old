@@ -250,9 +250,14 @@ pub struct Assign {
   pub src: Expr,
 }
 
+// int x = 1;
+// ---------^---- finish_loc
+// the variable is undeclared at finish_loc(it can be obtained using parser.get_loc())
+// so that int x = x will get an undeclared variable error
 #[derive(Debug)]
 pub struct VarAssign {
   pub loc: Loc,
+  pub finish_loc: Loc,
   pub name: &'static str,
   pub src: Option<Expr>,
   pub scope: *const Scope,

@@ -83,8 +83,6 @@ impl SemanticType {
   // a relationship of is-subclass-of
   pub fn extends(&self, rhs: &SemanticType) -> bool {
     match (self, rhs) {
-      (SemanticType::Var, SemanticType::Var) => false,
-      (_, SemanticType::Var) => true,
       (SemanticType::Error, _) => true,
       (_, SemanticType::Error) => true,
       (SemanticType::Basic(name1), SemanticType::Basic(name2)) => name1 == name2,

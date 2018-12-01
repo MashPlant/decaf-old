@@ -2364,6 +2364,7 @@ impl Parser {
 
     let _0 = Simple::VarAssign(VarAssign {
       loc: _2.get_loc(),
+      finish_loc: self.get_loc(),
       name: _2.value,
       src: Some(_4),
       scope: ptr::null(),
@@ -2382,6 +2383,7 @@ impl Parser {
 
     let _0 = Simple::VarAssign(VarAssign {
       loc: _2.get_loc(),
+      finish_loc: self.get_loc(),
       name: _2.value,
       src: Some(_4),
       scope: ptr::null(),
@@ -2398,6 +2400,7 @@ impl Parser {
 
     let _0 = Simple::VarAssign(VarAssign {
       loc: _2.get_loc(),
+      finish_loc: self.get_loc(),
       name: _2.value,
       src: None,
       scope: ptr::null(),
