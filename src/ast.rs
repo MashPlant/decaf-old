@@ -268,7 +268,32 @@ pub struct Skip {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum Operator { Neg, Not, Add, Sub, Mul, Div, Mod, And, Or, Eq, Ne, Lt, Le, Gt, Ge, Repeat, Concat }
+pub enum Operator {
+  Neg,
+  Not,
+  Add,
+  Sub,
+  Mul,
+  Div,
+  Mod,
+  And,
+  Or,
+  Eq,
+  Ne,
+  Lt,
+  Le,
+  Gt,
+  Ge,
+  Repeat,
+  /* not implemented */ Concat,
+  PreInc,
+  PreDec,
+  PostInc,
+  PostDec,
+  BAnd,
+  BOr,
+  BXor,
+}
 
 impl Operator {
   pub fn to_str(&self) -> &'static str {
@@ -290,7 +315,14 @@ impl Operator {
       Gt => ">",
       Ge => ">=",
       Repeat => "%%",
-      Concat => "++"
+      /* not implemented */ Concat => "++",
+      PreInc => "++",
+      PreDec => "--",
+      PostInc => "++",
+      PostDec => "--",
+      BAnd => "&",
+      BOr => "|",
+      BXor => "^",
     }
   }
 }
@@ -357,6 +389,13 @@ impl Expr {
       Range(range) => &range.type_,
       Default(default) => &default.type_,
       Comprehension(comprehension) => &comprehension.type_,
+    }
+  }
+
+  pub fn is_lvalue(&self) -> bool {
+    match self {
+      Expr::Identifier(_) | Expr::Indexed(_) => true,
+      _ => false,
     }
   }
 }

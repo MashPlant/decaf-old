@@ -31,6 +31,12 @@ impl IndentPrinter {
     }
   }
 
+  pub fn clear(&mut self) {
+    self.newline = false;
+    self.indent.clear();
+    self.content.clear();
+  }
+
   pub fn pop_space(&mut self) {
     if self.content.ends_with(" ") { self.content.pop(); }
   }
@@ -510,6 +516,10 @@ impl ASTData for Unary {
     let opname = match self.op {
       Neg => "neg",
       Not => "not",
+      PreInc => "preinc",
+      PreDec => "predec",
+      PostInc => "postinc",
+      PostDec => "postdec",
       _ => unreachable!(),
     };
     printer.println(opname);
@@ -537,7 +547,10 @@ impl ASTData for Binary {
       Gt => "gtr",
       Ge => "geq",
       Repeat => "array repeat",
-      Concat => "array concat",
+      /* unimplemented */ Concat => "array concat",
+      BAnd => "bitand",
+      BOr => "bitand",
+      BXor => "bitxor",
       _ => unreachable!(),
     };
     printer.println(opname);

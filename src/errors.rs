@@ -434,3 +434,13 @@ impl IError for SCopyMismatch {
     format!("incompatible dst type: {} and src type: {}", self.dst_t, self.src_t)
   }
 }
+
+pub struct NotLValue {
+  pub op: &'static str
+}
+
+impl IError for NotLValue {
+  fn get_msg(&self) -> String {
+    format!("operator {} can only be applied to lvalue", self.op)
+  }
+}

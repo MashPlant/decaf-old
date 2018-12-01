@@ -339,55 +339,67 @@ impl Visitor for TypeChecker {
   }
 
   fn unary(&mut self, unary: &mut Unary) {
+    use super::ast::Operator::*;
     self.expr(&mut unary.r);
     let r = unary.r.get_type();
     match unary.op {
-      Operator::Neg => {
+      Neg => {
         if !r.error_or(&INT) {
           issue!(self, unary.loc, IncompatibleUnary { op: "-", r_t: r.to_string() });
         }
         unary.type_ = INT;
       }
-      Operator::Not => {
+      Not => {
         if !r.error_or(&BOOL) {
           issue!(self, unary.loc, IncompatibleUnary { op: "!", r_t: r.to_string() });
         }
         unary.type_ = BOOL;
+      }
+      PreInc | PreDec | PostInc | PostDec => {
+        let op = unary.op.to_str();
+        if !unary.r.is_lvalue() {
+          issue!(self, unary.loc, NotLValue { op });
+        }
+        if !r.error_or(&INT) {
+          issue!(self, unary.loc, IncompatibleUnary { op, r_t: r.to_string() });
+        }
+        unary.type_ = INT;
       }
       _ => unreachable!(),
     }
   }
 
   fn binary(&mut self, binary: &mut Binary) {
+    use super::ast::Operator::*;
     self.expr(&mut binary.l);
     self.expr(&mut binary.r);
     match binary.op {
-      Operator::Repeat => self.check_repeat(binary),
-      Operator::Concat => self.check_concat(binary),
+      Repeat => self.check_repeat(binary),
+      Concat => self.check_concat(binary),
       _ => {
         let (l, r) = (&*binary.l, &*binary.r);
         let (l_t, r_t) = (l.get_type(), r.get_type());
         if l_t == &ERROR || r_t == &ERROR {
           match binary.op {
-            Operator::Add | Operator::Sub | Operator::Mul | Operator::Div | Operator::Mod => binary.type_ = l_t.clone(),
+            Add | Sub | Mul | Div | Mod | BAnd | BOr | BXor => binary.type_ = l_t.clone(),
             _ => binary.type_ = BOOL,
           }
           return;
         }
         if !match binary.op {
-          Operator::Add | Operator::Sub | Operator::Mul | Operator::Div | Operator::Mod => {
+          Add | Sub | Mul | Div | Mod | BAnd | BOr | BXor => {
             binary.type_ = l_t.clone();
             l_t == &INT && r_t == &INT
           }
-          Operator::Lt | Operator::Le | Operator::Gt | Operator::Ge => {
+          Lt | Le | Gt | Ge => {
             binary.type_ = BOOL;
             l_t == &INT && r_t == &INT
           }
-          Operator::Eq | Operator::Ne => {
+          Eq | Ne => {
             binary.type_ = BOOL;
             l_t.extends(r_t) || r_t.extends(l_t)
           }
-          Operator::And | Operator::Or => {
+          And | Or => {
             binary.type_ = BOOL;
             l_t == &BOOL && r_t == &BOOL
           }

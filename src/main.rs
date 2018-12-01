@@ -21,13 +21,13 @@ use symbol_builder::SymbolBuilder;
 use type_checker::TypeChecker;
 use ast::Program;
 use errors::Error;
-//use print::*;
+use print::*;
 
 use std::mem;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
-//use std::io;
+use std::io;
 
 fn string_to_static_str(s: String) -> &'static str {
   unsafe {
@@ -62,11 +62,14 @@ fn main() {
 
   match compile(input) {
     Ok(program) => {
-//      let mut printer = IndentPrinter::new();
-//      program.print_scope(&mut printer);
-//      printer.flush(&mut io::stdout());
-      let mut code_gen = jvm_code_gen::JvmCodeGen::new();
-      code_gen.gen(program);
+      let mut printer = IndentPrinter::new();
+      program.print_scope(&mut printer);
+      printer.flush(&mut io::stdout());
+      printer.clear();
+      program.print_ast(&mut printer);
+      printer.flush(&mut io::stdout());
+//      let mut code_gen = jvm_code_gen::JvmCodeGen::new();
+//      code_gen.gen(program);
     }
     Err(errors) => for error in errors { println!("{}", error); },
   }

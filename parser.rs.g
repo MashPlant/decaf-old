@@ -43,7 +43,8 @@
 "&&"                return "AND";
 "||"                return "OR";
 "%%"                return "REPEAT";
-"++"                return "CONCAT";
+"++"                return "INC";
+"--"                return "DEC";
 
 // simple operators
 "+"                 return "'+'";
@@ -51,6 +52,9 @@
 "*"                 return "'*'";
 "/"                 return "'/'";
 "%"                 return "'%'";
+"&"                 return "'&'";
+"|"                 return "'|'";
+"^"                 return "'^'";
 "="                 return "'='";
 "<"                 return "'<'";
 ">"                 return "'>'";
@@ -107,13 +111,15 @@
 
 %left OR
 %left AND
+%left '|'
+%left '^'
+%left '&'
 %nonassoc EQUAL NOT_EQUAL
 %nonassoc LESS_EQUAL GREATER_EQUAL '<' '>'
-%right CONCAT
 %left REPEAT
 %left  '+' '-'
 %left  '*' '/' '%'
-%nonassoc UMINUS '!'
+%nonassoc UMINUS '!' INC DEC
 %nonassoc '[' '.' DEFAULT
 %nonassoc ')' EMPTY
 %nonassoc ELSE
@@ -696,9 +702,17 @@ Expr
         |$1: Expr, $2: Token, $3: Expr| -> Expr;
         $$ = gen_binary($1, $2, $3, Operator::Repeat);
     }
-    | Expr CONCAT Expr {
+    | Expr '&' Expr {
         |$1: Expr, $2: Token, $3: Expr| -> Expr;
-        $$ = gen_binary($1, $2, $3, Operator::Concat);
+        $$ = gen_binary($1, $2, $3, Operator::BAnd);
+    }
+    | Expr '|' Expr {
+        |$1: Expr, $2: Token, $3: Expr| -> Expr;
+        $$ = gen_binary($1, $2, $3, Operator::BOr);
+    }
+    | Expr '^' Expr {
+        |$1: Expr, $2: Token, $3: Expr| -> Expr;
+        $$ = gen_binary($1, $2, $3, Operator::BXor);
     }
     | Expr '[' Expr ':' Expr ']' {
         |$1: Expr, $2: Token, $3: Expr, $5: Expr| -> Expr;
@@ -752,6 +766,22 @@ Expr
     | '!' Expr {
         |$1: Token, $2: Expr| -> Expr;
         $$ = gen_unary($1, $2, Operator::Not);
+    }
+    | INC Expr {
+        |$1: Token, $2: Expr| -> Expr;
+        $$ = gen_unary($1, $2, Operator::PreInc);
+    }
+    | DEC Expr {
+        |$1: Token, $2: Expr| -> Expr;
+        $$ = gen_unary($1, $2, Operator::PreDec);
+    }
+    | Expr INC {
+        |$1: Expr, $2: Token| -> Expr;
+        $$ = gen_unary($2, $1, Operator::PostInc);
+    }
+    | Expr DEC {
+        |$1: Expr, $2: Token| -> Expr;
+        $$ = gen_unary($2, $1, Operator::PostDec);
     }
     | READ_INTEGER '(' ')' {
         |$1: Token| -> Expr;
