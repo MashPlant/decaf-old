@@ -51,9 +51,8 @@ fn main() {
   let mut input = String::new();
   {
     let filename = env::args().nth(1).unwrap_or_else(|| {
-      "RadixSort.decaf".to_string()
-//      eprintln!("Please specify input filename");
-//      std::process::exit(1);
+    eprintln!("Please specify input filename");
+    std::process::exit(1);
     });
     let mut f = File::open(filename).unwrap();
     f.read_to_string(&mut input).unwrap();
