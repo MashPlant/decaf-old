@@ -545,7 +545,7 @@ impl Visitor for JvmCodeGen {
           }
           Ne => match binary.l.get_type() {
             SemanticType::Null | SemanticType::Object(_) => cmp!(self, if_a_cmp_ne),
-            SemanticType::Basic(name) if name == &"string" => cmp!(self, if_a_cmp_eq),
+            SemanticType::Basic(name) if name == &"string" => cmp!(self, if_a_cmp_ne),
             _ => cmp!(self, if_i_cmp_ne),
           }
           _ => unreachable!(),
@@ -588,6 +588,16 @@ impl Visitor for JvmCodeGen {
     self.a_load(0);
   }
 
+  fn type_cast(&mut self, type_cast: &mut TypeCast) {
+    self.expr(&mut type_cast.expr);
+    self.check_cast(type_cast.name);
+  }
+
+  fn type_test(&mut self, type_test: &mut TypeTest) {
+    self.expr(&mut type_test.expr);
+    self.instance_of(type_test.name);
+  }
+
   fn indexed(&mut self, indexed: &mut Indexed) {
     self.expr(&mut indexed.arr);
     self.expr(&mut indexed.idx);
@@ -627,7 +637,7 @@ impl Visitor for JvmCodeGen {
     self.a_store(arr);
     self.expr(&mut default.idx);
     self.dup();
-    self.if_le(dft); // notice the difference between if_le & if_i_cmp_le
+    self.if_lt(dft); // notice the difference between if_lt & if_i_cmp_lt
     self.dup();
     self.a_load(arr);
     self.array_length();

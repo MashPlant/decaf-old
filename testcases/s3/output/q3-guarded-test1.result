@@ -1,2 +1,2 @@
-Error: Unable to initialize main class Main
-Caused by: java.lang.VerifyError: (class: Main, method: main signature: ([Ljava/lang/String;)V) Accessing value from uninitialized register 2
+错误: 无法初始化主类 Main
+原因: java.lang.VerifyError: (class: Main, method: main signature: ([Ljava/lang/String;)V) Accessing value from uninitialized register 2

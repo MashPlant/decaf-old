@@ -1,3 +1,0 @@
-Exception in thread "main" java.lang.NegativeArraySizeException
-	at Main.create(Unknown Source)
-	at Main.main(Unknown Source)

@@ -282,10 +282,12 @@ impl Visitor for TypeChecker {
       }
     };
     // first open the scope, where the loop variable is defined
+    self.loop_counter += 1;
     self.scopes.open(&mut foreach.body.scope);
     if let Some(cond) = &mut foreach.cond { self.check_bool(cond); }
     for stmt in &mut foreach.body.stmt { self.stmt(stmt); }
     self.scopes.close();
+    self.loop_counter -= 1;
   }
 
   fn guarded(&mut self, guarded: &mut Guarded) {

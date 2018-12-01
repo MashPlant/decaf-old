@@ -1,2 +1,0 @@
-Exception in thread "main" java.lang.ArrayIndexOutOfBoundsException: 2
-	at Main.main(Unknown Source)

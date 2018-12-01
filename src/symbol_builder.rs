@@ -273,6 +273,7 @@ impl Visitor for SymbolBuilder {
   }
 
   fn foreach(&mut self, foreach: &mut Foreach) {
+    foreach.body.scope.kind = ScopeKind::Local(&mut foreach.body);
     self.scopes.open(&mut foreach.body.scope);
     // reuse the code of var def, which can handle var correctly
     self.var_def(&mut foreach.def);

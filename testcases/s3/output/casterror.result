@@ -1,2 +1,0 @@
-Error: Unable to initialize main class Main
-Caused by: java.lang.VerifyError: (class: Main, method: main signature: ([Ljava/lang/String;)V) Unable to pop operand off an empty stack
