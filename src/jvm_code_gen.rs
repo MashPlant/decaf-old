@@ -145,6 +145,100 @@ impl JvmCodeGen {
       }
     }
   }
+
+  // val = 1/-1, expr is inc/dec-ed
+  fn pre_inc_dec(&mut self, expr: &mut Expr, val: i32) {
+    unsafe {
+      match expr {
+        Expr::Identifier(identifier) => {
+          match identifier.symbol {
+            Var::VarDef(var_def) => {
+              let var_def = &*var_def;
+              match (*var_def.scope).kind {
+                ScopeKind::Local(_) | ScopeKind::Parameter(_) => {
+                  self.i_inc(var_def.index, val as u8);
+                  self.i_load(var_def.index);
+                }
+                ScopeKind::Class(class) => {
+                  self.expr(if let Some(owner) = &mut identifier.owner { owner } else { unreachable!() }); // ref
+                  self.dup(); // ref ref
+                  self.get_field((*class).name, var_def.name, &var_def.type_.to_java()); // ref x
+                  self.int_const(val); // ref x 1
+                  self.i_add(); // ref x+1
+                  self.dup_x1(); // x+1 ref x+1
+                  self.put_field((*class).name, var_def.name, &var_def.type_.to_java()); // x+1
+                }
+                _ => unreachable!(),
+              }
+            }
+            Var::VarAssign(var_assign) => {
+              let var_assign = &*var_assign;
+              self.i_inc(var_assign.index, val as u8);
+              self.i_load(var_assign.index);
+            }
+          }
+        }
+        Expr::Indexed(indexed) => {
+          indexed.for_assign = true;
+          self.indexed(indexed); // arr idx
+          self.dup_2(); // arr idx arr idx
+          self.i_a_load(); // arr idx x
+          self.int_const(val); // arr idx x 1
+          self.i_add(); // arr idx x+1
+          self.dup_x2(); // x+1 arr idx x+1
+          self.i_a_store(); // x+1
+        }
+        _ => unreachable!()
+      }
+    }
+  }
+
+  // same as above
+  fn post_inc_dec(&mut self, expr: &mut Expr, val: i32) {
+    unsafe {
+      match expr {
+        Expr::Identifier(identifier) => {
+          match identifier.symbol {
+            Var::VarDef(var_def) => {
+              let var_def = &*var_def;
+              match (*var_def.scope).kind {
+                ScopeKind::Local(_) | ScopeKind::Parameter(_) => {
+                  self.i_load(var_def.index);
+                  self.i_inc(var_def.index, val as u8);
+                }
+                ScopeKind::Class(class) => {
+                  self.expr(if let Some(owner) = &mut identifier.owner { owner } else { unreachable!() }); // ref
+                  self.dup(); // ref ref
+                  self.get_field((*class).name, var_def.name, &var_def.type_.to_java()); // ref x
+                  self.dup_x1(); // x ref x
+                  self.int_const(val); // x ref x 1
+                  self.i_add(); // x ref x+1
+                  self.put_field((*class).name, var_def.name, &var_def.type_.to_java()); // x
+                }
+                _ => unreachable!(),
+              }
+            }
+            Var::VarAssign(var_assign) => {
+              let var_assign = &*var_assign;
+              self.i_load(var_assign.index);
+              self.i_inc(var_assign.index, val as u8);
+            }
+          }
+        }
+        Expr::Indexed(indexed) => {
+          indexed.for_assign = true;
+          self.indexed(indexed); // arr idx
+          self.dup_2(); // arr idx arr idx
+          self.i_a_load(); // arr idx x
+          self.dup_x2(); // x arr idx x
+          self.int_const(val); // x arr idx x 1
+          self.i_add(); // x arr idx x+1
+          self.i_a_store(); // x
+        }
+        _ => unreachable!()
+      }
+    }
+  }
 }
 
 impl Deref for JvmCodeGen {
@@ -249,7 +343,10 @@ impl Visitor for JvmCodeGen {
       Simple::VarAssign(var_assign) => self.var_assign(var_assign),
       Simple::Expr(expr) => {
         self.expr(expr);
-        self.pop();
+        match expr {
+          Expr::Call(call) => if unsafe { (*call.method).ret_t.sem != VOID } { self.pop(); }
+          _ => self.pop(),
+        }
       }
       Simple::Skip(skip) => self.skip(skip),
     }
@@ -484,12 +581,10 @@ impl Visitor for JvmCodeGen {
         self.bool_const(true);
         self.label(out_label);
       }
-      PreInc => {
-        match &unary.r {
-          Expr::Identifier(identifier) => {}
-          Expr::Indexed(identifier) => {}
-        }
-      }
+      PreInc => self.pre_inc_dec(unary.r.as_mut(), 1),
+      PreDec => self.pre_inc_dec(unary.r.as_mut(), -1),
+      PostInc => self.post_inc_dec(unary.r.as_mut(), 1),
+      PostDec => self.post_inc_dec(unary.r.as_mut(), -1),
       _ => unreachable!()
     }
   }

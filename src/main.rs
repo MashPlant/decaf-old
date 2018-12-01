@@ -62,14 +62,14 @@ fn main() {
 
   match compile(input) {
     Ok(program) => {
-      let mut printer = IndentPrinter::new();
-      program.print_scope(&mut printer);
-      printer.flush(&mut io::stdout());
-      printer.clear();
-      program.print_ast(&mut printer);
-      printer.flush(&mut io::stdout());
-//      let mut code_gen = jvm_code_gen::JvmCodeGen::new();
-//      code_gen.gen(program);
+//      let mut printer = IndentPrinter::new();
+//      program.print_scope(&mut printer);
+//      printer.flush(&mut io::stdout());
+//      printer.clear();
+//      program.print_ast(&mut printer);
+//      printer.flush(&mut io::stdout());
+      let mut code_gen = jvm_code_gen::JvmCodeGen::new();
+      code_gen.gen(program);
     }
     Err(errors) => for error in errors { println!("{}", error); },
   }

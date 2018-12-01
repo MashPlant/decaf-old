@@ -284,6 +284,24 @@ impl MethodBuilder {
     self.inc_stack();
   }
 
+  // a, b -> b, a, b
+  pub fn dup_x1(&mut self) {
+    self.push_code(DupX1);
+    self.inc_stack();
+  }
+
+  // a, b, c -> c, a, b, c
+  pub fn dup_x2(&mut self) {
+    self.push_code(DupX2);
+    self.inc_stack();
+  }
+
+  // a, b -> a, b, a, b
+  pub fn dup_2(&mut self) {
+    self.push_code(Dup2);
+    self.inc_stack_n(2);
+  }
+
   pub fn swap(&mut self) {
     self.push_code(Swap);
   }
@@ -494,6 +512,13 @@ impl MethodBuilder {
 
   fn inc_stack(&mut self) {
     self.cur_stack += 1;
+    if self.cur_stack > self.max_stack {
+      self.max_stack = self.cur_stack
+    }
+  }
+
+  fn inc_stack_n(&mut self, n: u16) {
+    self.cur_stack += n;
     if self.cur_stack > self.max_stack {
       self.max_stack = self.cur_stack
     }

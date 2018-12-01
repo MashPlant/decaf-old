@@ -1,0 +1,35 @@
+class Main {
+    int x;
+    static void main() {
+        class Main m = new Main();
+        m.f1();
+        m.f2();
+        m.f3();
+    }
+
+    void f1() {
+        int x;
+        int t1 = x++;
+        int t2 = ++x;
+        int t3 = x--;
+        int t4 = --x;
+        Print(t1, " ", t2, " ", t3, " ", t4, " ", x, "\n");
+    }
+
+    void f2() {
+        int t1 = x++;
+        int t2 = ++x;
+        int t3 = x--;
+        int t4 = --x;
+        Print(t1, " ", t2, " ", t3, " ", t4, " ", x, "\n");
+    }
+
+    void f3() {
+        int []x = new int[1];
+        int t1 = x[0]++;
+        int t2 = ++x[0];
+        int t3 = x[0]--;
+        int t4 = --x[0];
+        Print(t1, " ", t2, " ", t3, " ", t4, " ", x[0], "\n");
+    }
+}
