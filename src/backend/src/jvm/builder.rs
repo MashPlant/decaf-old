@@ -274,6 +274,11 @@ impl MethodBuilder {
     self.dec_stack_n(3);
   }
 
+  pub fn pop(&mut self) {
+    self.push_code(Pop);
+    self.dec_stack();
+  }
+
   pub fn dup(&mut self) {
     self.push_code(Dup);
     self.inc_stack();
@@ -310,6 +315,21 @@ impl MethodBuilder {
 
   pub fn i_neg(&mut self) {
     self.push_code(INeg);
+  }
+
+  pub fn i_and(&mut self) {
+    self.push_code(IAnd);
+    self.dec_stack();
+  }
+
+  pub fn i_or(&mut self) {
+    self.push_code(IOr);
+    self.dec_stack();
+  }
+
+  pub fn i_xor(&mut self) {
+    self.push_code(IXor);
+    self.dec_stack();
   }
 
   pub fn i_inc(&mut self, index: u8, value: u8) {

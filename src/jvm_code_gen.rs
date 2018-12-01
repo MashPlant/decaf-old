@@ -242,6 +242,19 @@ impl Visitor for JvmCodeGen {
     self.method_builder = ptr::null_mut();
   }
 
+  // only add a pop when simple is an expr
+  fn simple(&mut self, simple: &mut Simple) {
+    match simple {
+      Simple::Assign(assign) => self.assign(assign),
+      Simple::VarAssign(var_assign) => self.var_assign(var_assign),
+      Simple::Expr(expr) => {
+        self.expr(expr);
+        self.pop();
+      }
+      Simple::Skip(skip) => self.skip(skip),
+    }
+  }
+
   fn var_def(&mut self, var_def: &mut VarDef) {
     match unsafe { (*var_def.scope).kind } {
       ScopeKind::Local(_) | ScopeKind::Parameter(_) => {
@@ -454,12 +467,13 @@ impl Visitor for JvmCodeGen {
   }
 
   fn unary(&mut self, unary: &mut Unary) {
+    use super::ast::Operator::*;
     match unary.op {
-      Operator::Neg => {
+      Neg => {
         self.expr(&mut unary.r);
         self.i_neg();
       }
-      Operator::Not => {
+      Not => {
         let true_label = self.new_label();
         let out_label = self.new_label();
         self.expr(&mut unary.r);
@@ -469,6 +483,12 @@ impl Visitor for JvmCodeGen {
         self.label(true_label);
         self.bool_const(true);
         self.label(out_label);
+      }
+      PreInc => {
+        match &unary.r {
+          Expr::Identifier(identifier) => {}
+          Expr::Indexed(identifier) => {}
+        }
       }
       _ => unreachable!()
     }
@@ -540,6 +560,9 @@ impl Visitor for JvmCodeGen {
           Mul => self.i_mul(),
           Div => self.i_div(),
           Mod => self.i_rem(),
+          BAnd => self.i_and(),
+          BOr => self.i_or(),
+          BXor => self.i_xor(),
           Le => cmp!(self, if_i_cmp_le),
           Lt => cmp!(self, if_i_cmp_lt),
           Ge => cmp!(self, if_i_cmp_ge),
