@@ -4,6 +4,7 @@ use super::loc::*;
 use super::errors::*;
 use super::config::*;
 use super::symbol::*;
+use super::util::*;
 use std::default::Default as D;
 use std::ptr;
 
@@ -18,9 +19,9 @@ pub struct SymbolBuilder {
   scopes: ScopeStack,
 }
 
-unsafe fn calc_order(class_def: *mut ClassDef) -> i32 {
+fn calc_order(class_def: *mut ClassDef) -> i32 {
   if class_def.is_null() { -1 } else {
-    let class_def = &mut *class_def;
+    let class_def = class_def.get();
     if class_def.order < 0 {
       class_def.order = 0;
       class_def.order = calc_order(class_def.p_ptr) + 1;
@@ -52,9 +53,9 @@ impl SymbolBuilder {
 }
 
 impl SymbolBuilder {
-  unsafe fn check_override(&mut self, class_def: &mut ClassDef) {
+  fn check_override(&mut self, class_def: &mut ClassDef) {
     if class_def.checked || class_def.p_ptr.is_null() { return; }
-    let parent = &mut *class_def.p_ptr;
+    let parent = class_def.p_ptr.get();
     self.check_override(parent);
     let self_scope = &mut class_def.scope;
     self.scopes.open(&mut parent.scope);
@@ -106,12 +107,12 @@ impl SymbolBuilder {
 
   // check whether a declaration is valid
   // if valid, return true, but it is not declared yet
-  unsafe fn check_var_declaration(&mut self, name: &'static str, loc: Loc) -> bool {
+  fn check_var_declaration(&mut self, name: &'static str, loc: Loc) -> bool {
     if let Some((symbol, scope)) = self.scopes.lookup(name, true) {
       if {
         let cur = self.scopes.cur_scope();
-        cur as *const _ == scope || ((*scope).is_parameter() && match cur.kind {
-          ScopeKind::Local(block) => (*block).is_method,
+        cur as *const _ == scope || (scope.get().is_parameter() && match cur.kind {
+          ScopeKind::Local(block) => block.get().is_method,
           _ => false,
         })
       } {
@@ -121,9 +122,9 @@ impl SymbolBuilder {
     } else { true }
   }
 
-  unsafe fn check_main(&mut self, class_def: *const ClassDef) -> bool {
+  fn check_main(&mut self, class_def: *const ClassDef) -> bool {
     if class_def.is_null() { return false; }
-    let class_def = &*class_def;
+    let class_def = class_def.get();
     match class_def.scope.get(MAIN_METHOD) {
       Some(main) if main.is_method() => {
         let main = main.as_method();
@@ -146,49 +147,47 @@ impl SemanticTypeVisitor for SymbolBuilder {
 
 impl Visitor for SymbolBuilder {
   fn program(&mut self, program: &mut Program) {
-    unsafe {
-      self.scopes.open(&mut program.scope);
-      for class_def in &mut program.class {
-        if let Some(earlier) = self.scopes.lookup_class(class_def.name) {
-          issue!(self, class_def.loc, ConflictDeclaration { earlier: earlier.get_loc(), name: class_def.name });
-        } else {
-          self.scopes.declare(Symbol::Class(class_def));
-        }
+    self.scopes.open(&mut program.scope);
+    for class_def in &mut program.class {
+      if let Some(earlier) = self.scopes.lookup_class(class_def.name) {
+        issue!(self, class_def.loc, ConflictDeclaration { earlier: earlier.get_loc(), name: class_def.name });
+      } else {
+        self.scopes.declare(Symbol::Class(class_def));
       }
-
-      for class_def in &mut program.class {
-        if let Some(parent) = class_def.parent {
-          if let Some(parent_ref) = self.scopes.lookup_class(parent) {
-            let parent_ref = parent_ref.as_class();
-            class_def.p_ptr = parent_ref;
-            if calc_order(class_def) <= calc_order(parent_ref) {
-              issue!(self, class_def.loc, CyclicInheritance);
-              class_def.p_ptr = ptr::null_mut();
-            } else if parent_ref.sealed {
-              issue!(self, class_def.loc, SealedInheritance);
-              class_def.p_ptr = ptr::null_mut();
-            }
-          } else {
-            issue!(self, class_def.loc, NoSuchClass { name: parent });
-          }
-        }
-      }
-
-      for class_def in &mut program.class {
-        class_def.scope = Scope { symbols: D::default(), kind: ScopeKind::Class(class_def) };
-      }
-
-      for class_def in &mut program.class {
-        self.class_def(class_def);
-        if class_def.name == MAIN_CLASS {
-          program.main = class_def;
-        }
-      }
-
-      for class_def in &mut program.class { self.check_override(class_def); }
-
-      if !self.check_main(program.main) { issue!(self, NO_LOC, NoMainClass); }
     }
+
+    for class_def in &mut program.class {
+      if let Some(parent) = class_def.parent {
+        if let Some(parent_ref) = self.scopes.lookup_class(parent) {
+          let parent_ref = parent_ref.as_class();
+          class_def.p_ptr = parent_ref;
+          if calc_order(class_def) <= calc_order(parent_ref) {
+            issue!(self, class_def.loc, CyclicInheritance);
+            class_def.p_ptr = ptr::null_mut();
+          } else if parent_ref.sealed {
+            issue!(self, class_def.loc, SealedInheritance);
+            class_def.p_ptr = ptr::null_mut();
+          }
+        } else {
+          issue!(self, class_def.loc, NoSuchClass { name: parent });
+        }
+      }
+    }
+
+    for class_def in &mut program.class {
+      class_def.scope = Scope { symbols: D::default(), kind: ScopeKind::Class(class_def) };
+    }
+
+    for class_def in &mut program.class {
+      self.class_def(class_def);
+      if class_def.name == MAIN_CLASS {
+        program.main = class_def;
+      }
+    }
+
+    for class_def in &mut program.class { self.check_override(class_def); }
+
+    if !self.check_main(program.main) { issue!(self, NO_LOC, NoMainClass); }
   }
 
   fn class_def(&mut self, class_def: &mut ClassDef) {
@@ -225,30 +224,26 @@ impl Visitor for SymbolBuilder {
   }
 
   fn var_def(&mut self, var_def: &mut VarDef) {
-    unsafe {
-      self.type_(&mut var_def.type_);
-      if var_def.type_.sem == VOID {
-        issue!(self, var_def.loc, VoidVar { name: var_def.name });
-        return;
-      }
-      if self.check_var_declaration(var_def.name, var_def.loc) {
-        var_def.scope = self.scopes.cur_scope() as *const _;
-        self.scopes.declare(Symbol::Var(Var::VarDef(var_def)));
-      }
+    self.type_(&mut var_def.type_);
+    if var_def.type_.sem == VOID {
+      issue!(self, var_def.loc, VoidVar { name: var_def.name });
+      return;
+    }
+    if self.check_var_declaration(var_def.name, var_def.loc) {
+      var_def.scope = self.scopes.cur_scope() as *const _;
+      self.scopes.declare(Symbol::Var(Var::VarDef(var_def)));
     }
   }
 
   fn var_assign(&mut self, var_assign: &mut VarAssign) {
-    unsafe {
-      self.type_(&mut var_assign.type_);
-      if var_assign.type_.sem == VOID {
-        issue!(self, var_assign.loc, VoidVar { name: var_assign.name });
-        return;
-      }
-      if self.check_var_declaration(var_assign.name, var_assign.loc) {
-        var_assign.scope = self.scopes.cur_scope() as *const _;
-        self.scopes.declare(Symbol::Var(Var::VarAssign(var_assign)));
-      }
+    self.type_(&mut var_assign.type_);
+    if var_assign.type_.sem == VOID {
+      issue!(self, var_assign.loc, VoidVar { name: var_assign.name });
+      return;
+    }
+    if self.check_var_declaration(var_assign.name, var_assign.loc) {
+      var_assign.scope = self.scopes.cur_scope() as *const _;
+      self.scopes.declare(Symbol::Var(Var::VarAssign(var_assign)));
     }
   }
 

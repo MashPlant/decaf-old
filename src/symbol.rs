@@ -155,7 +155,7 @@ impl fmt::Display for Symbol {
       match self {
         Symbol::Class(class) => {
           let class = &**class;
-          write!(f, "{} -> class {}", class.loc, class.name);
+          write!(f, "{} -> class {}", class.loc, class.name)?;
           if (*class).p_ptr.is_null() { Ok(()) } else {
             write!(f, " : {}", (*class.p_ptr).name)
           }

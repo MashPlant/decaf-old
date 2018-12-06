@@ -2,6 +2,7 @@ use super::ast::*;
 use super::types::*;
 use super::errors::*;
 use super::symbol::*;
+use super::util::*;
 use std::ptr;
 
 macro_rules! issue {
@@ -52,16 +53,16 @@ impl TypeChecker {
     }
   }
 
-  unsafe fn check_call(&mut self, call: &mut Call, symbol: Option<Symbol>) {
+  fn check_call(&mut self, call: &mut Call, symbol: Option<Symbol>) {
     let owner_t = match &call.owner {
       Some(owner) => owner.get_type().clone(),
-      None => (*self.current_class).get_object_type(),
+      None => self.current_class.get().get_object_type(),
     };
     match symbol {
       Some(symbol) => {
         match symbol {
           Symbol::Method(method) => {
-            let method = &*method;
+            let method = method.get();
             call.method = method;
             call.type_ = method.ret_t.sem.clone();
             match &call.owner {
@@ -75,11 +76,11 @@ impl TypeChecker {
                 }
               }
               None => {
-                match ((*self.current_method).static_, method.static_) {
-                  (true, false) => issue!(self, call.loc, RefInStatic { field: method.name, method: (*self.current_method).name }),
+                match (self.current_method.get().static_, method.static_) {
+                  (true, false) => issue!(self, call.loc, RefInStatic { field: method.name, method: self.current_method.get().name }),
                   (false, false) => call.owner = Some(Box::new(Expr::This(This {
                     loc: call.loc,
-                    type_: (*self.current_class).get_object_type(),
+                    type_: self.current_class.get().get_object_type(),
                   }))),
                   _ => {}
                 }
@@ -220,20 +221,18 @@ impl Visitor for TypeChecker {
   }
 
   fn return_(&mut self, return_: &mut Return) {
-    unsafe {
-      let expect = &(*self.current_method).ret_t.sem;
-      match &mut return_.expr {
-        Some(expr) => {
-          self.expr(expr);
-          let expr_t = expr.get_type();
-          if !expr_t.extends(expect) {
-            issue!(self, return_.loc, WrongReturnType { ret_t: expr_t.to_string(), expect_t: expect.to_string() });
-          }
+    let expect = &self.current_method.get().ret_t.sem;
+    match &mut return_.expr {
+      Some(expr) => {
+        self.expr(expr);
+        let expr_t = expr.get_type();
+        if !expr_t.extends(expect) {
+          issue!(self, return_.loc, WrongReturnType { ret_t: expr_t.to_string(), expect_t: expect.to_string() });
         }
-        None => {
-          if expect != &VOID {
-            issue!(self, return_.loc, WrongReturnType { ret_t: "void".to_owned(), expect_t: expect.to_string() });
-          }
+      }
+      None => {
+        if expect != &VOID {
+          issue!(self, return_.loc, WrongReturnType { ret_t: "void".to_owned(), expect_t: expect.to_string() });
         }
       }
     }
@@ -414,7 +413,7 @@ impl Visitor for TypeChecker {
 
   fn call(&mut self, call: &mut Call) {
     let call_ptr = call as *mut Call;
-    match unsafe { &mut (*call_ptr).owner } {
+    match { &mut call_ptr.get().owner } {
       Some(owner) => {
         self.current_id_used_for_ref = true;
         self.expr(owner);
@@ -438,11 +437,11 @@ impl Visitor for TypeChecker {
           issue!(self, call.loc, BadFieldAccess{name: call.name, owner_t: owner_t.to_string() });
         } else {
           let symbol = owner_t.get_class().lookup(call.name);
-          unsafe { self.check_call(call, symbol); }
+          self.check_call(call, symbol);
         }
       }
-      None => unsafe {
-        let symbol = (*self.current_class).lookup(call.name);
+      None => {
+        let symbol = self.current_class.get().lookup(call.name);
         self.check_call(call, symbol);
       }
     }
@@ -459,12 +458,10 @@ impl Visitor for TypeChecker {
   }
 
   fn this(&mut self, this: &mut This) {
-    unsafe {
-      if (*self.current_method).static_ {
-        issue!(self, this.loc, ThisInStatic);
-      } else {
-        this.type_ = (*self.current_class).get_object_type();
-      }
+    if self.current_method.get().static_ {
+      issue!(self, this.loc, ThisInStatic);
+    } else {
+      this.type_ = self.current_class.get().get_object_type();
     }
   }
 
@@ -513,71 +510,68 @@ impl Visitor for TypeChecker {
     // access a field that doesn't belong to self & parent => PrivateFieldAccess
     // given owner but not found object.a => NoSuchField
 
-    // actually a ClassName in the looking-up process is bound to occur an error
-    // wither UndeclaredVar or BadFieldAssess
+    // actually a ClassName in the looking-up process is bound to occur an error(UndeclaredVar/BadFieldAssess)
 
-    unsafe {
-      let owner_ptr = &mut id.owner as *mut _; // workaround with borrow check
-      match &mut id.owner {
-        Some(owner) => {
-          self.current_id_used_for_ref = true;
-          self.expr(owner);
-          let owner_t = owner.get_type();
-          match owner_t {
-            SemanticType::Object(class) => {
-              let class = &**class;
-              // lookup through inheritance chain
-              match class.lookup(id.name) {
-                Some(symbol) => {
-                  match symbol {
-                    Symbol::Var(var) => {
-                      id.type_ = var.get_type().clone();
-                      id.symbol = var;
-                      if !(*self.current_class).extends(class) {
-                        issue!(self, id.loc, PrivateFieldAccess { name: id.name, owner_t: owner_t.to_string() });
-                      }
-                    }
-                    _ => id.type_ = symbol.get_type(),
-                  }
-                }
-                None => issue!(self, id.loc, NoSuchField { name: id.name, owner_t: owner_t.to_string() }),
-              }
-            }
-            SemanticType::Error => {}
-            _ => issue!(self, id.loc, BadFieldAccess{name: id.name, owner_t: owner_t.to_string() }),
-          }
-        }
-        None => {
-          match self.scopes.lookup_before(id.name, id.loc) {
-            Some(symbol) => {
-              match symbol {
-                Symbol::Class(class) => {
-                  if !self.current_id_used_for_ref {
-                    issue!(self, id.loc, UndeclaredVar { name: id.name });
-                  } else { id.type_ = SemanticType::Class(class); }
-                }
-                Symbol::Method(method) => id.type_ = SemanticType::Method(method),
-                Symbol::Var(var) => {
-                  id.type_ = var.get_type().clone();
-                  id.symbol = var;
-                  if var.get_scope().is_class() {
-                    if (*self.current_method).static_ {
-                      issue!(self, id.loc, RefInStatic { field: id.name, method: (*self.current_method).name });
-                    } else {
-                      // add a virtual `this`, it doesn't need visit
-                      *owner_ptr = Some(Box::new(Expr::This(This {
-                        loc: id.loc,
-                        type_: SemanticType::Object(self.current_class),
-                      })));
+    let owner_ptr = &mut id.owner as *mut Option<Box<Expr>>; // workaround with borrow check
+    match &mut id.owner {
+      Some(owner) => {
+        self.current_id_used_for_ref = true;
+        self.expr(owner);
+        let owner_t = owner.get_type();
+        match owner_t {
+          SemanticType::Object(class) => {
+            let class = class.get();
+            // lookup through inheritance chain
+            match class.lookup(id.name) {
+              Some(symbol) => {
+                match symbol {
+                  Symbol::Var(var) => {
+                    id.type_ = var.get_type().clone();
+                    id.symbol = var;
+                    if !self.current_class.get().extends(class) {
+                      issue!(self, id.loc, PrivateFieldAccess { name: id.name, owner_t: owner_t.to_string() });
                     }
                   }
+                  _ => id.type_ = symbol.get_type(),
+                }
+              }
+              None => issue!(self, id.loc, NoSuchField { name: id.name, owner_t: owner_t.to_string() }),
+            }
+          }
+          SemanticType::Error => {}
+          _ => issue!(self, id.loc, BadFieldAccess{name: id.name, owner_t: owner_t.to_string() }),
+        }
+      }
+      None => {
+        match self.scopes.lookup_before(id.name, id.loc) {
+          Some(symbol) => {
+            match symbol {
+              Symbol::Class(class) => {
+                if !self.current_id_used_for_ref {
+                  issue!(self, id.loc, UndeclaredVar { name: id.name });
+                } else { id.type_ = SemanticType::Class(class); }
+              }
+              Symbol::Method(method) => id.type_ = SemanticType::Method(method),
+              Symbol::Var(var) => {
+                id.type_ = var.get_type().clone();
+                id.symbol = var;
+                if var.get_scope().is_class() {
+                  if self.current_method.get().static_ {
+                    issue!(self, id.loc, RefInStatic { field: id.name, method: self.current_method.get().name });
+                  } else {
+                    // add a virtual `this`, it doesn't need visit
+                    *owner_ptr.get() = Some(Box::new(Expr::This(This {
+                      loc: id.loc,
+                      type_: SemanticType::Object(self.current_class),
+                    })));
+                  }
                 }
               }
             }
-            None => issue!(self, id.loc, UndeclaredVar { name: id.name }),
           }
-          self.current_id_used_for_ref = false;
+          None => issue!(self, id.loc, UndeclaredVar { name: id.name }),
         }
+        self.current_id_used_for_ref = false;
       }
     }
   }

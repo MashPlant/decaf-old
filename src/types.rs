@@ -71,7 +71,7 @@ impl fmt::Display for SemanticType {
       SemanticType::Method(method) => {
         let method = unsafe { &**method };
         for parameter in &method.param {
-          write!(f, "{}->", parameter.type_.sem);
+          write!(f, "{}->", parameter.type_.sem)?;
         }
         write!(f, "{}", method.ret_t.sem)
       }
