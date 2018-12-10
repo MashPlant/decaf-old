@@ -1,6 +1,8 @@
 use super::loc::*;
 use super::symbol::*;
 use super::types::*;
+use super::util::*;
+
 use std::default::Default as D;
 use std::ptr;
 use std::ops::Deref;
@@ -57,16 +59,14 @@ impl D for ClassDef {
 
 impl ClassDef {
   pub fn lookup(&self, name: &'static str) -> Option<Symbol> {
-    unsafe {
-      let mut class = self as *const ClassDef;
-      while !class.is_null() {
-        if let Some(symbol) = (*class).scope.get(name) {
-          return Some(*symbol);
-        }
-        class = (*class).p_ptr;
+    let mut class = self as *const ClassDef;
+    while !class.is_null() {
+      if let Some(symbol) = class.get().scope.get(name) {
+        return Some(*symbol);
       }
-      None
+      class = class.get().p_ptr;
     }
+    None
   }
 
   pub fn extends(&self, other: *const ClassDef) -> bool {
@@ -75,13 +75,9 @@ impl ClassDef {
       if class == other {
         return true;
       }
-      class = unsafe { (*class).p_ptr };
+      class = class.get().p_ptr;
     }
     false
-  }
-
-  pub fn get_class_type(&self) -> SemanticType {
-    SemanticType::Class(self)
   }
 
   pub fn get_object_type(&self) -> SemanticType {
@@ -593,129 +589,4 @@ pub struct Comprehension {
   pub arr: Box<Expr>,
   pub cond: Option<Box<Expr>>,
   pub type_: SemanticType,
-}
-
-pub trait Visitor {
-  fn program(&mut self, _program: &mut Program) {}
-
-  fn class_def(&mut self, _class_def: &mut ClassDef) {}
-
-  fn method_def(&mut self, _method_def: &mut MethodDef) {}
-
-  fn field_def(&mut self, field_def: &mut FieldDef) {
-    match field_def {
-      FieldDef::MethodDef(method_def) => self.method_def(method_def),
-      FieldDef::VarDef(var_def) => self.var_def(var_def),
-    };
-  }
-
-  fn stmt(&mut self, stmt: &mut Stmt) {
-    use self::Stmt::*;
-    match stmt {
-      Simple(simple) => self.simple(simple),
-      If(if_) => self.if_(if_),
-      While(while_) => self.while_(while_),
-      For(for_) => self.for_(for_),
-      Return(return_) => self.return_(return_),
-      Print(print) => self.print(print),
-      Break(break_) => self.break_(break_),
-      SCopy(s_copy) => self.s_copy(s_copy),
-      Foreach(foreach) => self.foreach(foreach),
-      Guarded(guarded) => self.guarded(guarded),
-      Block(block) => self.block(block),
-    };
-  }
-
-  fn simple(&mut self, simple: &mut Simple) {
-    match simple {
-      Simple::Assign(assign) => self.assign(assign),
-      Simple::VarAssign(var_assign) => self.var_assign(var_assign),
-      Simple::Expr(expr) => self.expr(expr),
-      Simple::Skip(skip) => self.skip(skip),
-    }
-  }
-
-  fn var_def(&mut self, _var_def: &mut VarDef) {}
-
-  fn var_assign(&mut self, _var_assign: &mut VarAssign) {}
-
-  fn skip(&mut self, _skip: &mut Skip) {}
-
-  fn block(&mut self, _block: &mut Block) {}
-
-  fn while_(&mut self, _while: &mut While) {}
-
-  fn for_(&mut self, _for: &mut For) {}
-
-  fn if_(&mut self, _if: &mut If) {}
-
-  fn break_(&mut self, _break: &mut Break) {}
-
-  fn return_(&mut self, _return: &mut Return) {}
-
-  fn s_copy(&mut self, _s_copy: &mut SCopy) {}
-
-  fn foreach(&mut self, _foreach: &mut Foreach) {}
-
-  fn guarded(&mut self, _guarded: &mut Guarded) {}
-
-  fn new_class(&mut self, _new_class: &mut NewClass) {}
-
-  fn new_array(&mut self, _new_array: &mut NewArray) {}
-
-  fn assign(&mut self, _assign: &mut Assign) {}
-
-  fn expr(&mut self, expr: &mut Expr) {
-    use self::Expr::*;
-    match expr {
-      Identifier(identifier) => self.identifier(identifier),
-      Indexed(indexed) => self.indexed(indexed),
-      Const(const_) => self.const_(const_),
-      Call(call) => self.call(call),
-      Unary(unary) => self.unary(unary),
-      Binary(binary) => self.binary(binary),
-      This(this) => self.this(this),
-      ReadInt(read_int) => self.read_int(read_int),
-      ReadLine(read_line) => self.read_line(read_line),
-      NewClass(new_class) => self.new_class(new_class),
-      NewArray(new_array) => self.new_array(new_array),
-      TypeTest(type_test) => self.type_test(type_test),
-      TypeCast(type_cast) => self.type_cast(type_cast),
-      Range(range) => self.range(range),
-      Default(default) => self.default(default),
-      Comprehension(comprehension) => self.comprehension(comprehension),
-    };
-  }
-
-  fn const_(&mut self, _const_: &mut Const) {}
-
-  fn unary(&mut self, _unary: &mut Unary) {}
-
-  fn binary(&mut self, _binary: &mut Binary) {}
-
-  fn call(&mut self, _call: &mut Call) {}
-
-  fn read_int(&mut self, _read_int: &mut ReadInt) {}
-
-  fn read_line(&mut self, _read_line: &mut ReadLine) {}
-
-  fn print(&mut self, _print: &mut Print) {}
-
-  fn this(&mut self, _this: &mut This) {}
-
-  fn type_cast(&mut self, _type_cast: &mut TypeCast) {}
-
-  fn type_test(&mut self, _type_test: &mut TypeTest) {}
-
-  fn indexed(&mut self, _indexed: &mut Indexed) {}
-
-  fn identifier(&mut self, _identifier: &mut Identifier) {}
-
-  fn range(&mut self, _range: &mut Range) {}
-
-  fn default(&mut self, _default: &mut Default) {}
-
-  fn comprehension(&mut self, _comprehension: &mut Comprehension) {}
-
-  fn type_(&mut self, _type: &mut Type) {}
 }

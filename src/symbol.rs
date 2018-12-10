@@ -1,6 +1,8 @@
 use super::ast::*;
 use super::types::SemanticType;
 use super::loc::*;
+use super::util::*;
+
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::fmt;
@@ -40,11 +42,9 @@ impl DerefMut for Scope {
 
 impl Scope {
   pub fn get_class(&self) -> &ClassDef {
-    unsafe {
-      match self.kind {
-        ScopeKind::Class(class) => &*class,
-        _ => panic!("call get_class on non-class scope"),
-      }
+    match self.kind {
+      ScopeKind::Class(class) => class.get(),
+      _ => panic!("call get_class on non-class scope"),
     }
   }
 
@@ -96,47 +96,37 @@ impl D for Var {
 
 impl Var {
   pub fn get_loc(&self) -> Loc {
-    unsafe {
-      match self {
-        Var::VarDef(var_def) => (**var_def).loc,
-        Var::VarAssign(var_assign) => (**var_assign).finish_loc,
-      }
+    match self {
+      Var::VarDef(var_def) => var_def.get().loc,
+      Var::VarAssign(var_assign) => var_assign.get().finish_loc,
     }
   }
 
   pub fn get_type(&self) -> &SemanticType {
-    unsafe {
-      match self {
-        Var::VarDef(var_def) => &(**var_def).type_.sem,
-        Var::VarAssign(var_assign) => &(**var_assign).type_,
-      }
+    match self {
+      Var::VarDef(var_def) => &var_def.get().type_.sem,
+      Var::VarAssign(var_assign) => &var_assign.get().type_,
     }
   }
 
   pub fn get_name(&self) -> &'static str {
-    unsafe {
-      match self {
-        Var::VarDef(var_def) => (**var_def).name,
-        Var::VarAssign(var_assign) => (**var_assign).name,
-      }
+    match self {
+      Var::VarDef(var_def) => var_def.get().name,
+      Var::VarAssign(var_assign) => var_assign.get().name,
     }
   }
 
   pub fn is_param(&self) -> bool {
-    unsafe {
-      match self {
-        Var::VarDef(var_def) => (*(**var_def).scope).is_parameter(),
-        Var::VarAssign(_) => false,
-      }
+    match self {
+      Var::VarDef(var_def) => var_def.get().scope.get().is_parameter(),
+      Var::VarAssign(_) => false,
     }
   }
 
   pub fn get_scope(&self) -> &Scope {
-    unsafe {
-      match self {
-        Var::VarDef(var_def) => &*(**var_def).scope,
-        Var::VarAssign(var_assign) => &*(**var_assign).scope,
-      }
+    match self {
+      Var::VarDef(var_def) => var_def.get().scope.get(),
+      Var::VarAssign(var_assign) => var_assign.get().scope.get(),
     }
   }
 }
@@ -151,24 +141,22 @@ pub enum Symbol {
 
 impl fmt::Display for Symbol {
   fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-    unsafe {
-      match self {
-        Symbol::Class(class) => {
-          let class = &**class;
-          write!(f, "{} -> class {}", class.loc, class.name)?;
-          if (*class).p_ptr.is_null() { Ok(()) } else {
-            write!(f, " : {}", (*class.p_ptr).name)
-          }
+    match self {
+      Symbol::Class(class) => {
+        let class = class.get();
+        write!(f, "{} -> class {}", class.loc, class.name)?;
+        if (*class).p_ptr.is_null() { Ok(()) } else {
+          write!(f, " : {}", class.p_ptr.get().name)
         }
-        Symbol::Method(method) => {
-          let method = &**method;
-          write!(f, "{} -> {}function {} : {}", method.loc, if method.static_ { "static " } else { "" },
-                 method.name, SemanticType::Method(method))
-        }
-        Symbol::Var(var) => {
-          write!(f, "{} -> variable {}{} : {}", var.get_loc(), if var.is_param() { "@" } else { "" },
-                 var.get_name(), var.get_type())
-        }
+      }
+      Symbol::Method(method) => {
+        let method = method.get();
+        write!(f, "{} -> {}function {} : {}", method.loc, if method.static_ { "static " } else { "" },
+               method.name, SemanticType::Method(method))
+      }
+      Symbol::Var(var) => {
+        write!(f, "{} -> variable {}{} : {}", var.get_loc(), if var.is_param() { "@" } else { "" },
+               var.get_name(), var.get_type())
       }
     }
   }
@@ -189,35 +177,31 @@ impl Symbol {
 
   pub fn as_class(&self) -> &mut ClassDef {
     match self {
-      Symbol::Class(class) => unsafe { &mut **class },
+      Symbol::Class(class) => class.get(),
       _ => panic!("call as_class on non-class symbol"),
     }
   }
 
   pub fn as_method(&self) -> &mut MethodDef {
     match self {
-      Symbol::Method(method) => unsafe { &mut **method },
+      Symbol::Method(method) => method.get(),
       _ => panic!("call as_method on non-method symbol"),
     }
   }
 
   pub fn get_name(&self) -> &'static str {
-    unsafe {
-      match self {
-        Symbol::Class(class) => (**class).name,
-        Symbol::Method(method) => (**method).name,
-        Symbol::Var(var) => var.get_name(),
-      }
+    match self {
+      Symbol::Class(class) => class.get().name,
+      Symbol::Method(method) => method.get().name,
+      Symbol::Var(var) => var.get_name(),
     }
   }
 
   pub fn get_loc(&self) -> Loc {
-    unsafe {
-      match self {
-        Symbol::Class(class) => (**class).loc,
-        Symbol::Method(method) => (**method).loc,
-        Symbol::Var(var) => var.get_loc(),
-      }
+    match self {
+      Symbol::Class(class) => class.get().loc,
+      Symbol::Method(method) => method.get().loc,
+      Symbol::Var(var) => var.get_loc(),
     }
   }
 
@@ -239,73 +223,61 @@ pub struct ScopeStack {
 
 impl ScopeStack {
   pub fn lookup(&self, name: &'static str, recursive: bool) -> Option<(Symbol, *const Scope)> {
-    unsafe {
-      if recursive {
-        for scope in self.scopes.iter().rev() {
-          if let Some(symbol) = (**scope).get(name) {
-            return Some((*symbol, *scope as *const _));
-          }
+    if recursive {
+      for scope in self.scopes.iter().rev() {
+        if let Some(symbol) = scope.get().get(name) {
+          return Some((*symbol, *scope as *const _));
         }
-        None
-      } else {
-        (**self.scopes.last().unwrap()).get(name)
-          .map(|symbol| (*symbol, *self.scopes.last().unwrap() as *const _))
       }
+      None
+    } else {
+      self.scopes.last().unwrap().get().get(name)
+        .map(|symbol| (*symbol, *self.scopes.last().unwrap() as *const _))
     }
   }
 
   pub fn lookup_before(&self, name: &'static str, loc: Loc) -> Option<Symbol> {
-    unsafe {
-      for scope in self.scopes.iter().rev() {
-        if let Some(symbol) = (**scope).get(name) {
-          if (**scope).is_local() && symbol.get_loc() > loc {
-            continue;
-          }
-          return Some(*symbol);
+    for scope in self.scopes.iter().rev() {
+      if let Some(symbol) = scope.get().get(name) {
+        if scope.get().is_local() && symbol.get_loc() > loc {
+          continue;
         }
+        return Some(*symbol);
       }
-      None
     }
+    None
   }
 
   pub fn declare(&mut self, symbol: Symbol) {
-    unsafe {
-      (**self.scopes.last().unwrap()).insert(symbol.get_name(), symbol);
-    }
+    self.scopes.last().unwrap().get().insert(symbol.get_name(), symbol);
   }
 
   pub fn open(&mut self, scope: &mut Scope) {
-    unsafe {
-      match scope.kind {
-        ScopeKind::Global => self.global_scope = scope,
-        ScopeKind::Class(class) => {
-          if !(*class).p_ptr.is_null() {
-            self.open(&mut (*(*class).p_ptr).scope);
-          }
+    match scope.kind {
+      ScopeKind::Global => self.global_scope = scope,
+      ScopeKind::Class(class) => {
+        if !class.get().p_ptr.is_null() {
+          self.open(&mut class.get().p_ptr.get().scope);
         }
-        _ => {}
       }
-      self.scopes.push(scope);
+      _ => {}
     }
+    self.scopes.push(scope);
   }
 
   pub fn close(&mut self) {
-    unsafe {
-      let scope = self.scopes.pop().unwrap();
-      if let ScopeKind::Class(_) = (*scope).kind {
-        // all scopes in the stack except the bottom are parent of the class
-        for _ in 0..self.scopes.len() - 1 { self.scopes.pop(); }
-      }
+    let scope = self.scopes.pop().unwrap();
+    if let ScopeKind::Class(_) = scope.get().kind {
+      // all scopes in the stack except the bottom are parent of the class
+      for _ in 0..self.scopes.len() - 1 { self.scopes.pop(); }
     }
   }
 
   pub fn cur_scope(&self) -> &mut Scope {
-    unsafe { &mut **self.scopes.last().unwrap() }
+    self.scopes.last().unwrap().get()
   }
 
   pub fn lookup_class(&self, name: &'static str) -> Option<Symbol> {
-    unsafe {
-      (*self.global_scope).get(name).map(|class| *class)
-    }
+    self.global_scope.get().get(name).map(|class| *class)
   }
 }

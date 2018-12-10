@@ -3,6 +3,7 @@ use super::print::*;
 use super::errors::*;
 use super::loc::*;
 use super::symbol::Symbol;
+use super::util::*;
 
 use std::default::Default as D;
 use std::fmt;
@@ -65,11 +66,11 @@ impl fmt::Display for SemanticType {
       SemanticType::Null => write!(f, "null"),
       SemanticType::Basic(name) => write!(f, "{}", name),
       SemanticType::Named(name) => write!(f, "class : {}", name),
-      SemanticType::Object(class) => write!(f, "class : {}", unsafe { &**class }.name),
-      SemanticType::Class(class) => write!(f, "class : {}", unsafe { &**class }.name),
+      SemanticType::Object(class) => write!(f, "class : {}", class.get().name),
+      SemanticType::Class(class) => write!(f, "class : {}", class.get().name),
       SemanticType::Array(elem) => write!(f, "{}[]", elem),
       SemanticType::Method(method) => {
-        let method = unsafe { &**method };
+        let method = method.get();
         for parameter in &method.param {
           write!(f, "{}->", parameter.type_.sem)?;
         }
@@ -86,7 +87,7 @@ impl SemanticType {
       (SemanticType::Error, _) => true,
       (_, SemanticType::Error) => true,
       (SemanticType::Basic(name1), SemanticType::Basic(name2)) => name1 == name2,
-      (SemanticType::Object(class1), SemanticType::Object(class2)) => unsafe { (&**class1).extends(*class2) },
+      (SemanticType::Object(class1), SemanticType::Object(class2)) => class1.get().extends(*class2),
       (SemanticType::Array(elem1), SemanticType::Array(elem2)) => elem1 == elem2,
       (SemanticType::Null, SemanticType::Object(_)) => true,
       _ => false,
@@ -110,12 +111,10 @@ impl SemanticType {
   }
 
   pub fn get_class(&self) -> &ClassDef {
-    unsafe {
-      match self {
-        SemanticType::Object(class) => &**class,
-        SemanticType::Class(class) => &**class,
-        _ => panic!("call get_class on non-class & non-object type"),
-      }
+    match self {
+      SemanticType::Object(class) => class.get(),
+      SemanticType::Class(class) => class.get(),
+      _ => panic!("call get_class on non-class & non-object type"),
     }
   }
 
@@ -170,28 +169,26 @@ pub trait SemanticTypeVisitor {
   fn lookup_class(&self, name: &'static str) -> Option<Symbol>;
 
   fn semantic_type(&mut self, type_: &mut SemanticType, loc: Loc) {
-    unsafe {
-      let type_ptr = type_ as *mut SemanticType;
-      if match type_ { // work around with borrow check
-        SemanticType::Named(name) =>
-          if let Some(class_symbol) = self.lookup_class(name) {
-            *type_ptr = SemanticType::Object(class_symbol.as_class());
-            false
-          } else {
-            self.push_error(Error::new(loc, NoSuchClass { name }));
-            true
-          }
-        SemanticType::Array(elem) => {
-          self.semantic_type(elem, loc);
-          if elem.as_ref() == &ERROR {
-            true
-          } else if elem.as_ref() == &VOID {
-            self.push_error(Error::new(loc, VoidArrayElement));
-            true
-          } else { false }
+    let type_ptr = type_ as *mut SemanticType;
+    if match type_ { // work around with borrow check
+      SemanticType::Named(name) =>
+        if let Some(class_symbol) = self.lookup_class(name) {
+          *type_ptr.get() = SemanticType::Object(class_symbol.as_class());
+          false
+        } else {
+          self.push_error(Error::new(loc, NoSuchClass { name }));
+          true
         }
-        _ => false,
-      } { *type_ = ERROR; }
-    }
+      SemanticType::Array(elem) => {
+        self.semantic_type(elem, loc);
+        if elem.as_ref() == &ERROR {
+          true
+        } else if elem.as_ref() == &VOID {
+          self.push_error(Error::new(loc, VoidArrayElement));
+          true
+        } else { false }
+      }
+      _ => false,
+    } { *type_ = ERROR; }
   }
 }

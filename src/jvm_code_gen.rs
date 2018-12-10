@@ -7,6 +7,7 @@ use backend::jvm::writer::*;
 use super::ast::*;
 use super::types::*;
 use super::symbol::*;
+use super::util::*;
 
 use std::ptr;
 use std::ops::{DerefMut, Deref};
@@ -41,12 +42,12 @@ macro_rules! cmp {
   ($self_: expr, $cond: ident) => { {
     let before_else = $self_.new_label();
     let after_else = $self_.new_label();
-    $self_.mb().$cond(before_else);
-    $self_.mb().bool_const(false);
-    $self_.mb().goto(after_else);
-    $self_.mb().label(before_else);
-    $self_.mb().bool_const(true);
-    $self_.mb().label(after_else);
+    $self_.$cond(before_else);
+    $self_.bool_const(false);
+    $self_.goto(after_else);
+    $self_.label(before_else);
+    $self_.bool_const(true);
+    $self_.label(after_else);
   } };
 }
 
@@ -75,7 +76,7 @@ impl ToJavaType for SemanticType {
         "string" => JavaType::Class("java/lang/String"),
         _ => unreachable!(),
       },
-      SemanticType::Object(class) => JavaType::Class(unsafe { (**class).name }),
+      SemanticType::Object(class) => JavaType::Class(class.get().name),
       SemanticType::Array(elem) => JavaType::Array(Box::new(elem.to_java())),
       _ => unreachable!(),
     }
@@ -95,15 +96,10 @@ impl JvmCodeGen {
   }
 
   pub fn gen(mut self, mut program: Program) {
-    self.program(&mut program);
-  }
-
-  fn cb(&self) -> &mut ClassBuilder {
-    unsafe { &mut *self.class_builder }
-  }
-
-  fn mb(&self) -> &mut MethodBuilder {
-    unsafe { &mut *self.method_builder }
+    self.main = program.main;
+    for class_def in &mut program.class {
+      self.class_def(class_def);
+    }
   }
 
   fn store_to_stack(&mut self, t: &SemanticType, index: u8) {
@@ -128,115 +124,109 @@ impl JvmCodeGen {
 
   // assume there is already a length on the top
   fn gen_new_array(&mut self, elem_t: &SemanticType) {
-    unsafe {
-      match elem_t {
-        SemanticType::Basic(name) => match *name {
-          "int" => self.new_int_array(),
-          "bool" => self.new_bool_array(),
-          "string" => self.a_new_array("java/lang/String"),
-          _ => unreachable!(),
-        }
-        // I don't quite understand the design
-        // class A[] => A
-        // class A[][] => [[LA;
-        SemanticType::Object(class) => self.a_new_array((**class).name),
-        SemanticType::Array(_) => self.a_new_array(&elem_t.to_java().to_string()),
+    match elem_t {
+      SemanticType::Basic(name) => match *name {
+        "int" => self.new_int_array(),
+        "bool" => self.new_bool_array(),
+        "string" => self.a_new_array("java/lang/String"),
         _ => unreachable!(),
       }
+      // I don't quite understand the design
+      // class A[] => A
+      // class A[][] => [[LA;
+      SemanticType::Object(class) => self.a_new_array(class.get().name),
+      SemanticType::Array(_) => self.a_new_array(&elem_t.to_java().to_string()),
+      _ => unreachable!(),
     }
   }
 
   // val = 1/-1, expr is inc/dec-ed
   fn pre_inc_dec(&mut self, expr: &mut Expr, val: i32) {
-    unsafe {
-      match expr {
-        Expr::Identifier(identifier) => {
-          match identifier.symbol {
-            Var::VarDef(var_def) => {
-              let var_def = &*var_def;
-              match (*var_def.scope).kind {
-                ScopeKind::Local(_) | ScopeKind::Parameter(_) => {
-                  self.i_inc(var_def.index, val as u8);
-                  self.i_load(var_def.index);
-                }
-                ScopeKind::Class(class) => {
-                  self.expr(if let Some(owner) = &mut identifier.owner { owner } else { unreachable!() }); // ref
-                  self.dup(); // ref ref
-                  self.get_field((*class).name, var_def.name, &var_def.type_.to_java()); // ref x
-                  self.int_const(val); // ref x 1
-                  self.i_add(); // ref x+1
-                  self.dup_x1(); // x+1 ref x+1
-                  self.put_field((*class).name, var_def.name, &var_def.type_.to_java()); // x+1
-                }
-                _ => unreachable!(),
+    match expr {
+      Expr::Identifier(identifier) => {
+        match identifier.symbol {
+          Var::VarDef(var_def) => {
+            let var_def = var_def.get();
+            match var_def.scope.get().kind {
+              ScopeKind::Local(_) | ScopeKind::Parameter(_) => {
+                self.i_inc(var_def.index, val as u8);
+                self.i_load(var_def.index);
               }
-            }
-            Var::VarAssign(var_assign) => {
-              let var_assign = &*var_assign;
-              self.i_inc(var_assign.index, val as u8);
-              self.i_load(var_assign.index);
+              ScopeKind::Class(class) => {
+                self.expr(if let Some(owner) = &mut identifier.owner { owner } else { unreachable!() }); // ref
+                self.dup(); // ref ref
+                self.get_field(class.get().name, var_def.name, &var_def.type_.to_java()); // ref x
+                self.int_const(val); // ref x 1
+                self.i_add(); // ref x+1
+                self.dup_x1(); // x+1 ref x+1
+                self.put_field(class.get().name, var_def.name, &var_def.type_.to_java()); // x+1
+              }
+              _ => unreachable!(),
             }
           }
+          Var::VarAssign(var_assign) => {
+            let var_assign = var_assign.get();
+            self.i_inc(var_assign.index, val as u8);
+            self.i_load(var_assign.index);
+          }
         }
-        Expr::Indexed(indexed) => {
-          indexed.for_assign = true;
-          self.indexed(indexed); // arr idx
-          self.dup_2(); // arr idx arr idx
-          self.i_a_load(); // arr idx x
-          self.int_const(val); // arr idx x 1
-          self.i_add(); // arr idx x+1
-          self.dup_x2(); // x+1 arr idx x+1
-          self.i_a_store(); // x+1
-        }
-        _ => unreachable!()
       }
+      Expr::Indexed(indexed) => {
+        indexed.for_assign = true;
+        self.indexed(indexed); // arr idx
+        self.dup_2(); // arr idx arr idx
+        self.i_a_load(); // arr idx x
+        self.int_const(val); // arr idx x 1
+        self.i_add(); // arr idx x+1
+        self.dup_x2(); // x+1 arr idx x+1
+        self.i_a_store(); // x+1
+      }
+      _ => unreachable!()
     }
   }
 
   // same as above
   fn post_inc_dec(&mut self, expr: &mut Expr, val: i32) {
-    unsafe {
-      match expr {
-        Expr::Identifier(identifier) => {
-          match identifier.symbol {
-            Var::VarDef(var_def) => {
-              let var_def = &*var_def;
-              match (*var_def.scope).kind {
-                ScopeKind::Local(_) | ScopeKind::Parameter(_) => {
-                  self.i_load(var_def.index);
-                  self.i_inc(var_def.index, val as u8);
-                }
-                ScopeKind::Class(class) => {
-                  self.expr(if let Some(owner) = &mut identifier.owner { owner } else { unreachable!() }); // ref
-                  self.dup(); // ref ref
-                  self.get_field((*class).name, var_def.name, &var_def.type_.to_java()); // ref x
-                  self.dup_x1(); // x ref x
-                  self.int_const(val); // x ref x 1
-                  self.i_add(); // x ref x+1
-                  self.put_field((*class).name, var_def.name, &var_def.type_.to_java()); // x
-                }
-                _ => unreachable!(),
+    match expr {
+      Expr::Identifier(identifier) => {
+        match identifier.symbol {
+          Var::VarDef(var_def) => {
+            let var_def = var_def.get();
+            match var_def.scope.get().kind {
+              ScopeKind::Local(_) | ScopeKind::Parameter(_) => {
+                self.i_load(var_def.index);
+                self.i_inc(var_def.index, val as u8);
               }
-            }
-            Var::VarAssign(var_assign) => {
-              let var_assign = &*var_assign;
-              self.i_load(var_assign.index);
-              self.i_inc(var_assign.index, val as u8);
+              ScopeKind::Class(class) => {
+                self.expr(if let Some(owner) = &mut identifier.owner { owner } else { unreachable!() }); // ref
+                self.dup(); // ref ref
+                self.get_field(class.get().name, var_def.name, &var_def.type_.to_java()); // ref x
+                self.dup_x1(); // x ref x
+                self.int_const(val); // x ref x 1
+                self.i_add(); // x ref x+1
+                self.put_field(class.get().name, var_def.name, &var_def.type_.to_java()); // x
+              }
+              _ => unreachable!(),
             }
           }
+          Var::VarAssign(var_assign) => {
+            let var_assign = var_assign.get();
+            self.i_load(var_assign.index);
+            self.i_inc(var_assign.index, val as u8);
+          }
         }
-        Expr::Indexed(indexed) => {
-          indexed.for_assign = true;
-          self.indexed(indexed); // arr idx
-          self.dup_2(); // arr idx arr idx
-          self.i_a_load(); // arr idx x
-          self.dup_x2(); // x arr idx x
-          self.int_const(val); // x arr idx x 1
-          self.i_add(); // x arr idx x+1
-          self.i_a_store(); // x
-        }
-        _ => unreachable!()
       }
+      Expr::Indexed(indexed) => {
+        indexed.for_assign = true;
+        self.indexed(indexed); // arr idx
+        self.dup_2(); // arr idx arr idx
+        self.i_a_load(); // arr idx x
+        self.dup_x2(); // x arr idx x
+        self.int_const(val); // x arr idx x 1
+        self.i_add(); // x arr idx x+1
+        self.i_a_store(); // x
+      }
+      _ => unreachable!()
     }
   }
 }
@@ -244,24 +234,17 @@ impl JvmCodeGen {
 impl Deref for JvmCodeGen {
   type Target = MethodBuilder;
   fn deref(&self) -> &MethodBuilder {
-    self.mb()
+    self.method_builder.get()
   }
 }
 
 impl DerefMut for JvmCodeGen {
   fn deref_mut(&mut self) -> &mut MethodBuilder {
-    self.mb()
+    self.method_builder.get()
   }
 }
 
-impl Visitor for JvmCodeGen {
-  fn program(&mut self, program: &mut Program) {
-    self.main = program.main;
-    for class_def in &mut program.class {
-      self.class_def(class_def);
-    }
-  }
-
+impl JvmCodeGen {
   fn class_def(&mut self, class_def: &mut ClassDef) {
     let parent = if let Some(parent) = class_def.parent { parent } else { "java/lang/Object" };
     let mut class_builder =
@@ -279,7 +262,10 @@ impl Visitor for JvmCodeGen {
     }
 
     for field_def in &mut class_def.field {
-      self.field_def(field_def);
+      match field_def {
+        FieldDef::MethodDef(method_def) => self.method_def(method_def),
+        FieldDef::VarDef(var_def) => self.var_def(var_def),
+      };
     }
     class_builder.done().write_to_file(&(class_def.name.to_owned() + ".class"));
     self.class_builder = ptr::null_mut();
@@ -299,7 +285,7 @@ impl Visitor for JvmCodeGen {
     let return_type = method_def.ret_t.to_java();
     // in type check, a virtual this is added to the param list
     // but jvm doesn't need it, so take the slice from 1 to end
-    let mut method_builder = MethodBuilder::new(self.cb(),
+    let mut method_builder = MethodBuilder::new(self.class_builder.get(),
                                                 ACC_PUBLIC | if method_def.static_ { ACC_STATIC } else { 0 },
                                                 method_def.name,
                                                 &argument_types[if method_def.static_ { 0 } else { 1 }..],
@@ -308,9 +294,7 @@ impl Visitor for JvmCodeGen {
     self.label = 0;
     self.stack_index = 0;
     // this is counted here
-    for var_def in &mut method_def.param {
-      self.var_def(var_def);
-    }
+    for var_def in &mut method_def.param { self.var_def(var_def); }
     self.block(&mut method_def.body);
 
     // well, I don't know how to do control flow analysis, dirty hacks here
@@ -336,42 +320,172 @@ impl Visitor for JvmCodeGen {
     self.method_builder = ptr::null_mut();
   }
 
+  fn stmt(&mut self, stmt: &mut Stmt) {
+    use self::Stmt::*;
+    match stmt {
+      Simple(simple) => self.simple(simple),
+      If(if_) => {
+        let (before_else, after_else) = (self.new_label(), self.new_label());
+        self.expr(&mut if_.cond);
+        self.if_eq(before_else); // if_eq jump to before_else if stack_top == 0
+        self.block(&mut if_.on_true);
+        self.goto(after_else);
+        self.label(before_else);
+        if let Some(on_false) = &mut if_.on_false { self.block(on_false); }
+        self.label(after_else);
+      }
+      While(while_) => {
+        let (before_cond, after_body) = (self.new_label(), self.new_label());
+        self.break_stack.push(after_body);
+        self.label(before_cond);
+        self.expr(&mut while_.cond);
+        self.if_eq(after_body);
+        self.block(&mut while_.body);
+        self.goto(before_cond);
+        self.label(after_body);
+        self.break_stack.pop();
+      }
+      For(for_) => {
+        let (before_cond, after_body) = (self.new_label(), self.new_label());
+        self.break_stack.push(after_body);
+        self.simple(&mut for_.init);
+        self.label(before_cond);
+        self.expr(&mut for_.cond);
+        self.if_eq(after_body);
+        self.block(&mut for_.body);
+        self.simple(&mut for_.update);
+        self.goto(before_cond);
+        self.label(after_body);
+        self.break_stack.pop();
+      }
+      Return(return_) => if let Some(expr) = &mut return_.expr {
+        self.expr(expr);
+        handle!(expr.get_type(), self.i_return(), self.a_return());
+      } else {
+        self.method_builder.get().return_();
+      },
+      Print(print) => for print in &mut print.print {
+        self.get_static("java/lang/System", "out", &JavaType::Class("java/io/PrintStream"));
+        self.expr(print);
+        self.invoke_virtual("java/io/PrintStream", "print", &[print.get_type().to_java()], &JavaType::Void);
+      }
+      Break(_) => {
+        let out = *self.break_stack.last().unwrap();
+        self.goto(out);
+      }
+      SCopy(s_copy) => self.s_copy(s_copy),
+      Foreach(foreach) => self.foreach(foreach),
+      Guarded(guarded) => for (e, b) in &mut guarded.guarded {
+        let after = self.new_label();
+        self.expr(e);
+        self.if_eq(after);
+        self.block(b);
+        self.label(after);
+      }
+      Block(block) => self.block(block),
+    };
+  }
+
+  fn expr(&mut self, expr: &mut Expr) {
+    match expr {
+      Expr::Identifier(identifier) => if !identifier.for_assign {
+        match identifier.symbol {
+          Var::VarDef(var_def) => {
+            let var_def = var_def.get();
+            match var_def.scope.get().kind {
+              ScopeKind::Local(_) | ScopeKind::Parameter(_) => self.load_from_stack(&var_def.type_, var_def.index),
+              ScopeKind::Class(class) => {
+                self.expr(if let Some(owner) = &mut identifier.owner { owner } else { unreachable!() });
+                self.get_field(class.get().name, var_def.name, &var_def.type_.to_java())
+              }
+              _ => unreachable!(),
+            }
+          }
+          Var::VarAssign(var_assign) => self.load_from_stack(&var_assign.get().type_, var_assign.get().index),
+        }
+      } else {
+        if let Some(owner) = &mut identifier.owner { self.expr(owner); }
+      },
+      Expr::Indexed(indexed) => self.indexed(indexed),
+      Expr::Const(const_) => match const_ {
+        Const::IntConst(int_const) => self.int_const(int_const.value),
+        Const::BoolConst(bool_const) => self.bool_const(bool_const.value),
+        Const::StringConst(string_const) => self.string_const(&string_const.value),
+        Const::Null(_) => self.a_const_null(),
+        _ => unimplemented!(),
+      },
+      Expr::Call(call) => if call.is_arr_len {
+        self.expr(if let Some(owner) = &mut call.owner { owner } else { unreachable!() });
+        self.array_length();
+      } else {
+        let method = call.method.get();
+        if let Some(owner) = &mut call.owner { self.expr(owner); }
+        for arg in &mut call.arg { self.expr(arg); }
+        let argument_types: Vec<JavaType> = method.param.iter().map(|var_def| var_def.type_.to_java()).collect();
+        let return_type = method.ret_t.to_java();
+        if method.static_ {
+          self.invoke_static(method.class.get().name, method.name, &argument_types, &return_type);
+        } else {
+          self.invoke_virtual(method.class.get().name, method.name, &argument_types[1..], &return_type);
+        }
+      }
+      Expr::Unary(unary) => self.unary(unary),
+      Expr::Binary(binary) => self.binary(binary),
+      Expr::This(_) => self.a_load(0),
+      Expr::NewClass(new_class) => {
+        self.new_(new_class.name);
+        self.dup();
+        self.invoke_special(new_class.name, "<init>", &[], &JavaType::Void);
+      }
+      Expr::NewArray(new_array) => {
+        self.expr(&mut new_array.len);
+        // new_array.elem_t is not set during type check, it may still be Named
+        self.gen_new_array(if let SemanticType::Array(elem_t) = &new_array.type_ { elem_t } else { unreachable!() });
+      }
+      Expr::TypeTest(type_test) => {
+        self.expr(&mut type_test.expr);
+        self.instance_of(type_test.name);
+      }
+      Expr::TypeCast(type_cast) => {
+        self.expr(&mut type_cast.expr);
+        self.check_cast(type_cast.name);
+      }
+      Expr::Default(default) => self.default(default),
+      _ => unimplemented!(),
+    };
+  }
+
   // only add a pop when simple is an expr
   fn simple(&mut self, simple: &mut Simple) {
     match simple {
       Simple::Assign(assign) => self.assign(assign),
-      Simple::VarAssign(var_assign) => self.var_assign(var_assign),
+      Simple::VarAssign(var_assign) => {
+        let index = self.new_local();
+        var_assign.index = index;
+        if let Some(src) = &mut var_assign.src {
+          self.expr(src);
+          self.store_to_stack(&var_assign.type_, index);
+        } else {
+          // default init, int/bool => 0, string/class/object => null
+          handle!(&var_assign.type_.sem, { self.int_const(0); self.i_store(index); }, { self.a_const_null(); self.a_store(index); });
+        }
+      }
       Simple::Expr(expr) => {
         self.expr(expr);
         match expr {
-          Expr::Call(call) => if unsafe { (*call.method).ret_t.sem != VOID } { self.pop(); }
+          Expr::Call(call) => if call.method.get().ret_t.sem != VOID { self.pop(); }
           _ => self.pop(),
         }
       }
-      Simple::Skip(skip) => self.skip(skip),
+      _ => {}
     }
   }
 
   fn var_def(&mut self, var_def: &mut VarDef) {
-    match unsafe { (*var_def.scope).kind } {
-      ScopeKind::Local(_) | ScopeKind::Parameter(_) => {
-        var_def.index = self.stack_index;
-        self.stack_index += 1;
-      }
-      ScopeKind::Class(_) => self.cb().define_field(ACC_PUBLIC, var_def.name, &var_def.type_.to_java()),
+    match var_def.scope.get().kind {
+      ScopeKind::Local(_) | ScopeKind::Parameter(_) => var_def.index = self.new_local(),
+      ScopeKind::Class(_) => self.class_builder.get().define_field(ACC_PUBLIC, var_def.name, &var_def.type_.to_java()),
       _ => unreachable!(),
-    }
-  }
-
-  fn var_assign(&mut self, var_assign: &mut VarAssign) {
-    let index = self.new_local();
-    var_assign.index = index;
-    if let Some(src) = &mut var_assign.src {
-      self.expr(src);
-      self.store_to_stack(&var_assign.type_, index);
-    } else {
-      // default init, int/bool => 0, string/class/object => null
-      handle!(&var_assign.type_.sem, { self.int_const(0); self.i_store(index); }, { self.a_const_null(); self.a_store(index); });
     }
   }
 
@@ -379,87 +493,31 @@ impl Visitor for JvmCodeGen {
     for stmt in &mut block.stmt { self.stmt(stmt); }
   }
 
-  fn while_(&mut self, while_: &mut While) {
-    let before_cond = self.new_label();
-    let after_body = self.new_label();
-    self.break_stack.push(after_body);
-    self.label(before_cond);
-    self.expr(&mut while_.cond);
-    self.if_eq(after_body);
-    self.block(&mut while_.body);
-    self.goto(before_cond);
-    self.label(after_body);
-    self.break_stack.pop();
-  }
-
-  fn for_(&mut self, for_: &mut For) {
-    let before_cond = self.new_label();
-    let after_body = self.new_label();
-    self.break_stack.push(after_body);
-    self.simple(&mut for_.init);
-    self.label(before_cond);
-    self.expr(&mut for_.cond);
-    self.if_eq(after_body);
-    self.block(&mut for_.body);
-    self.simple(&mut for_.update);
-    self.goto(before_cond);
-    self.label(after_body);
-    self.break_stack.pop();
-  }
-
-  fn if_(&mut self, if_: &mut If) {
-    let before_else = self.new_label();
-    let after_else = self.new_label();
-    self.expr(&mut if_.cond);
-    self.if_eq(before_else); // if_eq jump to before_else if stack_top == 0
-    self.block(&mut if_.on_true);
-    self.goto(after_else);
-    self.label(before_else);
-    if let Some(on_false) = &mut if_.on_false { self.block(on_false); }
-    self.label(after_else);
-  }
-
-  fn break_(&mut self, _break: &mut Break) {
-    let out = *self.break_stack.last().unwrap();
-    self.goto(out);
-  }
-
-  fn return_(&mut self, return_: &mut Return) {
-    if let Some(expr) = &mut return_.expr {
-      self.expr(expr);
-      handle!(expr.get_type(), self.i_return(), self.a_return());
-    } else {
-      self.mb().return_();
-    }
-  }
-
   fn s_copy(&mut self, s_copy: &mut SCopy) {
-    unsafe {
-      let src = self.new_local();
-      let class = if let SemanticType::Object(class) = s_copy.src.get_type() { &**class } else { unreachable!() };
-      let dst = match s_copy.dst_sym {
-        Var::VarAssign(var_assign) => (*var_assign).index,
-        Var::VarDef(var_def) => (*var_def).index,
-      };
-      let tmp = self.new_local();
-      self.expr(&mut s_copy.src);
-      self.a_store(src);
-      self.new_(class.name);
-      self.dup();
-      self.invoke_special(class.name, "<init>", &[], &JavaType::Void);
-      self.a_store(tmp);
-      for field in &class.field {
-        if let FieldDef::VarDef(var_def) = field {
-          let field_type = &var_def.type_.to_java();
-          self.a_load(tmp);
-          self.a_load(src);
-          self.get_field(class.name, var_def.name, field_type);
-          self.put_field(class.name, var_def.name, field_type);
-        }
+    let src = self.new_local();
+    let class = if let SemanticType::Object(class) = s_copy.src.get_type() { class.get() } else { unreachable!() };
+    let dst = match s_copy.dst_sym {
+      Var::VarAssign(var_assign) => var_assign.get().index,
+      Var::VarDef(var_def) => var_def.get().index,
+    };
+    let tmp = self.new_local();
+    self.expr(&mut s_copy.src);
+    self.a_store(src);
+    self.new_(class.name);
+    self.dup();
+    self.invoke_special(class.name, "<init>", &[], &JavaType::Void);
+    self.a_store(tmp);
+    for field in &class.field {
+      if let FieldDef::VarDef(var_def) = field {
+        let field_type = &var_def.type_.to_java();
+        self.a_load(tmp);
+        self.a_load(src);
+        self.get_field(class.name, var_def.name, field_type);
+        self.put_field(class.name, var_def.name, field_type);
       }
-      self.a_load(tmp);
-      self.a_store(dst);
     }
+    self.a_load(tmp);
+    self.a_store(dst);
   }
 
   fn foreach(&mut self, foreach: &mut Foreach) {
@@ -477,8 +535,7 @@ impl Visitor for JvmCodeGen {
     self.expr(&mut foreach.arr);
     self.a_store(arr);
 
-    let before_cond = self.new_label();
-    let after_body = self.new_label();
+    let (before_cond, after_body) = (self.new_label(), self.new_label());
     self.break_stack.push(after_body);
     self.label(before_cond);
     // it < arr.length
@@ -504,62 +561,28 @@ impl Visitor for JvmCodeGen {
     self.break_stack.pop();
   }
 
-  fn guarded(&mut self, guarded: &mut Guarded) {
-    for (e, b) in &mut guarded.guarded {
-      let after = self.new_label();
-      self.expr(e);
-      self.if_eq(after);
-      self.block(b);
-      self.label(after);
-    }
-  }
-
-  fn new_class(&mut self, new_class: &mut NewClass) {
-    self.new_(new_class.name);
-    self.dup();
-    self.invoke_special(new_class.name, "<init>", &[], &JavaType::Void);
-  }
-
-  fn new_array(&mut self, new_array: &mut NewArray) {
-    self.expr(&mut new_array.len);
-    // new_array.elem_t is not set during type check, it may still be Named
-    self.gen_new_array(if let SemanticType::Array(elem_t) = &new_array.type_ { elem_t } else { unreachable!() });
-  }
-
   fn assign(&mut self, assign: &mut Assign) {
-    unsafe {
-      match &mut assign.dst {
-        Expr::Indexed(indexed) => indexed.for_assign = true,
-        Expr::Identifier(identifier) => identifier.for_assign = true,
-        _ => unreachable!(),
-      }
-      self.expr(&mut assign.dst);
-      self.expr(&mut assign.src);
-      match &assign.dst {
-        Expr::Identifier(identifier) => match identifier.symbol {
-          Var::VarDef(var_def) => {
-            let var_def = &*var_def;
-            match (*var_def.scope).kind {
-              ScopeKind::Local(_) | ScopeKind::Parameter(_) => self.store_to_stack(&var_def.type_, var_def.index),
-              ScopeKind::Class(class) => self.put_field((*class).name, var_def.name, &var_def.type_.to_java()),
-              _ => unreachable!(),
-            }
-          }
-          Var::VarAssign(var_assign) => self.store_to_stack(&(*var_assign).type_, (*var_assign).index),
-        }
-        Expr::Indexed(indexed) => handle!(&indexed.type_, self.i_a_store(), self.b_a_store(), self.a_a_store()),
-        _ => unreachable!(),
-      }
+    match &mut assign.dst {
+      Expr::Indexed(indexed) => indexed.for_assign = true,
+      Expr::Identifier(identifier) => identifier.for_assign = true,
+      _ => unreachable!(),
     }
-  }
-
-  fn const_(&mut self, const_: &mut Const) {
-    match const_ {
-      Const::IntConst(int_const) => self.int_const(int_const.value),
-      Const::BoolConst(bool_const) => self.bool_const(bool_const.value),
-      Const::StringConst(string_const) => self.string_const(&string_const.value),
-      Const::Null(_) => self.a_const_null(),
-      _ => unimplemented!(),
+    self.expr(&mut assign.dst);
+    self.expr(&mut assign.src);
+    match &assign.dst {
+      Expr::Identifier(identifier) => match identifier.symbol {
+        Var::VarDef(var_def) => {
+          let var_def = var_def.get();
+          match var_def.scope.get().kind {
+            ScopeKind::Local(_) | ScopeKind::Parameter(_) => self.store_to_stack(&var_def.type_, var_def.index),
+            ScopeKind::Class(class) => self.put_field(class.get().name, var_def.name, &var_def.type_.to_java()),
+            _ => unreachable!(),
+          }
+        }
+        Var::VarAssign(var_assign) => self.store_to_stack(&var_assign.get().type_, var_assign.get().index),
+      }
+      Expr::Indexed(indexed) => handle!(&indexed.type_, self.i_a_store(), self.b_a_store(), self.a_a_store()),
+      _ => unreachable!(),
     }
   }
 
@@ -571,15 +594,14 @@ impl Visitor for JvmCodeGen {
         self.i_neg();
       }
       Not => {
-        let true_label = self.new_label();
-        let out_label = self.new_label();
+        let (out, true_) = (self.new_label(), self.new_label());
         self.expr(&mut unary.r);
-        self.if_eq(true_label);
+        self.if_eq(true_);
         self.bool_const(false);
-        self.goto(out_label);
-        self.label(true_label);
+        self.goto(out);
+        self.label(true_);
         self.bool_const(true);
-        self.label(out_label);
+        self.label(out);
       }
       PreInc => self.pre_inc_dec(unary.r.as_mut(), 1),
       PreDec => self.pre_inc_dec(unary.r.as_mut(), -1),
@@ -593,11 +615,8 @@ impl Visitor for JvmCodeGen {
     use super::ast::Operator::*;
     match binary.op {
       Repeat => {
-        let before = self.new_label();
-        let after = self.new_label();
-        let val = self.new_local();
-        let it = self.new_local();
-        let arr = self.new_local();
+        let (before, after) = (self.new_label(), self.new_label());
+        let (val, it, arr) = (self.new_local(), self.new_local(), self.new_local());
         self.expr(&mut binary.l);
         let val_t = binary.l.get_type();
         self.store_to_stack(binary.l.get_type(), val);
@@ -621,30 +640,28 @@ impl Visitor for JvmCodeGen {
         self.a_load(arr);
       }
       And => {
-        let out_label = self.new_label();
-        let false_label = self.new_label();
+        let (out, false_) = (self.new_label(), self.new_label());
         self.expr(&mut binary.l);
-        self.if_eq(false_label);
+        self.if_eq(false_);
         self.expr(&mut binary.r);
-        self.if_eq(false_label);
+        self.if_eq(false_);
         self.bool_const(true);
-        self.goto(out_label);
-        self.label(false_label);
+        self.goto(out);
+        self.label(false_);
         self.bool_const(false);
-        self.label(out_label);
+        self.label(out);
       }
       Or => {
-        let out_label = self.new_label();
-        let true_label = self.new_label();
+        let (out, true_) = (self.new_label(), self.new_label());
         self.expr(&mut binary.l);
-        self.if_ne(true_label);
+        self.if_ne(true_);
         self.expr(&mut binary.r);
-        self.if_ne(true_label);
+        self.if_ne(true_);
         self.bool_const(false);
-        self.goto(out_label);
-        self.label(true_label);
+        self.goto(out);
+        self.label(true_);
         self.bool_const(true);
-        self.label(out_label);
+        self.label(out);
       }
       _ => {
         self.expr(&mut binary.l);
@@ -680,85 +697,15 @@ impl Visitor for JvmCodeGen {
     }
   }
 
-  fn call(&mut self, call: &mut Call) {
-    unsafe {
-      if call.is_arr_len {
-        self.expr(if let Some(owner) = &mut call.owner { owner } else { unreachable!() });
-        self.array_length();
-        return;
-      }
-      let method = &*call.method;
-      if let Some(owner) = &mut call.owner { self.expr(owner); }
-      for arg in &mut call.arg {
-        self.expr(arg);
-      }
-      let argument_types: Vec<JavaType> = method.param.iter().map(|var_def| var_def.type_.to_java()).collect();
-      let return_type = method.ret_t.to_java();
-      if method.static_ {
-        self.invoke_static((*method.class).name, method.name, &argument_types, &return_type);
-      } else {
-        self.invoke_virtual((*method.class).name, method.name, &argument_types[1..], &return_type);
-      }
-    }
-  }
-
-  fn print(&mut self, print: &mut Print) {
-    for print in &mut print.print {
-      self.get_static("java/lang/System", "out", &JavaType::Class("java/io/PrintStream"));
-      self.expr(print);
-      self.invoke_virtual("java/io/PrintStream", "print", &[print.get_type().to_java()], &JavaType::Void);
-    }
-  }
-
-  fn this(&mut self, _this: &mut This) {
-    self.a_load(0);
-  }
-
-  fn type_cast(&mut self, type_cast: &mut TypeCast) {
-    self.expr(&mut type_cast.expr);
-    self.check_cast(type_cast.name);
-  }
-
-  fn type_test(&mut self, type_test: &mut TypeTest) {
-    self.expr(&mut type_test.expr);
-    self.instance_of(type_test.name);
-  }
-
   fn indexed(&mut self, indexed: &mut Indexed) {
     self.expr(&mut indexed.arr);
     self.expr(&mut indexed.idx);
-    if !indexed.for_assign {
-      handle!(&indexed.type_, self.i_a_load(), self.b_a_load(), self.a_a_load());
-    }
-  }
-
-  fn identifier(&mut self, identifier: &mut Identifier) {
-    unsafe {
-      if !identifier.for_assign {
-        match identifier.symbol {
-          Var::VarDef(var_def) => {
-            let var_def = &*var_def;
-            match (*var_def.scope).kind {
-              ScopeKind::Local(_) | ScopeKind::Parameter(_) => self.load_from_stack(&var_def.type_, var_def.index),
-              ScopeKind::Class(class) => {
-                self.expr(if let Some(owner) = &mut identifier.owner { owner } else { unreachable!() });
-                self.get_field((*class).name, var_def.name, &var_def.type_.to_java())
-              }
-              _ => unreachable!(),
-            }
-          }
-          Var::VarAssign(var_assign) => self.load_from_stack(&(*var_assign).type_, (*var_assign).index),
-        }
-      } else {
-        if let Some(owner) = &mut identifier.owner { self.expr(owner); }
-      }
-    }
+    if !indexed.for_assign { handle!(&indexed.type_, self.i_a_load(), self.b_a_load(), self.a_a_load()); }
   }
 
   fn default(&mut self, default: &mut Default) {
     let arr = self.new_local();
-    let dft = self.new_label();
-    let after = self.new_label();
+    let (dft, after) = (self.new_label(), self.new_label());
     self.expr(&mut default.arr);
     self.a_store(arr);
     self.expr(&mut default.idx);

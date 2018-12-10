@@ -390,10 +390,10 @@ impl TypeChecker {
     use super::ast::Operator::*;
     self.expr(&mut binary.l);
     self.expr(&mut binary.r);
+    let (l, r) = (&mut binary.l, &mut binary.r);
+    let (l_t, r_t) = (l.get_type(), r.get_type());
     match binary.op {
       Repeat => {
-        let (l, r) = (&mut binary.l, &mut binary.r);
-        let (l_t, r_t) = (l.get_type(), r.get_type());
         if !r_t.error_or(&INT) { issue!(self, r.get_loc(), ArrayRepeatNotInt); }
         // l_t cannot be void here
         if l_t != &ERROR {
@@ -401,8 +401,6 @@ impl TypeChecker {
         }
       }
       Concat => {
-        let (l, r) = (&mut binary.l, &mut binary.r);
-        let (l_t, r_t) = (l.get_type(), r.get_type());
         if l_t != &ERROR && !l_t.is_array() { issue!(self, l.get_loc(), BadArrayOp); }
         if r_t != &ERROR && !r_t.is_array() { issue!(self, r.get_loc(), BadArrayOp); }
         if l_t.is_array() && r_t.is_array() {
@@ -413,14 +411,11 @@ impl TypeChecker {
         }
       }
       _ => {
-        let (l, r) = (&*binary.l, &*binary.r);
-        let (l_t, r_t) = (l.get_type(), r.get_type());
         if l_t == &ERROR || r_t == &ERROR {
-          match binary.op {
-            Add | Sub | Mul | Div | Mod | BAnd | BOr | BXor | Shl | Shr => binary.type_ = l_t.clone(),
-            _ => binary.type_ = BOOL,
-          }
-          return;
+          return binary.type_ = match binary.op {
+            Add | Sub | Mul | Div | Mod | BAnd | BOr | BXor | Shl | Shr => l_t.clone(),
+            _ => BOOL,
+          };
         }
         if !match binary.op {
           Add | Sub | Mul | Div | Mod | BAnd | BOr | BXor | Shl | Shr => {
