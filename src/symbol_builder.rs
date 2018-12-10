@@ -145,7 +145,7 @@ impl SemanticTypeVisitor for SymbolBuilder {
   }
 }
 
-impl Visitor for SymbolBuilder {
+impl SymbolBuilder {
   fn program(&mut self, program: &mut Program) {
     self.scopes.open(&mut program.scope);
     for class_def in &mut program.class {
@@ -192,7 +192,12 @@ impl Visitor for SymbolBuilder {
 
   fn class_def(&mut self, class_def: &mut ClassDef) {
     self.scopes.open(&mut class_def.scope);
-    for field_def in &mut class_def.field { self.field_def(field_def) }
+    for field_def in &mut class_def.field {
+      match field_def {
+        FieldDef::MethodDef(method_def) => self.method_def(method_def),
+        FieldDef::VarDef(var_def) => self.var_def(var_def),
+      };
+    }
     self.scopes.close();
   }
 
@@ -247,42 +252,41 @@ impl Visitor for SymbolBuilder {
     }
   }
 
+  fn stmt(&mut self, stmt: &mut Stmt) {
+    match stmt {
+      Stmt::Simple(simple) => if let Simple::VarAssign(var_assign) = simple { self.var_assign(var_assign); }
+      Stmt::If(if_) => {
+        self.block(&mut if_.on_true);
+        if let Some(on_false) = &mut if_.on_false { self.block(on_false); }
+      }
+      Stmt::While(while_) => self.block(&mut while_.body),
+      Stmt::For(for_) => {
+        let block = &mut for_.body;
+        block.scope = Scope { symbols: D::default(), kind: ScopeKind::Local(block) };
+        self.scopes.open(&mut block.scope);
+        if let Simple::VarAssign(var_assign) = &mut for_.init { self.var_assign(var_assign); }
+        for stmt in &mut block.stmt { self.stmt(stmt); }
+        self.scopes.close();
+      }
+      Stmt::Foreach(foreach) => {
+        foreach.body.scope.kind = ScopeKind::Local(&mut foreach.body);
+        self.scopes.open(&mut foreach.body.scope);
+        // reuse the code of var def, which can handle var correctly
+        self.var_def(&mut foreach.def);
+        for stmt in &mut foreach.body.stmt { self.stmt(stmt); }
+        self.scopes.close();
+      }
+      Stmt::Guarded(guarded) => for (_, stmt) in &mut guarded.guarded { self.block(stmt); },
+      Stmt::Block(block) => self.block(block),
+      _ => {}
+    };
+  }
+
   fn block(&mut self, block: &mut Block) {
     block.scope = Scope { symbols: D::default(), kind: ScopeKind::Local(block) };
     self.scopes.open(&mut block.scope);
     for stmt in &mut block.stmt { self.stmt(stmt); }
     self.scopes.close();
-  }
-
-  fn while_(&mut self, while_: &mut While) {
-    self.block(&mut while_.body);
-  }
-
-  fn for_(&mut self, for_: &mut For) {
-    let block = &mut for_.body;
-    block.scope = Scope { symbols: D::default(), kind: ScopeKind::Local(block) };
-    self.scopes.open(&mut block.scope);
-    if let Simple::VarAssign(var_assign) = &mut for_.init { self.var_assign(var_assign); }
-    for stmt in &mut block.stmt { self.stmt(stmt); }
-    self.scopes.close();
-  }
-
-  fn if_(&mut self, if_: &mut If) {
-    self.block(&mut if_.on_true);
-    if let Some(on_false) = &mut if_.on_false { self.block(on_false); }
-  }
-
-  fn foreach(&mut self, foreach: &mut Foreach) {
-    foreach.body.scope.kind = ScopeKind::Local(&mut foreach.body);
-    self.scopes.open(&mut foreach.body.scope);
-    // reuse the code of var def, which can handle var correctly
-    self.var_def(&mut foreach.def);
-    for stmt in &mut foreach.body.stmt { self.stmt(stmt); }
-    self.scopes.close();
-  }
-
-  fn guarded(&mut self, guarded: &mut Guarded) {
-    for (_, stmt) in &mut guarded.guarded { self.block(stmt); }
   }
 
   fn type_(&mut self, type_: &mut Type) {

@@ -40,12 +40,9 @@ fn string_to_static_str(s: String) -> &'static str {
 }
 
 fn compile(input: &'static str) -> Result<Program, Vec<Error>> {
-  let mut parser = parser::Parser::new();
-  let program = parser.parse(input)?;
-  let symbol_builder = SymbolBuilder::new();
-  let program = symbol_builder.build(program)?;
-  let type_checker = TypeChecker::new();
-  let program = type_checker.check(program)?;
+  let program = parser::Parser::new().parse(input)?;
+  let program = SymbolBuilder::new().build(program)?;
+  let program = TypeChecker::new().check(program)?;
   Ok(program)
 }
 

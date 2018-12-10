@@ -150,12 +150,13 @@ impl SemanticType {
 impl PartialEq for SemanticType {
   fn eq(&self, other: &SemanticType) -> bool {
     // in correct usage, SemanticType::Null won't be compared here
+    use self::SemanticType::*;
     match (self, other) {
-      (SemanticType::Var, SemanticType::Var) => true,
-      (SemanticType::Error, SemanticType::Error) => true,
-      (SemanticType::Basic(name1), SemanticType::Basic(name2)) => name1 == name2,
-      (SemanticType::Object(class1), SemanticType::Object(class2)) => class1 == class2,
-      (SemanticType::Array(elem1), SemanticType::Array(elem2)) => elem1 == elem2,
+      (Var, Var) => true,
+      (Error, Error) => true,
+      (Basic(name1), Basic(name2)) => name1 == name2,
+      (Object(class1), Object(class2)) => class1 == class2,
+      (Array(elem1), Array(elem2)) => elem1 == elem2,
       _ => false,
     }
   }

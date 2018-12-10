@@ -9,7 +9,10 @@ pub struct VTable {
   pub class: String,
 }
 
-pub struct Memo {
+pub struct Method {
+  pub name: String,
+  pub memo: String,
+  pub code: Vec<Tac>,
   pub method: *const MethodDef,
 }
 
