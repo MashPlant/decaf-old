@@ -131,8 +131,8 @@ impl SemanticType {
 
   pub fn print_ast(&self, printer: &mut IndentPrinter) {
     match self {
-      SemanticType::Var => printer.print("var"),
-      SemanticType::Basic(name) => printer.print(&(name.to_string() + "type")),
+      SemanticType::Var => { printer.print("var"); }
+      SemanticType::Basic(name) => { printer.print(&(name.to_string() + "type")); }
       SemanticType::Named(name) => {
         printer.print("classtype");
         printer.print(name);
@@ -142,7 +142,7 @@ impl SemanticType {
         elem.print_ast(printer);
       }
       _ => unreachable!()
-    }
+    };
   }
 }
 
