@@ -36,7 +36,9 @@ impl TypeChecker {
   }
 
   pub fn check(mut self, mut program: Program) -> Result<Program, Vec<Error>> {
-    self.program(&mut program);
+    self.scopes.open(&mut program.scope);
+    for class_def in &mut program.class { self.class_def(class_def); }
+    self.scopes.close();
     if self.errors.is_empty() {
       Ok(program)
     } else {
@@ -110,37 +112,6 @@ impl TypeChecker {
       None => issue!(self, call.loc, NoSuchField { name: call.name, owner_t: owner_t.to_string() }),
     };
   }
-
-  fn check_repeat(&mut self, binary: &mut Binary) {
-    // l & r are already visited in binary
-    let (l, r) = (&mut binary.l, &mut binary.r);
-    let (l_t, r_t) = (l.get_type(), r.get_type());
-    if !r_t.error_or(&INT) {
-      issue!(self, r.get_loc(), ArrayRepeatNotInt);
-    }
-    // l_t cannot be void here
-    if l_t != &ERROR {
-      binary.type_ = SemanticType::Array(Box::new(l_t.clone()));
-    }
-  }
-
-  fn check_concat(&mut self, binary: &mut Binary) {
-    // same as above
-    let (l, r) = (&mut binary.l, &mut binary.r);
-    let (l_t, r_t) = (l.get_type(), r.get_type());
-    if l_t != &ERROR && !l_t.is_array() {
-      issue!(self, l.get_loc(), BadArrayOp);
-    }
-    if r_t != &ERROR && !r_t.is_array() {
-      issue!(self, r.get_loc(), BadArrayOp);
-    }
-    if l_t.is_array() && r_t.is_array() {
-      if l_t != r_t {
-        issue!(self, binary.loc, ConcatMismatch { l_t: l_t.to_string(), r_t: r_t.to_string() });
-      }
-      binary.type_ = l_t.clone();
-    }
-  }
 }
 
 impl SemanticTypeVisitor for TypeChecker {
@@ -153,89 +124,174 @@ impl SemanticTypeVisitor for TypeChecker {
   }
 }
 
-impl Visitor for TypeChecker {
-  fn program(&mut self, program: &mut Program) {
-    self.scopes.open(&mut program.scope);
-    for class_def in &mut program.class { self.class_def(class_def); }
-    self.scopes.close();
-  }
-
+impl TypeChecker {
   fn class_def(&mut self, class_def: &mut ClassDef) {
     self.current_class = class_def;
     self.scopes.open(&mut class_def.scope);
-    for field_def in &mut class_def.field { self.field_def(field_def) }
-    self.scopes.close();
-  }
-
-  fn method_def(&mut self, method_def: &mut MethodDef) {
-    self.current_method = method_def;
-    method_def.class = self.current_class;
-    self.scopes.open(&mut method_def.scope);
-    self.block(&mut method_def.body);
-    self.scopes.close();
-  }
-
-  fn var_assign(&mut self, var_assign: &mut VarAssign) {
-    // if it doesn't have an src, it is an old var_def, and thus needn't handling
-    if let Some(src) = &mut var_assign.src {
-      self.expr(src);
-      let src_t = src.get_type();
-      if var_assign.type_.sem == VAR {
-        var_assign.type_.sem = src_t.clone();
-      } else if !src_t.extends(&var_assign.type_.sem) {
-        issue!(self, var_assign.loc, IncompatibleBinary{l_t: var_assign.type_.sem.to_string(), op: "=", r_t: src_t.to_string() })
-      }
+    for field_def in &mut class_def.field {
+      if let FieldDef::MethodDef(method_def) = field_def {
+        self.current_method = method_def;
+        method_def.class = self.current_class;
+        self.scopes.open(&mut method_def.scope);
+        self.block(&mut method_def.body);
+        self.scopes.close();
+      };
     }
+    self.scopes.close();
+  }
+
+  fn stmt(&mut self, stmt: &mut Stmt) {
+    use super::ast::Stmt::*;
+    match stmt {
+      Simple(simple) => self.simple(simple),
+      If(if_) => {
+        self.check_bool(&mut if_.cond);
+        self.block(&mut if_.on_true);
+        if let Some(on_false) = &mut if_.on_false { self.block(on_false); }
+      }
+      While(while_) => {
+        self.check_bool(&mut while_.cond);
+        self.loop_counter += 1;
+        self.block(&mut while_.body);
+        self.loop_counter -= 1;
+      }
+      For(for_) => {
+        self.scopes.open(&mut for_.body.scope);
+        self.simple(&mut for_.init);
+        self.check_bool(&mut for_.cond);
+        self.simple(&mut for_.update);
+        for stmt in &mut for_.body.stmt { self.stmt(stmt); }
+        self.scopes.close();
+      }
+      Return(return_) => {
+        let expect = &self.current_method.get().ret_t.sem;
+        match &mut return_.expr {
+          Some(expr) => {
+            self.expr(expr);
+            let expr_t = expr.get_type();
+            if !expr_t.extends(expect) {
+              issue!(self, return_.loc, WrongReturnType { ret_t: expr_t.to_string(), expect_t: expect.to_string() });
+            }
+          }
+          None => {
+            if expect != &VOID {
+              issue!(self, return_.loc, WrongReturnType { ret_t: "void".to_owned(), expect_t: expect.to_string() });
+            }
+          }
+        }
+      }
+      Print(print) => for (i, expr) in print.print.iter_mut().enumerate() {
+        self.expr(expr);
+        let expr_t = expr.get_type();
+        if expr_t != &ERROR && expr_t != &BOOL && expr_t != &INT && expr_t != &STRING {
+          issue!(self, expr.get_loc(), BadPrintArg { loc: i as i32 + 1, type_: expr_t.to_string() });
+        }
+      },
+      Break(break_) => if self.loop_counter == 0 { issue!(self, break_.loc, BreakOutOfLoop); },
+      SCopy(s_copy) => self.s_copy(s_copy),
+      Foreach(foreach) => self.foreach(foreach),
+      Guarded(guarded) => for (e, b) in &mut guarded.guarded {
+        self.check_bool(e);
+        self.block(b);
+      },
+      Block(block) => self.block(block),
+    };
+  }
+
+  fn simple(&mut self, simple: &mut Simple) {
+    match simple {
+      Simple::Assign(assign) => {
+        self.expr(&mut assign.dst);
+        self.expr(&mut assign.src);
+        let dst_t = assign.dst.get_type();
+        let src_t = assign.src.get_type();
+        // error check is contained in extends
+        if dst_t.is_method() || !src_t.extends(dst_t) {
+          issue!(self, assign.loc, IncompatibleBinary{l_t: dst_t.to_string(), op: "=", r_t: src_t.to_string() })
+        }
+      }
+      Simple::VarAssign(var_assign) => if let Some(src) = &mut var_assign.src { // if it doesn't have an src, it is an old var_def, and thus needn't handling
+        self.expr(src);
+        let src_t = src.get_type();
+        if var_assign.type_.sem == VAR {
+          var_assign.type_.sem = src_t.clone();
+        } else if !src_t.extends(&var_assign.type_.sem) {
+          issue!(self, var_assign.loc, IncompatibleBinary{l_t: var_assign.type_.sem.to_string(), op: "=", r_t: src_t.to_string() })
+        }
+      }
+      Simple::Expr(expr) => self.expr(expr),
+      _ => {}
+    }
+  }
+
+  fn expr(&mut self, expr: &mut Expr) {
+    use self::Expr::*;
+    match expr {
+      Identifier(identifier) => self.identifier(identifier),
+      Indexed(indexed) => {
+        self.expr(&mut indexed.arr);
+        self.expr(&mut indexed.idx);
+        let (arr_t, idx_t) = (indexed.arr.get_type(), indexed.idx.get_type());
+        match &arr_t {
+          SemanticType::Array(elem) => indexed.type_ = *elem.clone(),
+          SemanticType::Error => {}
+          _ => issue!(self, indexed.arr.get_loc(), NotArray),
+        }
+        if !idx_t.error_or(&INT) {
+          issue!(self, indexed.loc, ArrayIndexNotInt);
+        }
+      }
+      Call(call) => self.call(call),
+      Unary(unary) => self.unary(unary),
+      Binary(binary) => self.binary(binary),
+      This(this) => if self.current_method.get().static_ {
+        issue!(self, this.loc, ThisInStatic);
+      } else {
+        this.type_ = self.current_class.get().get_object_type();
+      },
+      NewClass(new_class) => match self.scopes.lookup_class(new_class.name) {
+        Some(class) => new_class.type_ = class.get_type(),
+        None => issue!(self, new_class.loc, NoSuchClass { name: new_class.name }),
+      },
+      NewArray(new_array) => {
+        let elem_t = &mut new_array.elem_t;
+        new_array.type_ = SemanticType::Array(Box::new(elem_t.sem.clone()));
+        self.semantic_type(&mut new_array.type_, elem_t.loc);
+        self.expr(&mut new_array.len);
+        let len_t = new_array.len.get_type();
+        if !len_t.error_or(&INT) { issue!(self, new_array.len.get_loc(), BadNewArrayLen); }
+      }
+      TypeTest(type_test) => {
+        self.expr(&mut type_test.expr);
+        let expr_t = type_test.expr.get_type();
+        if expr_t != &ERROR && !expr_t.is_object() {
+          issue!(self, type_test.loc, NotObject { type_: expr_t.to_string() });
+        }
+        if self.scopes.lookup_class(type_test.name).is_none() {
+          issue!(self, type_test.loc, NoSuchClass { name: type_test.name });
+        }
+      }
+      TypeCast(type_cast) => {
+        self.expr(&mut type_cast.expr);
+        let expr_t = type_cast.expr.get_type();
+        if expr_t != &ERROR && !expr_t.is_object() {
+          issue!(self, type_cast.loc, NotObject { type_: expr_t.to_string() });
+        }
+        // doesn't need to set type to error because it originally was
+        match self.scopes.lookup_class(type_cast.name) {
+          Some(class) => type_cast.type_ = class.get_type(),
+          None => issue!(self, type_cast.loc, NoSuchClass { name: type_cast.name }),
+        }
+      }
+      Default(default) => self.default(default),
+      _ => {}
+    };
   }
 
   fn block(&mut self, block: &mut Block) {
     self.scopes.open(&mut block.scope);
     for stmt in &mut block.stmt { self.stmt(stmt); }
     self.scopes.close();
-  }
-
-  fn while_(&mut self, while_: &mut While) {
-    self.check_bool(&mut while_.cond);
-    self.loop_counter += 1;
-    self.block(&mut while_.body);
-    self.loop_counter -= 1;
-  }
-
-  fn for_(&mut self, for_: &mut For) {
-    self.scopes.open(&mut for_.body.scope);
-    self.simple(&mut for_.init);
-    self.check_bool(&mut for_.cond);
-    self.simple(&mut for_.update);
-    for stmt in &mut for_.body.stmt { self.stmt(stmt); }
-    self.scopes.close();
-  }
-
-  fn if_(&mut self, if_: &mut If) {
-    self.check_bool(&mut if_.cond);
-    self.block(&mut if_.on_true);
-    if let Some(on_false) = &mut if_.on_false { self.block(on_false); }
-  }
-
-  fn break_(&mut self, break_: &mut Break) {
-    if self.loop_counter == 0 { issue!(self, break_.loc, BreakOutOfLoop); }
-  }
-
-  fn return_(&mut self, return_: &mut Return) {
-    let expect = &self.current_method.get().ret_t.sem;
-    match &mut return_.expr {
-      Some(expr) => {
-        self.expr(expr);
-        let expr_t = expr.get_type();
-        if !expr_t.extends(expect) {
-          issue!(self, return_.loc, WrongReturnType { ret_t: expr_t.to_string(), expect_t: expect.to_string() });
-        }
-      }
-      None => {
-        if expect != &VOID {
-          issue!(self, return_.loc, WrongReturnType { ret_t: "void".to_owned(), expect_t: expect.to_string() });
-        }
-      }
-    }
   }
 
   fn s_copy(&mut self, s_copy: &mut SCopy) {
@@ -280,8 +336,7 @@ impl Visitor for TypeChecker {
         _ => {}
       }
       SemanticType::Error => if &foreach.def.type_.sem == &VAR {
-        // if declared type is not 'var', retain it
-        // otherwise set it to error
+        // if declared type is not 'var', retain it; otherwise set it to error
         foreach.def.type_.sem = ERROR;
       }
       _ => {
@@ -298,42 +353,6 @@ impl Visitor for TypeChecker {
     for stmt in &mut foreach.body.stmt { self.stmt(stmt); }
     self.scopes.close();
     self.loop_counter -= 1;
-  }
-
-  fn guarded(&mut self, guarded: &mut Guarded) {
-    for (e, b) in &mut guarded.guarded {
-      self.check_bool(e);
-      self.block(b);
-    }
-  }
-
-  fn new_class(&mut self, new_class: &mut NewClass) {
-    match self.scopes.lookup_class(new_class.name) {
-      Some(class) => new_class.type_ = class.get_type(),
-      None => issue!(self, new_class.loc, NoSuchClass { name: new_class.name }),
-    }
-  }
-
-  fn new_array(&mut self, new_array: &mut NewArray) {
-    let elem_t = &mut new_array.elem_t;
-    new_array.type_ = SemanticType::Array(Box::new(elem_t.sem.clone()));
-    self.semantic_type(&mut new_array.type_, elem_t.loc);
-    self.expr(&mut new_array.len);
-    let len_t = new_array.len.get_type();
-    if !len_t.error_or(&INT) {
-      issue!(self, new_array.len.get_loc(), BadNewArrayLen);
-    }
-  }
-
-  fn assign(&mut self, assign: &mut Assign) {
-    self.expr(&mut assign.dst);
-    self.expr(&mut assign.src);
-    let dst_t = assign.dst.get_type();
-    let src_t = assign.src.get_type();
-    // error check is contained in extends
-    if dst_t.is_method() || !src_t.extends(dst_t) {
-      issue!(self, assign.loc, IncompatibleBinary{l_t: dst_t.to_string(), op: "=", r_t: src_t.to_string() })
-    }
   }
 
   fn unary(&mut self, unary: &mut Unary) {
@@ -372,8 +391,27 @@ impl Visitor for TypeChecker {
     self.expr(&mut binary.l);
     self.expr(&mut binary.r);
     match binary.op {
-      Repeat => self.check_repeat(binary),
-      Concat => self.check_concat(binary),
+      Repeat => {
+        let (l, r) = (&mut binary.l, &mut binary.r);
+        let (l_t, r_t) = (l.get_type(), r.get_type());
+        if !r_t.error_or(&INT) { issue!(self, r.get_loc(), ArrayRepeatNotInt); }
+        // l_t cannot be void here
+        if l_t != &ERROR {
+          binary.type_ = SemanticType::Array(Box::new(l_t.clone()));
+        }
+      }
+      Concat => {
+        let (l, r) = (&mut binary.l, &mut binary.r);
+        let (l_t, r_t) = (l.get_type(), r.get_type());
+        if l_t != &ERROR && !l_t.is_array() { issue!(self, l.get_loc(), BadArrayOp); }
+        if r_t != &ERROR && !r_t.is_array() { issue!(self, r.get_loc(), BadArrayOp); }
+        if l_t.is_array() && r_t.is_array() {
+          if l_t != r_t {
+            issue!(self, binary.loc, ConcatMismatch { l_t: l_t.to_string(), r_t: r_t.to_string() });
+          }
+          binary.type_ = l_t.clone();
+        }
+      }
       _ => {
         let (l, r) = (&*binary.l, &*binary.r);
         let (l_t, r_t) = (l.get_type(), r.get_type());
@@ -444,62 +482,6 @@ impl Visitor for TypeChecker {
         let symbol = self.current_class.get().lookup(call.name);
         self.check_call(call, symbol);
       }
-    }
-  }
-
-  fn print(&mut self, print: &mut Print) {
-    for (i, expr) in print.print.iter_mut().enumerate() {
-      self.expr(expr);
-      let expr_t = expr.get_type();
-      if expr_t != &ERROR && expr_t != &BOOL && expr_t != &INT && expr_t != &STRING {
-        issue!(self, expr.get_loc(), BadPrintArg { loc: i as i32 + 1, type_: expr_t.to_string() });
-      }
-    }
-  }
-
-  fn this(&mut self, this: &mut This) {
-    if self.current_method.get().static_ {
-      issue!(self, this.loc, ThisInStatic);
-    } else {
-      this.type_ = self.current_class.get().get_object_type();
-    }
-  }
-
-  fn type_cast(&mut self, type_cast: &mut TypeCast) {
-    self.expr(&mut type_cast.expr);
-    let expr_t = type_cast.expr.get_type();
-    if expr_t != &ERROR && !expr_t.is_object() {
-      issue!(self, type_cast.loc, NotObject { type_: expr_t.to_string() });
-    }
-    // doesn't need to set type to error because it originally was
-    match self.scopes.lookup_class(type_cast.name) {
-      Some(class) => type_cast.type_ = class.get_type(),
-      None => issue!(self, type_cast.loc, NoSuchClass { name: type_cast.name }),
-    }
-  }
-
-  fn type_test(&mut self, type_test: &mut TypeTest) {
-    self.expr(&mut type_test.expr);
-    let expr_t = type_test.expr.get_type();
-    if expr_t != &ERROR && !expr_t.is_object() {
-      issue!(self, type_test.loc, NotObject { type_: expr_t.to_string() });
-    }
-    if self.scopes.lookup_class(type_test.name).is_none() {
-      issue!(self, type_test.loc, NoSuchClass { name: type_test.name });
-    }
-  }
-
-  fn indexed(&mut self, indexed: &mut Indexed) {
-    self.expr(&mut indexed.arr);
-    self.expr(&mut indexed.idx);
-    let (arr_t, idx_t) = (indexed.arr.get_type(), indexed.idx.get_type());
-    match &arr_t {
-      SemanticType::Array(elem) => indexed.type_ = *elem.clone(),
-      SemanticType::Error => {}
-      _ => issue!(self, indexed.arr.get_loc(), NotArray),
-    }
-    if !idx_t.error_or(&INT) {
-      issue!(self, indexed.loc, ArrayIndexNotInt);
     }
   }
 
