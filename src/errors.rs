@@ -29,418 +29,60 @@ impl fmt::Display for Error {
   }
 }
 
-pub struct UnterminatedStr {
-  pub string: String,
-}
-
-impl IError for UnterminatedStr {
-  fn get_msg(&self) -> String {
-    format!("unterminated string constant {}", self.string)
-  }
-}
-
-pub struct NewlineInStr {
-  pub string: String,
-}
-
-impl IError for NewlineInStr {
-  fn get_msg(&self) -> String {
-    format!("illegal newline in string constant {}", self.string)
-  }
-}
-
-pub struct IntTooLarge {
-  pub string: String,
-}
-
-impl IError for IntTooLarge {
-  fn get_msg(&self) -> String {
-    format!("integer literal {} is too large", self.string)
-  }
-}
-
-pub struct UnrecognizedChar {
-  pub ch: char,
-}
-
-impl IError for UnrecognizedChar {
-  fn get_msg(&self) -> String {
-    format!("unrecognized character '{}'", self.ch)
-  }
-}
-
-pub struct ConflictDeclaration {
-  pub earlier: Loc,
-  pub name: &'static str,
-}
-
-impl IError for ConflictDeclaration {
-  fn get_msg(&self) -> String {
-    format!("declaration of '{}' here conflicts with earlier declaration at {}", self.name, self.earlier)
-  }
-}
-
-pub struct NoSuchClass {
-  pub name: &'static str,
-}
-
-impl IError for NoSuchClass {
-  fn get_msg(&self) -> String {
-    format!("class '{}' not found", self.name)
-  }
-}
-
-pub struct CyclicInheritance;
-
-impl IError for CyclicInheritance {
-  fn get_msg(&self) -> String {
-    "illegal class inheritance (should be a cyclic)".to_owned()
-  }
-}
-
-pub struct SealedInheritance;
-
-impl IError for SealedInheritance {
-  fn get_msg(&self) -> String {
-    "illegal class inheritance from sealed class".to_owned()
-  }
-}
-
-pub struct NoMainClass;
-
-impl IError for NoMainClass {
-  fn get_msg(&self) -> String {
-    format!("no legal Main class named '{}' was found", MAIN_CLASS)
-  }
-}
-
-pub struct VoidArrayElement;
-
-impl IError for VoidArrayElement {
-  fn get_msg(&self) -> String {
-    "array element type must be non-void known type".to_owned()
-  }
-}
-
-pub struct VoidVar {
-  pub name: &'static str,
-}
-
-impl IError for VoidVar {
-  fn get_msg(&self) -> String {
-    format!("cannot declare identifier '{}' as void type", self.name)
-  }
-}
-
-pub struct OverrideVar {
-  pub name: &'static str,
-}
-
-impl IError for OverrideVar {
-  fn get_msg(&self) -> String {
-    format!("overriding variable is not allowed for var '{}'", self.name)
-  }
-}
-
-pub struct BadOverride {
-  pub method: &'static str,
-  pub parent: &'static str,
-}
-
-impl IError for BadOverride {
-  fn get_msg(&self) -> String {
-    format!("overriding method '{}' doesn't match the type signature in class '{}'", self.method, self.parent)
-  }
-}
-
-pub struct IncompatibleUnary {
-  pub op: &'static str,
-  pub r_t: String,
-}
-
-impl IError for IncompatibleUnary {
-  fn get_msg(&self) -> String {
-    format!("incompatible operand: {} {}", self.op, self.r_t)
-  }
-}
-
-pub struct TestNotBool;
-
-impl IError for TestNotBool {
-  fn get_msg(&self) -> String {
-    "test expression must have bool type".to_owned()
-  }
-}
-
-pub struct IncompatibleBinary {
-  pub l_t: String,
-  pub op: &'static str,
-  pub r_t: String,
-}
-
-impl IError for IncompatibleBinary {
-  fn get_msg(&self) -> String {
-    format!("incompatible operands: {} {} {}", self.l_t, self.op, self.r_t)
-  }
-}
-
-pub struct BreakOutOfLoop;
-
-impl IError for BreakOutOfLoop {
-  fn get_msg(&self) -> String {
-    "'break' is only allowed inside a loop".to_owned()
-  }
-}
-
-pub struct UndeclaredVar {
-  pub name: &'static str,
-}
-
-impl IError for UndeclaredVar {
-  fn get_msg(&self) -> String {
-    format!("undeclared variable '{}'", self.name)
-  }
-}
-
-pub struct RefInStatic {
-  pub field: &'static str,
-  pub method: &'static str,
-}
-
-impl IError for RefInStatic {
-  fn get_msg(&self) -> String {
-    format!("can not reference a non-static field '{}' from static method '{}'", self.field, self.method)
-  }
-}
-
-pub struct BadFieldAccess {
-  pub name: &'static str,
-  pub owner_t: String,
-}
-
-impl IError for BadFieldAccess {
-  fn get_msg(&self) -> String {
-    format!("cannot access field '{}' from '{}'", self.name, self.owner_t)
-  }
-}
-
-pub struct PrivateFieldAccess {
-  pub name: &'static str,
-  pub owner_t: String,
-}
-
-impl IError for PrivateFieldAccess {
-  fn get_msg(&self) -> String {
-    format!("field '{}' of '{}' not accessible here", self.name, self.owner_t)
-  }
-}
-
-pub struct NoSuchField {
-  pub name: &'static str,
-  pub owner_t: String,
-}
-
-impl IError for NoSuchField {
-  fn get_msg(&self) -> String {
-    format!("field '{}' not found in '{}'", self.name, self.owner_t)
-  }
-}
-
-pub struct LengthWithArgument {
-  pub count: i32,
-}
-
-impl IError for LengthWithArgument {
-  fn get_msg(&self) -> String {
-    format!("function 'length' expects 0 argument(s) but {} given", self.count)
-  }
-}
-
-pub struct BadLength;
-
-impl IError for BadLength {
-  fn get_msg(&self) -> String {
-    "'length' can only be applied to arrays".to_owned()
-  }
-}
-
-// want a method, found only a field
-pub struct NotMethod {
-  pub name: &'static str,
-  pub owner_t: String,
-}
-
-impl IError for NotMethod {
-  fn get_msg(&self) -> String {
-    format!("'{}' is not a method in class '{}'", self.name, self.owner_t)
-  }
-}
-
-pub struct WrongArgc {
-  pub name: &'static str,
-  pub expect: i32,
-  pub actual: i32,
-}
-
-impl IError for WrongArgc {
-  fn get_msg(&self) -> String {
-    format!("function '{}' expects {} argument(s) but {} given", self.name, self.expect, self.actual)
-  }
-}
-
-pub struct WrongArgType {
-  pub loc: i32,
-  pub arg_t: String,
-  pub param_t: String,
-}
-
-impl IError for WrongArgType {
-  fn get_msg(&self) -> String {
-    format!("incompatible argument {}: {} given, {} expected", self.loc, self.arg_t, self.param_t)
-  }
-}
-
-pub struct ThisInStatic;
-
-impl IError for ThisInStatic {
-  fn get_msg(&self) -> String {
-    "can not use this in static function".to_owned()
-  }
-}
-
-pub struct NotObject {
-  pub type_: String,
-}
-
-impl IError for NotObject {
-  fn get_msg(&self) -> String {
-    format!("{} is not a class type", self.type_)
-  }
-}
-
-pub struct BadPrintArg {
-  pub loc: i32,
-  pub type_: String,
-}
-
-impl IError for BadPrintArg {
-  fn get_msg(&self) -> String {
-    format!("incompatible argument {}: {} given, int/bool/string expected", self.loc, self.type_)
-  }
-}
-
-pub struct WrongReturnType {
-  pub ret_t: String,
-  pub expect_t: String,
-}
-
-impl IError for WrongReturnType {
-  fn get_msg(&self) -> String {
-    format!("incompatible return: {} given, {} expected", self.ret_t, self.expect_t)
-  }
-}
-
-pub struct BadNewArrayLen;
-
-impl IError for BadNewArrayLen {
-  fn get_msg(&self) -> String {
-    "new array length must be an integer".to_owned()
-  }
-}
-
-pub struct NotArray;
-
-impl IError for NotArray {
-  fn get_msg(&self) -> String {
-    "[] can only be applied to arrays".to_owned()
-  }
-}
-
-pub struct ArrayIndexNotInt;
-
-impl IError for ArrayIndexNotInt {
-  fn get_msg(&self) -> String {
-    "array subscript must be an integer".to_owned()
-  }
-}
-
-pub struct ArrayRepeatNotInt;
-
-impl IError for ArrayRepeatNotInt {
-  fn get_msg(&self) -> String {
-    "array repeats time type must be int type".to_owned()
-  }
-}
-
-pub struct BadArrayOp;
-
-impl IError for BadArrayOp {
-  fn get_msg(&self) -> String {
-    "Array Operation on non-array type".to_owned()
-  }
-}
-
-pub struct DefaultMismatch {
-  pub elem_t: String,
-  pub dft_t: String,
-}
-
-impl IError for DefaultMismatch {
-  fn get_msg(&self) -> String {
-    format!("Array has Element type {} but default has type {}", self.elem_t, self.dft_t)
-  }
-}
-
-pub struct ForeachMismatch {
-  pub elem_t: String,
-  pub def_t: String,
-}
-
-impl IError for ForeachMismatch {
-  fn get_msg(&self) -> String {
-    format!("Array has Element type {} but Foreach wants type {}", self.elem_t, self.def_t)
-  }
-}
-
-pub struct ConcatMismatch {
-  pub l_t: String,
-  pub r_t: String,
-}
-
-impl IError for ConcatMismatch {
-  fn get_msg(&self) -> String {
-    format!("concat {} with {}", self.l_t, self.r_t)
-  }
-}
-
-pub struct SCopyNotClass {
-  pub which: &'static str,
-  pub type_: String,
-}
-
-impl IError for SCopyNotClass {
-  fn get_msg(&self) -> String {
-    format!("incompatible argument {}: {} given, class expected", self.which, self.type_)
-  }
-}
-
-pub struct SCopyMismatch {
-  pub dst_t: String,
-  pub src_t: String,
-}
-
-impl IError for SCopyMismatch {
-  fn get_msg(&self) -> String {
-    format!("incompatible dst type: {} and src type: {}", self.dst_t, self.src_t)
-  }
-}
-
-pub struct NotLValue {
-  pub op: &'static str
-}
-
-impl IError for NotLValue {
-  fn get_msg(&self) -> String {
-    format!("operator {} can only be applied to lvalue", self.op)
-  }
-}
+macro_rules! make_error {
+  ($self_: ident, $($name: ident => $($field: ident : $type_: ty),* => $value: expr),*) => {
+    $(pub struct $name {
+      $(pub $field : $type_),*
+    }
+    impl IError for $name {
+      fn get_msg(&$self_) -> String {
+        $value
+      }
+    })*
+  };
+}
+
+make_error!(self,
+  UnterminatedStr => string: String => format!("unterminated string constant {}", self.string),
+  NewlineInStr => string: String => format!("illegal newline in string constant {}", self.string),
+  IntTooLarge => string: String => format!("integer literal {} is too large", self.string),
+  UnrecognizedChar => ch: char => format!("unrecognized character '{}'", self.ch),
+  ConflictDeclaration => earlier: Loc, name: &'static str => format!("declaration of '{}' here conflicts with earlier declaration at {}", self.name, self.earlier),
+  NoSuchClass => name: &'static str => format!("class '{}' not found", self.name),
+  CyclicInheritance => => "illegal class inheritance (should be a cyclic)".to_owned(),
+  SealedInheritance => => "illegal class inheritance from sealed class".to_owned(),
+  NoMainClass => => format!("no legal Main class named '{}' was found", MAIN_CLASS),
+  VoidArrayElement => => "array element type must be non-void known type".to_owned(),
+  VoidVar => name: &'static str => format!("cannot declare identifier '{}' as void type", self.name),
+  OverrideVar => name: &'static str => format!("overriding variable is not allowed for var '{}'", self.name),
+  BadOverride => method: &'static str, parent: &'static str => format!("overriding method '{}' doesn't match the type signature in class '{}'", self.method, self.parent),
+  IncompatibleUnary => op: &'static str, r_t: String => format!("incompatible operand: {} {}", self.op, self.r_t),
+  TestNotBool => => "test expression must have bool type".to_owned(),
+  IncompatibleBinary => l_t: String, op: &'static str, r_t: String => format!("incompatible operands: {} {} {}", self.l_t, self.op, self.r_t),
+  BreakOutOfLoop => => "'break' is only allowed inside a loop".to_owned(),
+  UndeclaredVar => name: &'static str => format!("undeclared variable '{}'", self.name),
+  RefInStatic => field: &'static str, method: &'static str => format!("can not reference a non-static field '{}' from static method '{}'", self.field, self.method),
+  BadFieldAccess => name: &'static str, owner_t: String => format!("cannot access field '{}' from '{}'", self.name, self.owner_t),
+  PrivateFieldAccess => name: &'static str, owner_t: String => format!("field '{}' of '{}' not accessible here", self.name, self.owner_t),
+  NoSuchField => name: &'static str, owner_t: String => format!("field '{}' not found in '{}'", self.name, self.owner_t),
+  LengthWithArgument => count: i32 => format!("function 'length' expects 0 argument(s) but {} given", self.count),
+  BadLength => => "'length' can only be applied to arrays".to_owned(),
+  NotMethod => name: &'static str, owner_t: String => format!("'{}' is not a method in class '{}'", self.name, self.owner_t),
+  WrongArgc => name: &'static str, expect: i32, actual: i32 => format!("function '{}' expects {} argument(s) but {} given", self.name, self.expect, self.actual),
+  WrongArgType => loc: i32, arg_t: String, param_t: String => format!("incompatible argument {}: {} given, {} expected", self.loc, self.arg_t, self.param_t),
+  ThisInStatic => => "can not use this in static function".to_owned(),
+  NotObject => type_: String => format!("{} is not a class type", self.type_),
+  BadPrintArg => loc: i32, type_: String => format!("incompatible argument {}: {} given, int/bool/string expected", self.loc, self.type_),
+  WrongReturnType => ret_t: String, expect_t: String => format!("incompatible return: {} given, {} expected", self.ret_t, self.expect_t),
+  BadNewArrayLen => => "new array length must be an integer".to_owned(),
+  NotArray => => "[] can only be applied to arrays".to_owned(),
+  ArrayIndexNotInt => => "array subscript must be an integer".to_owned(),
+  ArrayRepeatNotInt => => "array repeats time type must be int type".to_owned(),
+  BadArrayOp => => "Array Operation on non-array type".to_owned(),
+  DefaultMismatch => elem_t: String, dft_t: String => format!("Array has Element type {} but default has type {}", self.elem_t, self.dft_t),
+  ForeachMismatch => elem_t: String, def_t: String => format!("Array has Element type {} but Foreach wants type {}", self.elem_t, self.def_t),
+  ConcatMismatch => l_t: String, r_t: String => format!("concat {} with {}", self.l_t, self.r_t),
+  SCopyNotClass => which: &'static str, type_: String => format!("incompatible argument {}: {} given, class expected", self.which, self.type_),
+  SCopyMismatch => dst_t: String, src_t: String => format!("incompatible dst type: {} and src type: {}", self.dst_t, self.src_t),
+  NotLValue => op: &'static str => format!("operator {} can only be applied to lvalue", self.op)
+);

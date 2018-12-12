@@ -162,10 +162,10 @@ impl SymbolBuilder {
           let parent_ref = parent_ref.as_class();
           class_def.p_ptr = parent_ref;
           if calc_order(class_def) <= calc_order(parent_ref) {
-            issue!(self, class_def.loc, CyclicInheritance);
+            issue!(self, class_def.loc, CyclicInheritance{});
             class_def.p_ptr = ptr::null_mut();
           } else if parent_ref.sealed {
-            issue!(self, class_def.loc, SealedInheritance);
+            issue!(self, class_def.loc, SealedInheritance{});
             class_def.p_ptr = ptr::null_mut();
           }
         } else {
@@ -187,7 +187,7 @@ impl SymbolBuilder {
 
     for class_def in &mut program.class { self.check_override(class_def); }
 
-    if !self.check_main(program.main) { issue!(self, NO_LOC, NoMainClass); }
+    if !self.check_main(program.main) { issue!(self, NO_LOC, NoMainClass{}); }
   }
 
   fn class_def(&mut self, class_def: &mut ClassDef) {

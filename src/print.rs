@@ -88,7 +88,7 @@ pub trait ASTData {
   fn print_ast(&self, p: &mut IndentPrinter);
 }
 
-macro_rules! impl_ast_data {
+macro_rules! make_ast_data {
   ($self_: ident, $printer: ident, $($kind: ident => $body: block),*) => {
     $(impl ASTData for $kind {
       fn print_ast(&$self_, $printer: &mut IndentPrinter) {
@@ -98,7 +98,7 @@ macro_rules! impl_ast_data {
   };
 }
 
-impl_ast_data!(self, p,
+make_ast_data!(self, p,
   Program => {
     p.println("program").inc_indent();
     for class in &self.class { class.print_ast(p); }

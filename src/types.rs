@@ -184,7 +184,7 @@ pub trait SemanticTypeVisitor {
         if elem.as_ref() == &ERROR {
           true
         } else if elem.as_ref() == &VOID {
-          self.push_error(Error::new(loc, VoidArrayElement));
+          self.push_error(Error::new(loc, VoidArrayElement{}));
           true
         } else { false }
       }

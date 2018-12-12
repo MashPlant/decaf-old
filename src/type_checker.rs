@@ -51,7 +51,7 @@ impl TypeChecker {
     self.expr(expr);
     let t = expr.get_type();
     if !t.error_or(&BOOL) {
-      issue!(self, expr.get_loc(), TestNotBool);
+      issue!(self, expr.get_loc(), TestNotBool{});
     }
   }
 
@@ -187,7 +187,7 @@ impl TypeChecker {
           issue!(self, expr.get_loc(), BadPrintArg { loc: i as i32 + 1, type_: expr_t.to_string() });
         }
       },
-      Break(break_) => if self.loop_counter == 0 { issue!(self, break_.loc, BreakOutOfLoop); },
+      Break(break_) => if self.loop_counter == 0 { issue!(self, break_.loc, BreakOutOfLoop{}); },
       SCopy(s_copy) => self.s_copy(s_copy),
       Foreach(foreach) => self.foreach(foreach),
       Guarded(guarded) => for (e, b) in &mut guarded.guarded {
@@ -235,17 +235,17 @@ impl TypeChecker {
         match &arr_t {
           SemanticType::Array(elem) => indexed.type_ = *elem.clone(),
           SemanticType::Error => {}
-          _ => issue!(self, indexed.arr.get_loc(), NotArray),
+          _ => issue!(self, indexed.arr.get_loc(), NotArray{}),
         }
         if !idx_t.error_or(&INT) {
-          issue!(self, indexed.loc, ArrayIndexNotInt);
+          issue!(self, indexed.loc, ArrayIndexNotInt{});
         }
       }
       Call(call) => self.call(call),
       Unary(unary) => self.unary(unary),
       Binary(binary) => self.binary(binary),
       This(this) => if self.current_method.get().static_ {
-        issue!(self, this.loc, ThisInStatic);
+        issue!(self, this.loc, ThisInStatic{});
       } else {
         this.type_ = self.current_class.get().get_object_type();
       },
@@ -259,7 +259,7 @@ impl TypeChecker {
         self.semantic_type(&mut new_array.type_, elem_t.loc);
         self.expr(&mut new_array.len);
         let len_t = new_array.len.get_type();
-        if !len_t.error_or(&INT) { issue!(self, new_array.len.get_loc(), BadNewArrayLen); }
+        if !len_t.error_or(&INT) { issue!(self, new_array.len.get_loc(), BadNewArrayLen{}); }
       }
       TypeTest(type_test) => {
         self.expr(&mut type_test.expr);
@@ -340,7 +340,7 @@ impl TypeChecker {
         foreach.def.type_.sem = ERROR;
       }
       _ => {
-        issue!(self, foreach.arr.get_loc(), BadArrayOp);
+        issue!(self, foreach.arr.get_loc(), BadArrayOp{});
         if &foreach.def.type_.sem == &VAR {
           foreach.def.type_.sem = ERROR;
         }
@@ -394,15 +394,15 @@ impl TypeChecker {
     let (l_t, r_t) = (l.get_type(), r.get_type());
     match binary.op {
       Repeat => {
-        if !r_t.error_or(&INT) { issue!(self, r.get_loc(), ArrayRepeatNotInt); }
+        if !r_t.error_or(&INT) { issue!(self, r.get_loc(), ArrayRepeatNotInt{}); }
         // l_t cannot be void here
         if l_t != &ERROR {
           binary.type_ = SemanticType::Array(Box::new(l_t.clone()));
         }
       }
       Concat => {
-        if l_t != &ERROR && !l_t.is_array() { issue!(self, l.get_loc(), BadArrayOp); }
-        if r_t != &ERROR && !r_t.is_array() { issue!(self, r.get_loc(), BadArrayOp); }
+        if l_t != &ERROR && !l_t.is_array() { issue!(self, l.get_loc(), BadArrayOp{}); }
+        if r_t != &ERROR && !r_t.is_array() { issue!(self, r.get_loc(), BadArrayOp{}); }
         if l_t.is_array() && r_t.is_array() {
           if l_t != r_t {
             issue!(self, binary.loc, ConcatMismatch { l_t: l_t.to_string(), r_t: r_t.to_string() });
@@ -462,7 +462,7 @@ impl TypeChecker {
             call.is_arr_len = true;
             return;
           } else if !owner_t.is_object() && !owner_t.is_class() {
-            issue!(self, call.loc, BadLength);
+            issue!(self, call.loc, BadLength{});
             return;
           }
         }
@@ -568,12 +568,12 @@ impl TypeChecker {
       }
       SemanticType::Error => {}
       _ => {
-        issue!(self, default.arr.get_loc(), BadArrayOp);
+        issue!(self, default.arr.get_loc(), BadArrayOp{});
         default.type_ = dft_t.clone();
       }
     }
     if !idx_t.error_or(&INT) {
-      issue!(self, default.idx.get_loc(), ArrayIndexNotInt);
+      issue!(self, default.idx.get_loc(), ArrayIndexNotInt{});
     }
   }
 }
