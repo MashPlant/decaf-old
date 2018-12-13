@@ -13,10 +13,7 @@ pub struct Error {
 
 impl Error {
   pub fn new<E: IError + 'static>(loc: Loc, error: E) -> Error {
-    Error {
-      loc,
-      error: Box::new(error),
-    }
+    Error { loc, error: Box::new(error) }
   }
 }
 

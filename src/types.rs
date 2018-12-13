@@ -9,7 +9,7 @@ use std::default::Default as D;
 use std::fmt;
 
 // the struct Type in ast.rs is syntactic type(so it have field `loc`)
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SemanticType {
   Error,
   Var,
@@ -26,22 +26,6 @@ pub enum SemanticType {
   Array(Box<SemanticType>),
   // refer to a method, only possible in semantic analysis
   Method(*const MethodDef),
-}
-
-impl Clone for SemanticType {
-  fn clone(&self) -> Self {
-    match &self {
-      SemanticType::Error => SemanticType::Error,
-      SemanticType::Var => SemanticType::Var,
-      SemanticType::Null => SemanticType::Null,
-      SemanticType::Basic(name) => SemanticType::Basic(name),
-      SemanticType::Named(name) => SemanticType::Named(name),
-      SemanticType::Object(class) => SemanticType::Object(*class),
-      SemanticType::Class(class) => SemanticType::Class(*class),
-      SemanticType::Array(elem) => SemanticType::Array(elem.clone()),
-      SemanticType::Method(method) => SemanticType::Method(*method),
-    }
-  }
 }
 
 pub const ERROR: SemanticType = SemanticType::Error;

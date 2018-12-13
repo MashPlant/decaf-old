@@ -55,24 +55,15 @@ impl Scope {
   }
 
   pub fn is_local(&self) -> bool {
-    match self.kind {
-      ScopeKind::Local(_) => true,
-      _ => false,
-    }
+    if let ScopeKind::Local(_) = self.kind { true } else { false }
   }
 
   pub fn is_parameter(&self) -> bool {
-    match self.kind {
-      ScopeKind::Parameter(_) => true,
-      _ => false,
-    }
+    if let ScopeKind::Parameter(_) = self.kind { true } else { false }
   }
 
   pub fn is_class(&self) -> bool {
-    match self.kind {
-      ScopeKind::Class(_) => true,
-      _ => false,
-    }
+    if let ScopeKind::Class(_) = self.kind { true } else { false }
   }
 }
 
@@ -154,10 +145,8 @@ impl fmt::Display for Symbol {
         write!(f, "{} -> {}function {} : {}", method.loc, if method.static_ { "static " } else { "" },
                method.name, SemanticType::Method(method))
       }
-      Symbol::Var(var) => {
-        write!(f, "{} -> variable {}{} : {}", var.get_loc(), if var.is_param() { "@" } else { "" },
+      Symbol::Var(var) => write!(f, "{} -> variable {}{} : {}", var.get_loc(), if var.is_param() { "@" } else { "" },
                var.get_name(), var.get_type())
-      }
     }
   }
 }
