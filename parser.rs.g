@@ -95,10 +95,10 @@
                 return "";
               }
 <S>\"         { self.begin("INITIAL"); return "STRING_CONST"; }
-<S>"\n"       { self.string_builder.0.push('\n'); return ""; }
-<S>"\t"       { self.string_builder.0.push('\t'); return ""; }
-<S>\\\u0022   { self.string_builder.0.push('"');  return ""; }
-<S>\\\\       { self.string_builder.0.push('\\'); return ""; }
+<S>"\n"       { self.string_builder.0.push('\n'); return "";  }
+<S>"\t"       { self.string_builder.0.push('\t'); return "";  }
+<S>\\\u0022   { self.string_builder.0.push('"');  return "";  }
+<S>\\\\       { self.string_builder.0.push('\\'); return "";  }
 <S>.          { self.string_builder.0.push_str(yytext); return ""; }
 
 
@@ -203,7 +203,6 @@ type FieldList = Vec<FieldDef>;
 type VarDefList = Vec<VarDef>;
 type StmtList = Vec<Stmt>;
 type ExprList = Vec<Expr>;
-type ConstList = Vec<Const>;
 type GuardedList = Vec<(Expr, Block)>;
 type Flag = bool;
 
@@ -657,7 +656,6 @@ Expr
       type_: D::default(),
       reg: -1,
       data: ExprData::Call {
-        loc: $2.get_loc(),
         owner: match $1 {
           Some(expr) => Some(Box::new(expr)),
           None => None,
@@ -708,14 +706,14 @@ Expr
       data: ExprData::StringConst(self.tokenizer.string_builder.0.clone()),
     };
   }
-  | ArrayConst {
+  | '[' ExprList ']' {
     |$1: ExprList| -> Expr;
-    $$ = Const::ArrayConst(ArrayConst {
-      loc: self.get_loc(),
-      type_: D::default(),
+    $$ = Expr {
+      loc: $1.get_loc(),
+      type_: D::default,
       reg: -1,
       data: ExprData::ArrayConst($1),
-    });
+    };
   }
   | NULL {
     |$1: Token| -> Expr;
@@ -804,50 +802,57 @@ Expr
   }
   | Expr '[' Expr ':' Expr ']' {
     |$1: Expr, $2: Token, $3: Expr, $5: Expr| -> Expr;
-    Expr {
+    $$ = Expr {
       loc: $2.get_loc(),
       type_: D::default(),
       reg: -1,
-      data: Expr::Range(Range {
-        loc: $2.get_loc(),
+      data: ExprData::Range {
         arr: Box::new($1),
         lb: Box::new($3),
         ub: Box::new($5),
-        type_: D::default(),
-      });
-    }
+      },
+    };
   }
   | Expr '[' Expr ']' DEFAULT Expr {
     |$1: Expr, $2: Token, $3: Expr, $6: Expr| -> Expr;
-    $$ = Expr::Default(Default {
+    $$ = Expr {
       loc: $2.get_loc(),
-      arr: Box::new($1),
-      idx: Box::new($3),
-      dft: Box::new($6),
       type_: D::default(),
-    });
+      reg: -1,
+      data: ExprData::Default {
+        arr: Box::new($1),
+        idx: Box::new($3),
+        dft: Box::new($6),
+      },
+    };
   }
   | '[' Expr FOR IDENTIFIER IN Expr ']' {
     |$1: Token, $2: Expr, $4: Token, $6: Expr| -> Expr;
-    $$ = Expr::Comprehension(Comprehension {
+    $$ = Expr {
       loc: $1.get_loc(),
-      expr: Box::new($2),
-      name: $4.value,
-      arr: Box::new($6),
-      cond: None,
       type_: D::default(),
-    });
+      reg: -1,
+      data: ExprData::Comprehension {
+        expr: Box::new($2),
+        name: $4.value,
+        arr: Box::new($6),
+        cond: None,
+      },
+    };
   }
   | '[' Expr FOR IDENTIFIER IN Expr IF Expr ']' {
     |$1: Token, $2: Expr, $4: Token, $6: Expr, $8: Expr| -> Expr;
-    $$ = Expr::Comprehension(Comprehension {
+    $$ = Expr {
       loc: $1.get_loc(),
-      expr: Box::new($2),
-      name: $4.value,
-      arr: Box::new($6),
-      cond: Some(Box::new($8)),
       type_: D::default(),
-    });
+      reg: -1,
+      data: ExprData::Comprehension {
+        expr: Box::new($2),
+        name: $4.value,
+        arr: Box::new($6),
+        cond: Some(Box::new($8)),
+      },
+    };
   }
   | '(' Expr ')' {
     $$ = $2;
@@ -878,49 +883,75 @@ Expr
   }
   | READ_INTEGER '(' ')' {
     |$1: Token| -> Expr;
-    $$ = Expr::ReadInt(ReadInt { loc: $1.get_loc(), });
+    $$ = Expr {
+      loc: $1.get_loc(),
+      type_: INT,
+      reg: -1,
+      data: ExprData::ReadInt,
+    };
   }
   | READ_LINE '(' ')' {
     |$1: Token| -> Expr;
-    $$ = Expr::ReadLine(ReadLine { loc: $1.get_loc(), });
+    $$ = Expr {
+      loc: $1.get_loc(),
+      type_: STRING,
+      reg: -1,
+      data: ExprData::ReadLine,
+    };
   }
   | THIS {
     |$1: Token| -> Expr;
-    $$ = Expr::This(This { loc: $1.get_loc(), type_: D::default(), });
+    $$ = Expr {
+      loc: $1.get_loc(),
+      type_: D::default,
+      reg: -1,
+      data: ExprData::This,
+    };
   }
   | NEW IDENTIFIER '(' ')' {
     |$1: Token, $2: Token| -> Expr;
-    $$ = Expr::NewClass(NewClass {
+    $$ = Expr {
       loc: $1.get_loc(),
-      name: $2.value,
-      type_: D::default(),
-    });
+      type_: D::default,
+      reg: -1,
+      data: ExprData::NewClass { name: $2.value, },
+    };
   }
   | NEW Type '[' Expr ']' {
     |$1: Token, $2: Type, $4: Expr| -> Expr;
-    $$ = Expr::NewArray(NewArray {
+    $$ = Expr {
       loc: $1.get_loc(),
-      elem_t: $2,
-      len: Box::new($4),
-      type_: D::default(),
-    });
+      type_: D::default,
+      reg: -1,
+      data: ExprData::NewArray {
+        elem_t: $2,
+        len: Box::new($4),
+      },
+    };
   }
   | INSTANCEOF '(' Expr ',' IDENTIFIER ')' {
     |$1: Token, $3: Expr, $5: Token| -> Expr;
-    $$ = Expr::TypeTest(TypeTest {
+    $$ = Expr {
       loc: $1.get_loc(),
-      expr: Box::new($3),
-      name: $5.value,
-    });
+      type_: BOOL,
+      reg: -1,
+      data: ExprData::TypeTest {
+        expr: Box::new($3),
+        name: $5.value,
+      },
+    };
   }
   | '(' CLASS IDENTIFIER ')' Expr {
     |$3: Token, $5: Expr| -> Expr;
-    $$ = Expr::TypeCast(TypeCast {
+    $$ = Expr {
       loc: $5.get_loc(),
-      name: $3.value,
-      expr: Box::new($5),
       type_: D::default(),
-    });
+      reg: -1,
+      data: ExprData::TypeCast {
+        name: $3.value,
+        expr: Box::new($5),
+      },
+    };
   }
   ;
 
@@ -968,76 +999,6 @@ MaybeReceiver
     $$ = None;
   }
   ;
-        
-Const    
-  : INT_CONST {
-    |$1: Token| -> Const;
-    $$ = Const::IntConst(IntConst {
-      loc: $1.get_loc(),
-      value: $1.value.parse::<i32>().unwrap_or_else(|_| {
-        self.errors.push(Error::new($1.get_loc(), IntTooLarge{ string: $1.value.to_string(), }));
-        0
-      }),
-    });
-  }
-  | TRUE {
-    |$1: Token| -> Const;
-    $$ = Const::BoolConst(BoolConst {
-      loc: $1.get_loc(),
-      value: true,
-    });
-  }
-  | FALSE {
-    |$1: Token| -> Const;
-    $$ = Const::BoolConst(BoolConst {
-      loc: $1.get_loc(),
-      value: false,
-    });
-  }
-  | STRING_CONST {
-    || -> Const;
-    $$ = Const::StringConst(StringConst {
-      loc: Loc(self.tokenizer.string_builder.1, self.tokenizer.string_builder.2),
-      value: self.tokenizer.string_builder.0.clone(),
-    });
-  }
-  | ArrayConst {
-    |$1: ConstList| -> Const;
-    $$ = Const::ArrayConst(ArrayConst {
-      loc: self.get_loc(),
-      value: $1,
-      type_: D::default(),
-    });
-  }
-  | NULL {
-    |$1: Token| -> Const;
-    $$ = Const::Null(Null { loc: $1.get_loc(), });
-  }
-  ;
-
-ArrayConst
-  : '[' ConstList ']' {
-    |$2: ConstList| -> ConstList;
-    $$ = $2;
-  }
-  | '[' ']' {
-    || -> ConstList;
-    $$ = Vec::new();
-  }
-  ;
-
-ConstList
-  : ConstList ',' Const {
-    |$1: ConstList, $3: Const| -> ConstList;
-    $1.push($3);
-    $$ = $1;
-  }
-  | Const {
-    |$1: Const| -> ConstList;
-    $$ = vec![$1];
-  }
-  ;
-
 
 ExprListOrEmpty
   : ExprList {

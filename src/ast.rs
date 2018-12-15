@@ -331,11 +331,10 @@ pub struct Expr {
 }
 
 #[derive(Debug)]
-pub enum ExprKind {
+pub enum ExprData {
   Id {
     owner: Option<Box<Expr>>,
     name: &'static str,
-    type_: SemanticType,
     symbol: *const VarDef,
     for_assign: bool,
   },
@@ -354,7 +353,6 @@ pub enum ExprKind {
     owner: Option<Box<Expr>>,
     name: &'static str,
     arg: Vec<Expr>,
-    type_: SemanticType,
     is_arr_len: bool,
     method: *const MethodDef,
   },
