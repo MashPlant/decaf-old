@@ -1,7 +1,9 @@
 use super::ast::*;
 use super::print::quote;
 
+use std::ptr;
 use std::fmt;
+use std::default::Default as D;
 
 pub const INT_SIZE: i32 = 4;
 
@@ -11,13 +13,32 @@ pub struct VTable {
   pub methods: Vec<*const MethodDef>,
 }
 
-pub struct Method {
+#[derive(Debug)]
+pub struct TacMethod {
   pub name: String,
   pub memo: String,
   pub code: Vec<Tac>,
   pub method: *const MethodDef,
 }
 
+impl D for TacMethod {
+  fn default() -> Self {
+    TacMethod {
+      name: D::default(),
+      memo: D::default(),
+      code: D::default(),
+      method: ptr::null(),
+    }
+  }
+}
+
+pub struct TacProgram {
+  pub v_tables: Vec<VTable>,
+  pub methods: Vec<TacMethod>,
+  // there maybe labels / temps in the future
+}
+
+#[derive(Debug)]
 pub enum Tac {
   Add(i32, i32, i32),
   Sub(i32, i32, i32),
@@ -35,16 +56,17 @@ pub enum Tac {
   Neg(i32, i32),
   Not(i32, i32),
   Assign(i32, i32),
-  LoadVTbl(i32, String),
+  LoadVTbl(i32, &'static str),
   IndirectCall(i32, i32),
-  DirectCall(i32, String),
+  DirectCall(i32, &'static str),
+  New(i32, &'static str),
   Ret(i32),
   Jmp(i32),
   Je(i32, i32),
   Jne(i32, i32),
   // offset is int literal, not a virtual register
   Load { dst: i32, base: i32, offset: i32 },
-  Store { src: i32, base: i32, offset: i32 },
+  Store { base: i32, offset: i32, src: i32 },
   IntConst(i32, i32),
   StrConst(i32, String),
   Label(i32),
@@ -71,15 +93,16 @@ impl fmt::Display for Tac {
       Neg(dst, r) => write!(f, "_T{} = - _T{} ", dst, r),
       Not(dst, r) => write!(f, "_T{} = ! _T{} ", dst, r),
       Assign(dst, r) => write!(f, "_T{} =  _T{} ", dst, r),
-      LoadVTbl(dst, v_tbl) => write!(f, "_T{} = VTBL <{}>", dst, v_tbl),
+      LoadVTbl(dst, class_name) => write!(f, "_T{} = VTBL <_{}>", dst, class_name),
       IndirectCall(dst, func) => if *dst == -1 { write!(f, "call _T{}", func) } else { write!(f, "_T{} = call _T{}", dst, func) },
       DirectCall(dst, func) => if *dst == -1 { write!(f, "call {}", func) } else { write!(f, "_T{} = call {}", dst, func) },
+      New(dst, class_name) => write!(f, "call _{}_New", class_name),
       Ret(src) => if *src == -1 { write!(f, "return <empty>") } else { write!(f, "return _T{}", src) },
       Jmp(target) => write!(f, "branch _L{}", target),
       Je(cond, target) => write!(f, "if ({} == 0) branch _L{}", cond, target),
       Jne(cond, target) => write!(f, "if ({} != 0) branch _L{}", cond, target),
       Load { dst, base, offset } => if *offset > 0 { write!(f, "_T{} = *({} + {})", dst, base, offset) } else { write!(f, "{} = *({} - {})", dst, base, -offset) },
-      Store { src, base, offset } => if *offset > 0 { write!(f, "*({} + {}) = _T{}", base, offset, src) } else { write!(f, "*({} - {}) = {}", base, -offset, src) },
+      Store { base, offset, src } => if *offset > 0 { write!(f, "*({} + {}) = _T{}", base, offset, src) } else { write!(f, "*({} - {}) = {}", base, -offset, src) },
       IntConst(dst, src) => write!(f, "_T{} = {}", dst, src),
       StrConst(dst, src) => write!(f, "_T{} = {}", dst, quote(src)),
       Label(label) => write!(f, "_L{}", label),
@@ -87,3 +110,18 @@ impl fmt::Display for Tac {
     }
   }
 }
+
+#[derive(Debug, Copy, Clone)]
+pub struct IntrinsicCall {
+  pub name: &'static str,
+  pub ret: bool,
+}
+
+pub const ALLOCATE: IntrinsicCall = IntrinsicCall { name: "_Alloc", ret: true };
+pub const READ_LINE: IntrinsicCall = IntrinsicCall { name: "_ReadLine", ret: true };
+pub const READ_INT: IntrinsicCall = IntrinsicCall { name: "_ReadInteger", ret: true };
+pub const STRING_EQUAL: IntrinsicCall = IntrinsicCall { name: "_StringEqual", ret: true };
+pub const PRINT_INT: IntrinsicCall = IntrinsicCall { name: "_PrintInt", ret: false };
+pub const PRINT_STRING: IntrinsicCall = IntrinsicCall { name: "_PrintString", ret: false };
+pub const PRINT_BOOL: IntrinsicCall = IntrinsicCall { name: "_PrintBool", ret: false };
+pub const HALT: IntrinsicCall = IntrinsicCall { name: "_Halt", ret: false };

@@ -3,7 +3,7 @@ use super::types::*;
 use std::io;
 
 pub fn quote(s: &str) -> String {
-  let mut ret = "\"".to_string();
+  let mut ret = "\"".to_owned();
   for ch in s.chars() {
     match ch {
       '"' => ret.push_str("\\\""),

@@ -2,7 +2,7 @@ use super::loc::*;
 use super::symbol::*;
 use super::types::*;
 use super::util::*;
-use super::tac::VTable;
+use super::tac::{VTable, TacMethod};
 
 use std::default::Default as D;
 use std::ptr;
