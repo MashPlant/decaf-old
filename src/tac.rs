@@ -58,8 +58,7 @@ pub enum Tac {
   Assign(i32, i32),
   LoadVTbl(i32, &'static str),
   IndirectCall(i32, i32),
-  DirectCall(i32, &'static str),
-  New(i32, &'static str),
+  DirectCall(i32, String),
   Ret(i32),
   Jmp(i32),
   Je(i32, i32),
@@ -96,7 +95,6 @@ impl fmt::Display for Tac {
       LoadVTbl(dst, class_name) => write!(f, "_T{} = VTBL <_{}>", dst, class_name),
       IndirectCall(dst, func) => if *dst == -1 { write!(f, "call _T{}", func) } else { write!(f, "_T{} = call _T{}", dst, func) },
       DirectCall(dst, func) => if *dst == -1 { write!(f, "call {}", func) } else { write!(f, "_T{} = call {}", dst, func) },
-      New(dst, class_name) => write!(f, "call _{}_New", class_name),
       Ret(src) => if *src == -1 { write!(f, "return <empty>") } else { write!(f, "return _T{}", src) },
       Jmp(target) => write!(f, "branch _L{}", target),
       Je(cond, target) => write!(f, "if ({} == 0) branch _L{}", cond, target),
@@ -125,3 +123,11 @@ pub const PRINT_INT: IntrinsicCall = IntrinsicCall { name: "_PrintInt", ret: fal
 pub const PRINT_STRING: IntrinsicCall = IntrinsicCall { name: "_PrintString", ret: false };
 pub const PRINT_BOOL: IntrinsicCall = IntrinsicCall { name: "_PrintBool", ret: false };
 pub const HALT: IntrinsicCall = IntrinsicCall { name: "_Halt", ret: false };
+
+pub const ARRAY_INDEX_OUT_OF_BOUND: &'static str = "Decaf runtime error: Array subscript out of bounds\n";
+pub const NEGATIVE_ARR_SIZE: &'static str = "Decaf runtime error: Cannot create negative-sized array\n";
+pub const CLASS_CAST1: &'static str = "Decaf runtime error: ";
+pub const CLASS_CAST2: &'static str = " cannot be cast to ";
+pub const CLASS_CAST3: &'static str = "\n";
+pub const DIV_0: &'static str = "Decaf runtime error: Division by zero error.\n";
+pub const REPEAT_NEG: &'static str = "Decaf runtime error: The length of the created array should not be less than 0.\n";

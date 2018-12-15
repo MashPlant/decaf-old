@@ -3,6 +3,7 @@ use super::types::*;
 use super::symbol::*;
 use super::util::*;
 use super::tac::*;
+use super::print::quote;
 
 use std::default::Default as D;
 
@@ -12,6 +13,7 @@ pub struct TacCodeGen {
   methods: Vec<TacMethod>,
   reg_cnt: i32,
   label_cnt: i32,
+  cur_this: i32,
 }
 
 impl TacCodeGen {
@@ -47,7 +49,7 @@ impl TacCodeGen {
 
   fn intrinsic_call(&mut self, call: IntrinsicCall) -> i32 {
     let ret = if call.ret { self.new_reg() } else { -1 };
-    self.push(Tac::DirectCall(ret, call.name));
+    self.push(Tac::DirectCall(ret, call.name.to_owned()));
     ret
   }
 
@@ -115,6 +117,9 @@ impl TacCodeGen {
       self.push(Tac::Ret(ret));
       for field_def in &mut class_def.field {
         if let FieldDef::MethodDef(method_def) = field_def {
+          if !method_def.static_ {
+            self.cur_this = method_def.param[0].offset;
+          }
           self.block(&mut method_def.body);
         }
       }
@@ -189,7 +194,7 @@ impl TacCodeGen {
         let new_obj = self.new_reg();
         let tmp = self.new_reg();
         let class = s_copy.src.type_.get_class();
-        self.push(Tac::New(new_obj, class.name));
+        self.push(Tac::DirectCall(new_obj, format!("_{}_New", class.name)));
         for i in 0..class.field_cnt {
           self.push(Tac::Load { dst: tmp, base: s_copy.src.reg, offset: (i + 1) * INT_SIZE });
           self.push(Tac::Store { base: new_obj, offset: (i + 1) * INT_SIZE, src: tmp });
@@ -273,5 +278,175 @@ impl TacCodeGen {
     for stmt in &mut block.stmt { self.stmt(stmt); }
   }
 
-  fn expr(&mut self, expr: &mut Expr) {}
+  fn expr(&mut self, expr: &mut Expr) {
+    use ast::ExprData::*;
+    match &mut expr.data {
+      Id(id) => {
+        let var_def = id.symbol.get();
+        match var_def.scope.get().kind {
+          ScopeKind::Local(_) | ScopeKind::Parameter(_) => expr.reg = var_def.offset,
+          ScopeKind::Class(_) => {
+            let owner = id.owner.as_mut().unwrap();
+            self.expr(owner);
+            expr.reg = self.new_reg();
+            self.push(Tac::Load { dst: expr.reg, base: owner.reg, offset: (var_def.offset + 1) * INT_SIZE });
+          }
+          _ => unreachable!(),
+        };
+      }
+      Indexed(Indexed) => {}
+      IntConst(v) => {
+        expr.reg = self.new_reg();
+        self.push(Tac::IntConst(expr.reg, *v));
+      }
+      BoolConst(v) => {
+        expr.reg = self.new_reg();
+        self.push(Tac::IntConst(expr.reg, if *v { 1 } else { 0 }));
+      }
+      StringConst(v) => {
+        expr.reg = self.new_reg();
+        self.push(Tac::StrConst(expr.reg, quote(v)));
+      }
+      ArrayConst(_) => unimplemented!(),
+      Null => {
+        expr.reg = self.new_reg();
+        self.push(Tac::IntConst(expr.reg, 0));
+      }
+      Call(call) => if call.is_arr_len {
+        let owner = call.owner.as_mut().unwrap();
+        self.expr(owner);
+        expr.reg = self.array_length(owner.reg);
+      } else {
+        let method = call.method.get();
+        let class = method.class.get();
+        expr.reg = if method.ret_t.sem != VOID { self.new_reg() } else { -1 };
+        if method.static_ {
+          for arg in &mut call.arg {
+            self.expr(arg);
+            self.push(Tac::Param(arg.reg));
+          }
+          self.push(Tac::DirectCall(expr.reg, format!("_{}.{}", class.name, method.name)));
+        } else {
+          let owner = call.owner.as_mut().unwrap();
+          self.expr(owner);
+          self.push(Tac::Param(owner.reg));
+          for arg in &mut call.arg {
+            self.expr(arg);
+            self.push(Tac::Param(arg.reg));
+          }
+          let slot = self.new_reg();
+          self.push(Tac::Load { dst: slot, base: owner.reg, offset: 0 });
+          self.push(Tac::Load { dst: slot, base: slot, offset: method.offset * INT_SIZE });
+          self.push(Tac::IndirectCall(expr.reg, slot));
+        }
+      }
+      Unary(unary) => {
+        self.expr(&mut unary.r);
+        expr.reg = self.new_reg();
+        match unary.op {
+          Operator::Neg => self.push(Tac::Neg(expr.reg, unary.r.reg)),
+          Operator::Not => self.push(Tac::Not(expr.reg, unary.r.reg)),
+          _ => unimplemented!(),
+        }
+      }
+      Binary(binary) => {
+        use ast::Operator::*;
+        self.expr(&mut binary.l);
+        self.expr(&mut binary.r);
+        expr.reg = self.new_reg();
+        let (l, r, d) = (binary.l.reg, binary.r.reg, expr.reg);
+        match binary.op {
+          Add => self.push(Tac::Add(d, l, r)),
+          Sub => self.push(Tac::Sub(d, l, r)),
+          Mul => self.push(Tac::Mul(d, l, r)),
+          Div => self.push(Tac::Div(d, l, r)),
+          Mod => self.push(Tac::Mod(d, l, r)),
+          Lt => self.push(Tac::Lt(d, l, r)),
+          Le => self.push(Tac::Le(d, l, r)),
+          Gt => self.push(Tac::Gt(d, l, r)),
+          Ge => self.push(Tac::Ge(d, l, r)),
+          And => self.push(Tac::And(d, l, r)),
+          Or => self.push(Tac::Or(d, l, r)),
+          Eq | Ne => if binary.l.type_ == STRING {
+            self.push(Tac::Param(l));
+            self.push(Tac::Param(r));
+            expr.reg = self.intrinsic_call(STRING_EQUAL);
+            if op == Ne { self.push(Tac::Not(expr.reg, expr.reg)); }
+          } else {
+            self.push(if op == Eq { Tac::Eq(d, l, r) } else { Tac::Ne(d, l, r) });
+          }
+          Repeat => {
+            unimplemented!();
+          }
+          _ => unimplemented!(),
+        }
+      }
+      This => expr.reg = self.cur_this,
+      ReadInt => expr.reg = self.intrinsic_call(READ_INT),
+      ReadLine => expr.reg = self.intrinsic_call(READ_LINE),
+      NewClass { name } => {
+        expr.reg = self.new_reg();
+        self.push(Tac::DirectCall(expr.reg, format!("_{}_New", name)));
+      }
+      NewArray { expr_t: _, len } => {
+        expr.reg = self.new_reg();
+      }
+      TypeTest { src, name } => {
+        // ans = 0
+        // while (cur)
+        //   if cur == target
+        //     ans = 1
+        //     break
+        //   cur = cur->parent
+        self.expr(src);
+        expr.reg = self.new_reg();
+        let (before_cond, after_body) = (self.new_label(), self.new_label());
+        let (cur, target) = (self.new_reg(), self.new_reg());
+        self.push(Tac::IntConst(expr.reg, 0));
+        self.push(Tac::LoadVTbl(target, name));
+        self.push(Tac::Load { dst: v_tbl, base: src.reg, offset: 0 });
+        self.push(Tac::Label(before_cond));
+        self.push(Tac::Je(cur, after_body));
+        self.push(Tac::Eq(expr.reg, cur, target));
+        self.push(Tac::Jne(expr.reg, after_body));
+        self.push(Tac::Load { dst: cur, base: cur, offset: 0 });
+        self.push(Tac::Jmp(before_cond));
+        self.push(Tac::Label(after_body));
+      }
+      TypeCast { name, expr } => {
+//        Label loop = Label.createLabel();
+//        Label exit = Label.createLabel();
+//        Temp cond = Temp.createTempI4();
+//        Temp targetVp = genLoadVTable(c.getVtable());
+//        Temp vp = genLoad(val, 0);
+//        genMark(loop);
+//        append(Tac.genEqu(cond, targetVp, vp));
+//        genBnez(cond, exit);
+//        append(Tac.genLoad(vp, vp, Temp.createConstTemp(0)));
+//        genBnez(vp, loop);
+//        Temp msg = genLoadStrConst(RuntimeError.CLASS_CAST_ERROR1);
+//        genParm(msg);
+//        genIntrinsicCall(Intrinsic.PRINT_STRING);
+//        Temp instanceClassName = genLoad(genLoad(val, 0), 4);
+//        genParm(instanceClassName);
+//        genIntrinsicCall(Intrinsic.PRINT_STRING);
+//        msg = genLoadStrConst(RuntimeError.CLASS_CAST_ERROR2);
+//        genParm(msg);
+//        genIntrinsicCall(Intrinsic.PRINT_STRING);
+//        Temp targetClassName = genLoad(genLoadVTable(c.getVtable()), 4);
+//        genParm(targetClassName);
+//        genIntrinsicCall(Intrinsic.PRINT_STRING);
+//        msg = genLoadStrConst(RuntimeError.CLASS_CAST_ERROR3);
+//        genParm(msg);
+//        genIntrinsicCall(Intrinsic.PRINT_STRING);
+//        genIntrinsicCall(Intrinsic.HALT);
+//        genMark(exit);
+      }
+      Range(_) => unimplemented!(),
+      Default(default) => {
+        expr.reg = self.new_reg();
+      },
+      Comprehension(_) => unimplemented!(),
+    }
+  }
 }
