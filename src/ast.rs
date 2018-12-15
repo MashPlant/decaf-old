@@ -328,69 +328,74 @@ pub struct Expr {
   pub data: ExprData,
 }
 
+#[derive(Debug)]
 pub enum ExprKind {
-  Id(Id),
-  Indexed(Indexed),
+  Id {
+    owner: Option<Box<Expr>>,
+    name: &'static str,
+    type_: SemanticType,
+    symbol: *const VarDef,
+    for_assign: bool,
+  },
+  Indexed {
+    arr: Box<Expr>,
+    idx: Box<Expr>,
+    type_: SemanticType,
+    for_assign: bool,
+  },
   Const(Const),
-  Call(Call),
-  Unary(Unary),
-  Binary(Binary),
-  This(This),
-  ReadInt(ReadInt),
-  ReadLine(ReadLine),
-  NewClass(NewClass),
-  NewArray(NewArray),
-  TypeTest(TypeTest),
-  TypeCast(TypeCast),
-  Range(Range),
-  Default(Default),
-  Comprehension(Comprehension),
+  Call {
+    owner: Option<Box<Expr>>,
+    name: &'static str,
+    arg: Vec<Expr>,
+    type_: SemanticType,
+    is_arr_len: bool,
+    method: *const MethodDef,
+  },
+  Unary {
+    op: Operator,
+    r: Box<Expr>,
+  },
+  Binary {
+    op: Operator,
+    l: Box<Expr>,
+    r: Box<Expr>,
+  },
+  This,
+  ReadInt,
+  ReadLine,
+  NewClass { name: &'static str },
+  NewArray {
+    elem_t: Type,
+    len: Box<Expr>,
+  },
+  TypeTest {
+    expr: Box<Expr>,
+    name: &'static str,
+  },
+  TypeCast {
+    name: &'static str,
+    expr: Box<Expr>,
+  },
+  Range {
+    arr: Box<Expr>,
+    lb: Box<Expr>,
+    ub: Box<Expr>,
+  },
+  Default {
+    arr: Box<Expr>,
+    idx: Box<Expr>,
+    dft: Box<Expr>,
+  },
+  Comprehension {
+    expr: Box<Expr>,
+    name: &'static str,
+    arr: Box<Expr>,
+    cond: Option<Box<Expr>>,
+  },
 }
 
-//#[derive(Debug)]
-//pub enum Expr {
-//  Id(Id),
-//  Indexed(Indexed),
-//  Const(Const),
-//  Call(Call),
-//  Unary(Unary),
-//  Binary(Binary),
-//  This(This),
-//  ReadInt(ReadInt),
-//  ReadLine(ReadLine),
-//  NewClass(NewClass),
-//  NewArray(NewArray),
-//  TypeTest(TypeTest),
-//  TypeCast(TypeCast),
-//  Range(Range),
-//  Default(Default),
-//  Comprehension(Comprehension),
-//}
-
 impl Expr {
-
-  pub fn get_type(&self) -> &SemanticType {
-    use self::Expr::*;
-    match &self {
-      Id(id) => &id.type_,
-      Indexed(indexed) => &indexed.type_,
-      Const(const_) => const_.get_type(),
-      Call(call) => &call.type_,
-      Unary(unary) => &unary.type_,
-      Binary(binary) => &binary.type_,
-      This(this) => &this.type_,
-      ReadInt(_) => &INT,
-      ReadLine(_) => &STRING,
-      NewClass(new_class) => &new_class.type_,
-      NewArray(new_array) => &new_array.type_,
-      TypeTest(_) => &BOOL,
-      TypeCast(type_cast) => &type_cast.type_,
-      Range(range) => &range.type_,
-      Default(default) => &default.type_,
-      Comprehension(comprehension) => &comprehension.type_,
-    }
-  }
-
   pub fn is_lvalue(&self) -> bool {
     match self {
       Expr::Id(_) | Expr::Indexed(_) => true,
@@ -400,184 +405,10 @@ impl Expr {
 }
 
 #[derive(Debug)]
-pub struct Indexed {
-  pub arr: Box<Expr>,
-  pub idx: Box<Expr>,
-  pub type_: SemanticType,
-  pub for_assign: bool,
-}
-
-#[derive(Debug)]
-pub struct Id {
-  pub owner: Option<Box<Expr>>,
-  pub name: &'static str,
-  pub type_: SemanticType,
-  pub symbol: *const VarDef,
-  pub for_assign: bool,
-}
-
-#[derive(Debug)]
 pub enum Const {
-  IntConst(IntConst),
-  BoolConst(BoolConst),
-  StringConst(StringConst),
-  ArrayConst(ArrayConst),
-  Null(Null),
-}
-
-impl Const {
-  pub fn get_loc(&self) -> Loc {
-    use self::Const::*;
-    match self {
-      IntConst(int_const) => int_const.loc,
-      BoolConst(bool_const) => bool_const.loc,
-      StringConst(string_const) => string_const.loc,
-      ArrayConst(array_const) => array_const.loc,
-      Null(null) => null.loc,
-    }
-  }
-
-  pub fn get_type(&self) -> &SemanticType {
-    use self::Const::*;
-    match self {
-      IntConst(_) => &INT,
-      BoolConst(_) => &BOOL,
-      StringConst(_) => &STRING,
-      ArrayConst(array_const) => &array_const.type_,
-      Null(_) => &NULL,
-    }
-  }
-}
-
-#[derive(Debug)]
-pub struct IntConst {
-  pub loc: Loc,
-  pub value: i32,
-}
-
-#[derive(Debug)]
-pub struct BoolConst {
-  pub loc: Loc,
-  pub value: bool,
-}
-
-#[derive(Debug)]
-pub struct StringConst {
-  pub loc: Loc,
-  pub value: String,
-}
-
-#[derive(Debug)]
-pub struct ArrayConst {
-  pub loc: Loc,
-  pub value: Vec<Const>,
-  pub type_: SemanticType,
-}
-
-#[derive(Debug)]
-pub struct Null {
-  pub loc: Loc,
-}
-
-#[derive(Debug)]
-pub struct Call {
-  pub loc: Loc,
-  pub owner: Option<Box<Expr>>,
-  pub name: &'static str,
-  pub arg: Vec<Expr>,
-  pub type_: SemanticType,
-  pub is_arr_len: bool,
-  pub method: *const MethodDef,
-}
-
-#[derive(Debug)]
-pub struct Unary {
-  pub loc: Loc,
-  pub op: Operator,
-  pub r: Box<Expr>,
-  pub type_: SemanticType,
-}
-
-#[derive(Debug)]
-pub struct Binary {
-  pub loc: Loc,
-  pub op: Operator,
-  pub l: Box<Expr>,
-  pub r: Box<Expr>,
-  pub type_: SemanticType,
-}
-
-#[derive(Debug)]
-pub struct This {
-  pub loc: Loc,
-  pub type_: SemanticType,
-}
-
-#[derive(Debug)]
-pub struct ReadInt {
-  pub loc: Loc,
-}
-
-#[derive(Debug)]
-pub struct ReadLine {
-  pub loc: Loc,
-}
-
-#[derive(Debug)]
-pub struct NewClass {
-  pub loc: Loc,
-  pub name: &'static str,
-  pub type_: SemanticType,
-}
-
-#[derive(Debug)]
-pub struct NewArray {
-  pub loc: Loc,
-  pub elem_t: Type,
-  pub len: Box<Expr>,
-  pub type_: SemanticType,
-}
-
-#[derive(Debug)]
-pub struct TypeTest {
-  pub loc: Loc,
-  pub expr: Box<Expr>,
-  pub name: &'static str,
-}
-
-#[derive(Debug)]
-pub struct TypeCast {
-  pub loc: Loc,
-  pub name: &'static str,
-  pub expr: Box<Expr>,
-  pub type_: SemanticType,
-}
-
-
-#[derive(Debug)]
-pub struct Range {
-  pub loc: Loc,
-  pub arr: Box<Expr>,
-  pub lb: Box<Expr>,
-  pub ub: Box<Expr>,
-  pub type_: SemanticType,
-}
-
-#[derive(Debug)]
-pub struct Default {
-  pub loc: Loc,
-  pub arr: Box<Expr>,
-  pub idx: Box<Expr>,
-  pub dft: Box<Expr>,
-  pub type_: SemanticType,
-}
-
-#[derive(Debug)]
-pub struct Comprehension {
-  pub loc: Loc,
-  pub expr: Box<Expr>,
-  pub name: &'static str,
-  pub arr: Box<Expr>,
-  pub cond: Option<Box<Expr>>,
-  pub type_: SemanticType,
+  IntConst(i32),
+  BoolConst(bool),
+  StringConst(String),
+  ArrayConst(Vec<Const>),
+  Null,
 }
