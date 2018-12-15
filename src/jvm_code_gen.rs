@@ -532,7 +532,7 @@ impl JvmCodeGen {
           _ => unreachable!(),
         }
       }
-      ExprData::Indexed(indexed) => handle!(assign.dst.type_, self.i_a_store(), self.b_a_store(), self.a_a_store()),
+      ExprData::Indexed(_) => handle!(assign.dst.type_, self.i_a_store(), self.b_a_store(), self.a_a_store()),
       _ => unreachable!(),
     }
   }

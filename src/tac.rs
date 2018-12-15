@@ -1,5 +1,4 @@
 use super::ast::*;
-use super::print::quote;
 
 use std::ptr;
 use std::fmt;
@@ -7,6 +6,7 @@ use std::default::Default as D;
 
 pub const INT_SIZE: i32 = 4;
 
+// in real tac-vm, v-table[0] is for parent v-table(0 for no parent), v-table[1] is for class name
 #[derive(Debug, Clone)]
 pub struct VTable {
   pub class: *const ClassDef,
@@ -102,7 +102,7 @@ impl fmt::Display for Tac {
       Load { dst, base, offset } => if *offset > 0 { write!(f, "_T{} = *({} + {})", dst, base, offset) } else { write!(f, "{} = *({} - {})", dst, base, -offset) },
       Store { base, offset, src } => if *offset > 0 { write!(f, "*({} + {}) = _T{}", base, offset, src) } else { write!(f, "*({} - {}) = {}", base, -offset, src) },
       IntConst(dst, src) => write!(f, "_T{} = {}", dst, src),
-      StrConst(dst, src) => write!(f, "_T{} = {}", dst, quote(src)),
+      StrConst(dst, src) => write!(f, "_T{} = {}", dst, src),
       Label(label) => write!(f, "_L{}", label),
       Param(src) => write!(f, "parm _T{}", src),
     }
@@ -125,7 +125,7 @@ pub const PRINT_BOOL: IntrinsicCall = IntrinsicCall { name: "_PrintBool", ret: f
 pub const HALT: IntrinsicCall = IntrinsicCall { name: "_Halt", ret: false };
 
 pub const ARRAY_INDEX_OUT_OF_BOUND: &'static str = "Decaf runtime error: Array subscript out of bounds\n";
-pub const NEGATIVE_ARR_SIZE: &'static str = "Decaf runtime error: Cannot create negative-sized array\n";
+pub const NEGATIVE_ARRAY_SIZE: &'static str = "Decaf runtime error: Cannot create negative-sized array\n";
 pub const CLASS_CAST1: &'static str = "Decaf runtime error: ";
 pub const CLASS_CAST2: &'static str = " cannot be cast to ";
 pub const CLASS_CAST3: &'static str = "\n";

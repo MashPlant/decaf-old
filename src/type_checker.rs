@@ -219,7 +219,6 @@ impl TypeChecker {
 
   fn expr(&mut self, expr: &mut Expr) {
     use self::ExprData::*;
-    let p = expr as *const Expr;
     match &mut expr.data {
       Id(id) => self.id(id, expr.loc, &mut expr.type_),
       Indexed(indexed) => {

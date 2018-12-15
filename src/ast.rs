@@ -2,7 +2,7 @@ use super::loc::*;
 use super::symbol::*;
 use super::types::*;
 use super::util::*;
-use super::tac::{VTable, TacMethod};
+use super::tac::VTable;
 
 use std::default::Default as D;
 use std::ptr;
@@ -258,7 +258,7 @@ pub struct Assign {
   pub src: Expr,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Operator {
   Neg,
   Not,

@@ -47,9 +47,48 @@ impl TacCodeGen {
     ret
   }
 
+  fn check_array_index(&mut self, array: i32, index: i32) -> i32 {
+    let (ret, zero, arr_len, cmp) = (self.new_reg(), self.new_reg(), self.array_length(array), self.new_reg());
+    let (err, after) = (self.new_label(), self.new_label());
+    self.push(Tac::IntConst(zero, 0));
+    self.push(Tac::Lt(cmp, index, zero));
+    self.push(Tac::Jne(cmp, err));
+    self.push(Tac::Lt(cmp, index, arr_len));
+    self.push(Tac::Je(cmp, err));
+    self.push(Tac::IntConst(ret, 1));
+    self.push(Tac::Jmp(after));
+    self.push(Tac::Label(err));
+    self.push(Tac::IntConst(ret, 0));
+    self.push(Tac::Label(after));
+    ret
+  }
+
   fn intrinsic_call(&mut self, call: IntrinsicCall) -> i32 {
     let ret = if call.ret { self.new_reg() } else { -1 };
     self.push(Tac::DirectCall(ret, call.name.to_owned()));
+    ret
+  }
+
+  fn instance_of(&mut self, object: i32, class: &'static str) -> i32 {
+    // ret = 0
+    // while (cur)
+    //   if cur == target
+    //     ret = 1
+    //     break
+    //   cur = cur->parent
+    let ret = self.new_reg();
+    let (before_cond, after_body) = (self.new_label(), self.new_label());
+    let (cur, target) = (self.new_reg(), self.new_reg());
+    self.push(Tac::IntConst(ret, 0));
+    self.push(Tac::LoadVTbl(target, class));
+    self.push(Tac::Load { dst: cur, base: object, offset: 0 });
+    self.push(Tac::Label(before_cond));
+    self.push(Tac::Je(cur, after_body));
+    self.push(Tac::Eq(ret, cur, target));
+    self.push(Tac::Jne(ret, after_body));
+    self.push(Tac::Load { dst: cur, base: cur, offset: 0 });
+    self.push(Tac::Jmp(before_cond));
+    self.push(Tac::Label(after_body));
     ret
   }
 
@@ -294,7 +333,22 @@ impl TacCodeGen {
           _ => unreachable!(),
         };
       }
-      Indexed(Indexed) => {}
+      Indexed(indexed) => {
+        self.expr(&mut indexed.arr);
+        self.expr(&mut indexed.idx);
+        let check = self.check_array_index(indexed.arr.reg, indexed.idx.reg);
+        let (halt, after) = (self.new_label(), self.new_label());
+        self.push(Tac::Je(check, halt));
+        expr.reg = self.array_at(indexed.arr.reg, indexed.idx.reg);
+        self.push(Tac::Jmp(after));
+        self.push(Tac::Label(halt));
+        let msg = self.new_reg();
+        self.push(Tac::StrConst(msg, quote(ARRAY_INDEX_OUT_OF_BOUND)));
+        self.push(Tac::Param(msg));
+        self.intrinsic_call(PRINT_STRING);
+        self.intrinsic_call(HALT);
+        self.push(Tac::Label(after));
+      }
       IntConst(v) => {
         expr.reg = self.new_reg();
         self.push(Tac::IntConst(expr.reg, *v));
@@ -371,9 +425,9 @@ impl TacCodeGen {
             self.push(Tac::Param(l));
             self.push(Tac::Param(r));
             expr.reg = self.intrinsic_call(STRING_EQUAL);
-            if op == Ne { self.push(Tac::Not(expr.reg, expr.reg)); }
+            if binary.op == Ne { self.push(Tac::Not(expr.reg, expr.reg)); }
           } else {
-            self.push(if op == Eq { Tac::Eq(d, l, r) } else { Tac::Ne(d, l, r) });
+            self.push(if binary.op == Eq { Tac::Eq(d, l, r) } else { Tac::Ne(d, l, r) });
           }
           Repeat => {
             unimplemented!();
@@ -388,64 +442,79 @@ impl TacCodeGen {
         expr.reg = self.new_reg();
         self.push(Tac::DirectCall(expr.reg, format!("_{}_New", name)));
       }
-      NewArray { expr_t: _, len } => {
-        expr.reg = self.new_reg();
-      }
-      TypeTest { src, name } => {
-        // ans = 0
-        // while (cur)
-        //   if cur == target
-        //     ans = 1
-        //     break
-        //   cur = cur->parent
-        self.expr(src);
-        expr.reg = self.new_reg();
-        let (before_cond, after_body) = (self.new_label(), self.new_label());
-        let (cur, target) = (self.new_reg(), self.new_reg());
-        self.push(Tac::IntConst(expr.reg, 0));
-        self.push(Tac::LoadVTbl(target, name));
-        self.push(Tac::Load { dst: v_tbl, base: src.reg, offset: 0 });
+      NewArray { elem_t: _, len } => {
+        self.expr(len);
+        let (halt, before_cond, finish) = (self.new_label(), self.new_label(), self.new_label());
+        let (zero, int_size, cmp, i, msg) = (self.new_reg(), self.new_reg(), self.new_reg(), self.new_reg(), self.new_reg());
+        self.push(Tac::IntConst(zero, 0));
+        self.push(Tac::IntConst(int_size, INT_SIZE));
+        self.push(Tac::Lt(cmp, len.reg, zero));
+        self.push(Tac::Jne(cmp, halt));
+        self.push(Tac::Mul(i, len.reg, int_size));
+        self.push(Tac::Add(i, i, int_size)); // allocate (len + 1) * INT_SIZE
+        self.push(Tac::Param(i));
+        expr.reg = self.intrinsic_call(ALLOCATE);
+        self.push(Tac::Add(i, expr.reg, i));
         self.push(Tac::Label(before_cond));
-        self.push(Tac::Je(cur, after_body));
-        self.push(Tac::Eq(expr.reg, cur, target));
-        self.push(Tac::Jne(expr.reg, after_body));
-        self.push(Tac::Load { dst: cur, base: cur, offset: 0 });
+        self.push(Tac::Sub(i, i, int_size));
+        self.push(Tac::Lt(cmp, i, expr.reg));
+        self.push(Tac::Jne(cmp, finish));
+        self.push(Tac::Store { base: i, offset: 0, src: zero });
         self.push(Tac::Jmp(before_cond));
-        self.push(Tac::Label(after_body));
+        self.push(Tac::Label(halt));
+        self.push(Tac::StrConst(msg, quote(ARRAY_INDEX_OUT_OF_BOUND)));
+        self.push(Tac::Param(msg));
+        self.intrinsic_call(PRINT_STRING);
+        self.intrinsic_call(HALT);
+        self.push(Tac::Label(finish));
+        self.push(Tac::Store { base: i, offset: 0, src: len.reg }); // array[-1] = len
+        self.push(Tac::Sub(expr.reg, expr.reg, int_size));
       }
-      TypeCast { name, expr } => {
-//        Label loop = Label.createLabel();
-//        Label exit = Label.createLabel();
-//        Temp cond = Temp.createTempI4();
-//        Temp targetVp = genLoadVTable(c.getVtable());
-//        Temp vp = genLoad(val, 0);
-//        genMark(loop);
-//        append(Tac.genEqu(cond, targetVp, vp));
-//        genBnez(cond, exit);
-//        append(Tac.genLoad(vp, vp, Temp.createConstTemp(0)));
-//        genBnez(vp, loop);
-//        Temp msg = genLoadStrConst(RuntimeError.CLASS_CAST_ERROR1);
-//        genParm(msg);
-//        genIntrinsicCall(Intrinsic.PRINT_STRING);
-//        Temp instanceClassName = genLoad(genLoad(val, 0), 4);
-//        genParm(instanceClassName);
-//        genIntrinsicCall(Intrinsic.PRINT_STRING);
-//        msg = genLoadStrConst(RuntimeError.CLASS_CAST_ERROR2);
-//        genParm(msg);
-//        genIntrinsicCall(Intrinsic.PRINT_STRING);
-//        Temp targetClassName = genLoad(genLoadVTable(c.getVtable()), 4);
-//        genParm(targetClassName);
-//        genIntrinsicCall(Intrinsic.PRINT_STRING);
-//        msg = genLoadStrConst(RuntimeError.CLASS_CAST_ERROR3);
-//        genParm(msg);
-//        genIntrinsicCall(Intrinsic.PRINT_STRING);
-//        genIntrinsicCall(Intrinsic.HALT);
-//        genMark(exit);
+      TypeTest { expr: src, name } => {
+        self.expr(src);
+        expr.reg = self.instance_of(src.reg, name);
+      }
+      TypeCast { name, expr: src } => {
+        self.expr(src);
+        expr.reg = src.reg;
+        let check = self.instance_of(src.reg, name);
+        let ok = self.new_label();
+        self.push(Tac::Jne(check, ok));
+        let msg = self.new_reg();
+        self.push(Tac::StrConst(msg, quote(CLASS_CAST1)));
+        self.push(Tac::Param(msg));
+        self.intrinsic_call(PRINT_STRING);
+        self.push(Tac::Load { dst: msg, base: src.reg, offset: INT_SIZE });
+        self.push(Tac::Param(msg));
+        self.intrinsic_call(PRINT_STRING);
+        self.push(Tac::StrConst(msg, quote(CLASS_CAST2)));
+        self.push(Tac::Param(msg));
+        self.intrinsic_call(PRINT_STRING);
+        self.push(Tac::StrConst(msg, quote(name)));
+        self.push(Tac::Param(msg));
+        self.intrinsic_call(PRINT_STRING);
+        self.push(Tac::StrConst(msg, quote(CLASS_CAST3)));
+        self.push(Tac::Param(msg));
+        self.intrinsic_call(PRINT_STRING);
+        self.intrinsic_call(HALT);
+        self.push(Tac::Label(ok));
       }
       Range(_) => unimplemented!(),
       Default(default) => {
+        self.expr(&mut default.arr);
+        self.expr(&mut default.idx);
         expr.reg = self.new_reg();
-      },
+        let (use_dft, after) = (self.new_label(), self.new_label());
+        let check = self.check_array_index(default.arr.reg, default.idx.reg);
+        self.push(Tac::Je(check, use_dft));
+        let idx_res = self.array_at(default.arr.reg, default.idx.reg);
+        self.push(Tac::Assign(expr.reg, idx_res));
+        self.push(Tac::Jmp(after));
+        self.push(Tac::Label(use_dft));
+        self.expr(&mut default.dft);
+        self.push(Tac::Assign(expr.reg, default.dft.reg));
+        self.push(Tac::Label(after));
+      }
       Comprehension(_) => unimplemented!(),
     }
   }
