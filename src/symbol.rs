@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::fmt;
 use std::default::Default as D;
-use std::ptr;
 
 // ast node owns the scope
 #[derive(Debug, Default)]

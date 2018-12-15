@@ -121,8 +121,10 @@ impl SemanticType {
       _ => false,
     }
   }
+}
 
-  pub fn print_ast(&self, printer: &mut IndentPrinter) {
+impl ASTData for SemanticType {
+  fn print_ast(&self, printer: &mut IndentPrinter) {
     use self::SemanticType::*;
     match self {
       Var => { printer.print("var"); }

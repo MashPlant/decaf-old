@@ -394,7 +394,7 @@ impl JvmCodeGen {
         self.dup();
         self.invoke_special(name, "<init>", &[], &JavaType::Void);
       }
-      NewArray { elem_t, len } => {
+      NewArray { elem_t: _, len } => {
         self.expr(len);
         // new_array.elem_t is not set during type check, it may still be Named
         self.gen_new_array(if let SemanticType::Array(elem_t) = &expr.type_ { elem_t } else { unreachable!() });

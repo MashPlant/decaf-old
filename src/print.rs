@@ -71,7 +71,7 @@ impl IndentPrinter {
     self
   }
 
-  fn print_ast<T: ASTData>(&mut self, t: &T) -> &mut Self {
+  fn accept<T: ASTData>(&mut self, t: &T) -> &mut Self {
     t.print_ast(self);
     self
   }
@@ -128,15 +128,11 @@ make_ast_data!(self, p,
   },
   MethodDef => {
     if self.static_ { p.print("static"); }
-    p.print("func").print(self.name);
-    self.ret_t.print_ast(p);
-    p.newline().inc_indent().println("formals").inc_indent();
+    p.print("func").print(self.name).accept(&self.ret_t.sem).newline().inc_indent().println("formals").inc_indent();
     for parameter in &self.param {
       parameter.print_ast(p);
     }
-    p.dec_indent();
-    self.body.print_ast(p);
-    p.dec_indent();
+    p.dec_indent().accept(&self.body).dec_indent();
   },
   VarDef => {
     if self.type_.sem == VAR {
@@ -144,13 +140,10 @@ make_ast_data!(self, p,
       if let Some(src) = &self.src { src.print_ast(p); } else { unreachable!(); }
       p.dec_indent();
     } else {
-      p.print("vardef").print(self.name);
-      self.type_.print_ast(p);
-      p.newline();
+      p.print("vardef").print(self.name).accept(&self.type_.sem).newline();
       if let Some(src) = &self.src {
-        p.println("assign").inc_indent().println(self.name);
+        p.println("assign").inc_indent().println(self.name).accept(src).dec_indent();
         src.print_ast(p);
-        p.dec_indent();
       }
     }
   },
@@ -184,48 +177,25 @@ make_ast_data!(self, p,
     p.dec_indent();
   },
   If => {
-    p.println("if").inc_indent();
-    self.cond.print_ast(p);
-    self.on_true.print_ast(p);
-    p.dec_indent();
+    p.println("if").inc_indent().accept(&self.cond).accept(&self.on_true).dec_indent();
     if let Some(on_false) = &self.on_false {
-      p.println("else").inc_indent();
-      on_false.print_ast(p);
-      p.dec_indent();
+      p.println("else").inc_indent().accept(on_false).dec_indent();
     }
   },
-  While => {
-    p.println("while").inc_indent();
-    self.cond.print_ast(p);
-    self.body.print_ast(p);
-    p.dec_indent();
-  },
-  For => {
-    p.println("for").inc_indent();
-    self.init.print_ast(p);
-    self.cond.print_ast(p);
-    self.update.print_ast(p);
-    self.body.print_ast(p);
-    p.dec_indent();
-  },
+  While => { p.println("while").inc_indent().accept(&self.cond).accept(&self.body).dec_indent(); },
+  For => { p.println("for").inc_indent().accept(&self.init).accept(&self.cond).accept(&self.update).accept(&self.body).dec_indent(); },
   Foreach => {
-    p.println("foreach").inc_indent().print("varbind").print(self.def.name);
-    self.def.type_.print_ast(p);
-    p.newline();
-    self.arr.print_ast(p);
+    p.println("foreach").inc_indent().print("varbind").print(self.def.name).accept(&self.def.type_.sem).newline().accept(&self.arr);
     match &self.cond {
       Some(cond) => cond.print_ast(p),
       None => { p.println("boolconst true"); }
     }
-    self.body.print_ast(p);
-    p.dec_indent();
+    p.accept(&self.body).dec_indent();
   },
   Return => {
     p.println("return");
     if let Some(expr) = &self.expr {
-      p.inc_indent();
-      expr.print_ast(p);
-      p.dec_indent();
+      p.inc_indent().accept(expr).dec_indent();
     }
   },
   Print => {
@@ -234,72 +204,19 @@ make_ast_data!(self, p,
     p.dec_indent();
   },
   Break => { p.println("break"); },
-  Assign => {
-    p.println("assign").inc_indent();
-    self.dst.print_ast(p);
-    self.src.print_ast(p);
-    p.dec_indent();
-  },
-  SCopy => {
-    p.println("scopy").inc_indent().println(self.dst);
-    self.src.print_ast(p);
-    p.dec_indent();
-  },
+  Assign => { p.println("assign").inc_indent().accept(&self.dst).accept(&self.src).dec_indent(); },
+  SCopy => { p.println("scopy").inc_indent().println(self.dst).accept(&self.src).dec_indent(); },
   Guarded => {
     p.println("guarded").inc_indent();
     if self.guarded.is_empty() {
       p.println("<empty>");
     } else {
       for (e, b) in &self.guarded {
-        p.println("guard");
-        p.inc_indent();
-        e.print_ast(p);
-        b.print_ast(p);
-        p.dec_indent();
+        p.println("guard").inc_indent().accept(e).accept(b).dec_indent();
       }
     }
     p.dec_indent();
   },
-  /*
-  Id(Id),
-  Indexed(Indexed),
-  IntConst(i32),
-  BoolConst(bool),
-  StringConst(String),
-  ArrayConst(Vec<Expr>),
-  Null,
-  Call(Call),
-  Unary(Unary),
-  Binary(Binary),
-  This,
-  ReadInt,
-  ReadLine,
-  NewClass { name: &'static str },
-  NewArray {
-    elem_t: Type,
-    len: Box<Expr>,
-  },
-  TypeTest {
-    expr: Box<Expr>,
-    name: &'static str,
-  },
-  TypeCast {
-    name: &'static str,
-    expr: Box<Expr>,
-  },
-  Range {
-    arr: Box<Expr>,
-    lb: Box<Expr>,
-    ub: Box<Expr>,
-  },
-  Default(Default),
-  Comprehension {
-    expr: Box<Expr>,
-    name: &'static str,
-    arr: Box<Expr>,
-    cond: Option<Box<Expr>>,
-  },
-  */
   Expr => {
     use ast::ExprData::*;
     match &self.data {
@@ -325,23 +242,9 @@ make_ast_data!(self, p,
       ReadInt => { p.println("readint"); },
       ReadLine => { p.println("readline"); },
       NewClass{ name } => { p.print("newobj").println(name); },
-      NewArray{ elem_t, len } => {
-        p.print("newarray");
-        elem_t.print_ast(p);
-        p.newline().inc_indent();
-        len.print_ast(p);
-        p.dec_indent();
-      }
-      TypeTest{ expr, name } => {
-        p.println("instanceof").inc_indent();
-        expr.print_ast(p);
-        p.println(name).dec_indent();
-      }
-      TypeCast{ name, expr } =>  {
-        p.println("classcast").inc_indent().println(name);
-        expr.print_ast(p);
-        p.dec_indent();
-      }
+      NewArray{ elem_t, len } => { p.print("newarray").accept(&elem_t.sem).newline().inc_indent().accept(len.as_ref()).dec_indent(); }
+      TypeTest{ expr, name } => { p.println("instanceof").inc_indent().accept(expr.as_ref()).println(name).dec_indent(); }
+      TypeCast{ name, expr } => { p.println("classcast").inc_indent().println(name).accept(expr.as_ref()).dec_indent(); }
       Range(range) => range.print_ast(p),
       Default(default) => default.print_ast(p),
       Comprehension(comprehension) => comprehension.print_ast(p),
@@ -350,17 +253,10 @@ make_ast_data!(self, p,
   Id => {
     p.print("varref").println(self.name);
     if let Some(owner) = &self.owner {
-      p.inc_indent();
-      owner.print_ast(p);
-      p.dec_indent();
+      p.inc_indent().accept(owner.as_ref()).dec_indent();
     }
   },
-  Indexed => {
-    p.println("arrref").inc_indent();
-    self.arr.print_ast(p);
-    self.idx.print_ast(p);
-    p.dec_indent();
-  },
+  Indexed => { p.println("arrref").inc_indent().accept(self.arr.as_ref()).accept(self.idx.as_ref()).dec_indent(); },
   Call => {
     p.print("call").println(self.name).inc_indent();
     match &self.owner {
@@ -381,9 +277,7 @@ make_ast_data!(self, p,
       PostDec => "postdec",
       _ => unreachable!(),
     };
-    p.println(opname).inc_indent();
-    self.r.print_ast(p);
-    p.dec_indent();
+    p.println(opname).inc_indent().accept(self.r.as_ref()).dec_indent();
   },
   Binary => {
     use self::Operator::*;
@@ -410,36 +304,17 @@ make_ast_data!(self, p,
       Shr => "shr",
       _ => unreachable!(),
     };
-    p.println(opname).inc_indent();
-    self.l.print_ast(p);
-    self.r.print_ast(p);
-    p.dec_indent();
+    p.println(opname).inc_indent().accept(self.l.as_ref()).accept(self.r.as_ref()).dec_indent();
   },
-  Range => {
-    p.println("arrref").inc_indent();
-    self.arr.print_ast(p);
-    p.println("range").inc_indent();
-    self.lb.print_ast(p);
-    self.ub.print_ast(p);
-    p.dec_indent().dec_indent();
-  },
-  Default => {
-    p.println("arrref").inc_indent();
-    self.arr.print_ast(p);
-    self.idx.print_ast(p);
-    p.println("default").inc_indent();
-    self.dft.print_ast(p);
-    p.dec_indent().dec_indent();
-  },
+  Range => { p.println("arrref").inc_indent().accept(self.arr.as_ref()).println("range").inc_indent().accept(self.lb.as_ref()).accept(self.ub.as_ref()).dec_indent().dec_indent(); },
+  Default => { p.println("arrref").inc_indent().accept(self.arr.as_ref()).accept(self.idx.as_ref()).println("default").inc_indent().accept(self.dft.as_ref()).dec_indent().dec_indent(); },
   Comprehension => {
-    p.println("array comp").inc_indent().print("varbind").println(self.name);
-    self.arr.print_ast(p);
+    p.println("array comp").inc_indent().print("varbind").println(self.name).accept(self.arr.as_ref());
     match &self.cond {
       Some(cond) => cond.print_ast(p),
       None => { p.println("boolconst true"); }
     };
-    self.expr.print_ast(p);
-    p.dec_indent();
+    p.accept(self.expr.as_ref()).dec_indent();
   }
 );
 
@@ -449,8 +324,7 @@ pub trait ScopeData {
 
 impl ScopeData for Program {
   fn print_scope(&self, p: &mut IndentPrinter) {
-    p.println("GLOBAL SCOPE:");
-    p.inc_indent();
+    p.println("GLOBAL SCOPE:").inc_indent();
     for symbol in self.scope.sorted() {
       p.println(&symbol.to_string());
     }
@@ -463,8 +337,7 @@ impl ScopeData for Program {
 
 impl ScopeData for ClassDef {
   fn print_scope(&self, p: &mut IndentPrinter) {
-    p.println(&format!("CLASS SCOPE OF '{}':", self.name));
-    p.inc_indent();
+    p.println(&format!("CLASS SCOPE OF '{}':", self.name)).inc_indent();
     for symbol in self.scope.sorted() {
       p.println(&symbol.to_string());
     }
@@ -479,8 +352,7 @@ impl ScopeData for ClassDef {
 
 impl ScopeData for MethodDef {
   fn print_scope(&self, p: &mut IndentPrinter) {
-    p.println(&format!("FORMAL SCOPE OF '{}':", self.name));
-    p.inc_indent();
+    p.println(&format!("FORMAL SCOPE OF '{}':", self.name)).inc_indent();
     for symbol in self.scope.sorted() {
       p.println(&symbol.to_string());
     }
