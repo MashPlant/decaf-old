@@ -214,6 +214,8 @@ impl SymbolBuilder {
         loc: method_def.loc,
         name: "this",
         type_: Type { loc: method_def.loc, sem: SemanticType::Object(class) },
+        src: None,
+        finish_loc: method_def.loc,
         scope: &method_def.scope,
         index: 0, // 'this' is at 0
         offset: -1,
@@ -231,7 +233,7 @@ impl SymbolBuilder {
 
   fn stmt(&mut self, stmt: &mut Stmt) {
     match stmt {
-      Stmt::Simple(simple) => if let Simple::VarAssign(var_assign) = simple { self.var_assign(var_assign); }
+      Stmt::Simple(simple) => if let Simple::VarDef(var_def) = simple { self.var_def(var_def); }
       Stmt::If(if_) => {
         self.block(&mut if_.on_true);
         if let Some(on_false) = &mut if_.on_false { self.block(on_false); }
@@ -241,7 +243,7 @@ impl SymbolBuilder {
         let block = &mut for_.body;
         block.scope = Scope { symbols: D::default(), kind: ScopeKind::Local(block) };
         self.scopes.open(&mut block.scope);
-        if let Simple::VarAssign(var_assign) = &mut for_.init { self.var_assign(var_assign); }
+        if let Simple::VarDef(var_def) = &mut for_.init { self.var_def(var_def); }
         for stmt in &mut block.stmt { self.stmt(stmt); }
         self.scopes.close();
       }
@@ -267,19 +269,7 @@ impl SymbolBuilder {
     }
     if self.check_var_declaration(var_def.name, var_def.loc) {
       var_def.scope = self.scopes.cur_scope() as *const _;
-      self.scopes.declare(Symbol::Var(Var::VarDef(var_def)));
-    }
-  }
-
-  fn var_assign(&mut self, var_assign: &mut VarAssign) {
-    self.type_(&mut var_assign.type_);
-    if var_assign.type_.sem == VOID {
-      issue!(self, var_assign.loc, VoidVar { name: var_assign.name });
-      return;
-    }
-    if self.check_var_declaration(var_assign.name, var_assign.loc) {
-      var_assign.scope = self.scopes.cur_scope() as *const _;
-      self.scopes.declare(Symbol::Var(Var::VarAssign(var_assign)));
+      self.scopes.declare(Symbol::Var(var_def));
     }
   }
 

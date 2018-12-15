@@ -73,61 +73,12 @@ impl D for ScopeKind {
   }
 }
 
-#[derive(Debug, Copy, Clone)]
-pub enum Var {
-  VarDef(*const VarDef),
-  VarAssign(*const VarAssign),
-}
-
-impl D for Var {
-  fn default() -> Self {
-    Var::VarDef(ptr::null())
-  }
-}
-
-impl Var {
-  pub fn get_loc(&self) -> Loc {
-    match self {
-      Var::VarDef(var_def) => var_def.get().loc,
-      Var::VarAssign(var_assign) => var_assign.get().finish_loc,
-    }
-  }
-
-  pub fn get_type(&self) -> &SemanticType {
-    match self {
-      Var::VarDef(var_def) => &var_def.get().type_.sem,
-      Var::VarAssign(var_assign) => &var_assign.get().type_,
-    }
-  }
-
-  pub fn get_name(&self) -> &'static str {
-    match self {
-      Var::VarDef(var_def) => var_def.get().name,
-      Var::VarAssign(var_assign) => var_assign.get().name,
-    }
-  }
-
-  pub fn is_param(&self) -> bool {
-    match self {
-      Var::VarDef(var_def) => var_def.get().scope.get().is_parameter(),
-      Var::VarAssign(_) => false,
-    }
-  }
-
-  pub fn get_scope(&self) -> &Scope {
-    match self {
-      Var::VarDef(var_def) => var_def.get().scope.get(),
-      Var::VarAssign(var_assign) => var_assign.get().scope.get(),
-    }
-  }
-}
-
 // refer to a node in ast
 #[derive(Debug, Copy, Clone)]
 pub enum Symbol {
   Class(*mut ClassDef),
   Method(*mut MethodDef),
-  Var(Var),
+  Var(*mut VarDef),
 }
 
 impl fmt::Display for Symbol {
@@ -145,8 +96,11 @@ impl fmt::Display for Symbol {
         write!(f, "{} -> {}function {} : {}", method.loc, if method.static_ { "static " } else { "" },
                method.name, SemanticType::Method(method))
       }
-      Symbol::Var(var) => write!(f, "{} -> variable {}{} : {}", var.get_loc(), if var.is_param() { "@" } else { "" },
-               var.get_name(), var.get_type())
+      Symbol::Var(var) => {
+        let var = var.get();
+        write!(f, "{} -> variable {}{} : {}", var.loc, if var.scope.get().is_parameter() { "@" } else { "" },
+               var.name, var.type_.sem)
+      }
     }
   }
 }
@@ -182,7 +136,7 @@ impl Symbol {
     match self {
       Symbol::Class(class) => class.get().name,
       Symbol::Method(method) => method.get().name,
-      Symbol::Var(var) => var.get_name(),
+      Symbol::Var(var) => var.get().name,
     }
   }
 
@@ -190,7 +144,8 @@ impl Symbol {
     match self {
       Symbol::Class(class) => class.get().loc,
       Symbol::Method(method) => method.get().loc,
-      Symbol::Var(var) => var.get_loc(),
+      // use finish loc here because 'get_loc' is used in 'lookup_before'
+      Symbol::Var(var) => var.get().finish_loc,
     }
   }
 
@@ -199,7 +154,7 @@ impl Symbol {
     match self {
       Symbol::Class(class) => SemanticType::Object(*class),
       Symbol::Method(method) => SemanticType::Method(*method),
-      Symbol::Var(var) => var.get_type().clone(),
+      Symbol::Var(var) => var.get().type_.sem.clone(),
     }
   }
 }

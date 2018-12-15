@@ -122,11 +122,16 @@ pub struct MethodDef {
   pub offset: i32,
 }
 
+// int x = 1;
+// ---------^---- finish_loc
+// so that int x = x will get an undeclared variable error
 #[derive(Debug)]
 pub struct VarDef {
   pub loc: Loc,
   pub name: &'static str,
   pub type_: Type,
+  pub src: Option<Expr>,
+  pub finish_loc: Loc,
   pub scope: *const Scope,
   // (jvm code gen)the index on stack, only valid for local & parameter variable
   pub index: u8,
@@ -148,9 +153,6 @@ impl Deref for Type {
   }
 }
 
-// VarDef is no longer considered as a Stmt
-// there is only VarAssign(with an optional expr)
-// now VarAssigns refer to all local variable, while VarDef refers to parameter and fields
 #[derive(Debug)]
 pub enum Stmt {
   Simple(Simple),
@@ -169,9 +171,9 @@ pub enum Stmt {
 #[derive(Debug)]
 pub enum Simple {
   Assign(Assign),
-  VarAssign(VarAssign),
+  VarDef(VarDef),
   Expr(Expr),
-  Skip(Skip),
+  Skip,
 }
 
 #[derive(Debug, Default)]
@@ -239,7 +241,7 @@ pub struct SCopy {
   pub loc: Loc,
   pub dst_loc: Loc,
   pub dst: &'static str,
-  pub dst_sym: Var,
+  pub dst_sym: *const VarDef,
   pub src: Expr,
 }
 
@@ -254,28 +256,6 @@ pub struct Assign {
   pub loc: Loc,
   pub dst: Expr,
   pub src: Expr,
-}
-
-// int x = 1;
-// ---------^---- finish_loc
-// the variable is undeclared at finish_loc(it can be obtained using parser.get_loc())
-// so that int x = x will get an undeclared variable error
-#[derive(Debug)]
-pub struct VarAssign {
-  pub loc: Loc,
-  pub finish_loc: Loc,
-  pub name: &'static str,
-  pub src: Option<Expr>,
-  pub scope: *const Scope,
-  // determined during type check
-  pub type_: Type,
-  // stack index
-  pub index: u8,
-}
-
-#[derive(Debug)]
-pub struct Skip {
-  pub loc: Loc,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -424,13 +404,13 @@ pub struct Indexed {
   pub for_assign: bool,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Identifier {
   pub loc: Loc,
   pub owner: Option<Box<Expr>>,
   pub name: &'static str,
   pub type_: SemanticType,
-  pub symbol: Var,
+  pub symbol: *const VarDef,
   pub for_assign: bool,
 }
 

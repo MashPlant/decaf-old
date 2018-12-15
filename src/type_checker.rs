@@ -210,13 +210,13 @@ impl TypeChecker {
           issue!(self, assign.loc, IncompatibleBinary{l_t: dst_t.to_string(), op: "=", r_t: src_t.to_string() })
         }
       }
-      Simple::VarAssign(var_assign) => if let Some(src) = &mut var_assign.src { // if it doesn't have an src, it is an old var_def, and thus needn't handling
+      Simple::VarDef(var_def) => if let Some(src) = &mut var_def.src {
         self.expr(src);
         let src_t = src.get_type();
-        if var_assign.type_.sem == VAR {
-          var_assign.type_.sem = src_t.clone();
-        } else if !src_t.extends(&var_assign.type_.sem) {
-          issue!(self, var_assign.loc, IncompatibleBinary{l_t: var_assign.type_.sem.to_string(), op: "=", r_t: src_t.to_string() })
+        if var_def.type_.sem == VAR {
+          var_def.type_.sem = src_t.clone();
+        } else if !src_t.extends(&var_def.type_) {
+          issue!(self, var_def.loc, IncompatibleBinary{l_t: var_def.type_.sem.to_string(), op: "=", r_t: src_t.to_string() })
         }
       }
       Simple::Expr(expr) => self.expr(expr),
@@ -502,9 +502,9 @@ impl TypeChecker {
             match class.lookup(id.name) {
               Some(symbol) => {
                 match symbol {
-                  Symbol::Var(var) => {
-                    id.type_ = var.get_type().clone();
-                    id.symbol = var;
+                  Symbol::Var(var_def) => {
+                    id.type_ = var_def.get().type_.clone();
+                    id.symbol = var_def;
                     if !self.cur_class.get().extends(class) {
                       issue!(self, id.loc, PrivateFieldAccess { name: id.name, owner_t: owner_t.to_string() });
                     }
@@ -530,9 +530,10 @@ impl TypeChecker {
               }
               Symbol::Method(method) => id.type_ = SemanticType::Method(method),
               Symbol::Var(var) => {
-                id.type_ = var.get_type().clone();
+                let var = var.get();
+                id.type_ = var.type_.clone();
                 id.symbol = var;
-                if var.get_scope().is_class() {
+                if var.scope.get().is_class() {
                   if self.cur_method.get().static_ {
                     issue!(self, id.loc, RefInStatic { field: id.name, method: self.cur_method.get().name });
                   } else {

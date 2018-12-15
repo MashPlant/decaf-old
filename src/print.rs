@@ -134,9 +134,20 @@ make_ast_data!(self, p,
     p.dec_indent();
   },
   VarDef => {
-    p.print("vardef").print(self.name);
-    self.type_.print_ast(p);
-    p.newline();
+    if self.type_.sem == VAR {
+      p.println("assign").inc_indent().print("var").println(self.name);
+      if let Some(src) = &self.src { src.print_ast(p); } else { unreachable!(); }
+      p.dec_indent();
+    } else {
+      p.print("vardef").print(self.name);
+      self.type_.print_ast(p);
+      p.newline();
+      if let Some(src) = &self.src {
+        p.println("assign").inc_indent().println(self.name);
+        src.print_ast(p);
+        p.dec_indent();
+      }
+    }
   },
   Stmt => {
     use ast::Stmt::*;
@@ -157,9 +168,9 @@ make_ast_data!(self, p,
   Simple => {
     match &self {
       Simple::Assign(assign) => assign.print_ast(p),
-      Simple::VarAssign(var_assign) => var_assign.print_ast(p),
+      Simple::VarDef(var_def) => var_def.print_ast(p),
       Simple::Expr(expr) => expr.print_ast(p),
-      Simple::Skip(skip) => skip.print_ast(p),
+      Simple::Skip => {},
     }
   },
   Block => {
@@ -220,28 +231,11 @@ make_ast_data!(self, p,
     p.dec_indent();
   },
   Break => { p.println("break"); },
-  Skip => { let _p = p;  },
   Assign => {
     p.println("assign").inc_indent();
     self.dst.print_ast(p);
     self.src.print_ast(p);
     p.dec_indent();
-  },
-  VarAssign => {
-    if self.type_.sem == VAR {
-      p.println("assign").inc_indent().print("var").println(self.name);
-      if let Some(src) = &self.src { src.print_ast(p); } else { unreachable!(); }
-      p.dec_indent();
-    } else {
-      p.print("vardef").print(self.name);
-      self.type_.print_ast(p);
-      p.newline();
-      if let Some(src) = &self.src {
-        p.println("assign").inc_indent().println(self.name);
-        src.print_ast(p);
-        p.dec_indent();
-      }
-    }
   },
   SCopy => {
     p.println("scopy").inc_indent().println(self.dst);
