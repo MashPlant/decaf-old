@@ -260,7 +260,7 @@ make_ast_data!(self, p,
   Expr => {
     use ast::Expr::*;
     match &self {
-      Identifier(identifier) => identifier.print_ast(p),
+      Id(id) => id.print_ast(p),
       Indexed(indexed) => indexed.print_ast(p),
       Const(const_) => const_.print_ast(p),
       Call(call) => call.print_ast(p),
@@ -278,7 +278,7 @@ make_ast_data!(self, p,
       Comprehension(comprehension) => comprehension.print_ast(p),
     };
   },
-  Identifier => {
+  Id => {
     p.print("varref").println(self.name);
     if let Some(owner) = &self.owner {
       p.inc_indent();

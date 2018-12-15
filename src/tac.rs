@@ -5,7 +5,7 @@ use std::fmt;
 
 pub const INT_SIZE: i32 = 4;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VTable {
   pub class: *const ClassDef,
   pub methods: Vec<*const MethodDef>,

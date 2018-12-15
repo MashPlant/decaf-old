@@ -227,7 +227,7 @@ impl TypeChecker {
   fn expr(&mut self, expr: &mut Expr) {
     use self::Expr::*;
     match expr {
-      Identifier(identifier) => self.identifier(identifier),
+      Id(id) => self.id(id),
       Indexed(indexed) => {
         self.expr(&mut indexed.arr);
         self.expr(&mut indexed.idx);
@@ -246,9 +246,7 @@ impl TypeChecker {
       Binary(binary) => self.binary(binary),
       This(this) => if self.cur_method.get().static_ {
         issue!(self, this.loc, ThisInStatic{});
-      } else {
-        this.type_ = self.cur_class.get().get_object_type();
-      },
+      } else { this.type_ = self.cur_class.get().get_object_type(); }
       NewClass(new_class) => match self.scopes.lookup_class(new_class.name) {
         Some(class) => new_class.type_ = class.get_type(),
         None => issue!(self, new_class.loc, NoSuchClass { name: new_class.name }),
@@ -480,7 +478,7 @@ impl TypeChecker {
     }
   }
 
-  fn identifier(&mut self, id: &mut Identifier) {
+  fn id(&mut self, id: &mut Id) {
     // not found(no owner) or sole ClassName => UndeclaredVar
     // refer to field in static function => RefInStatic
     // <not object>.a (Main.a, 1.a, func.a) => BadFieldAssess

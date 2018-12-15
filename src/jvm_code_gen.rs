@@ -143,15 +143,15 @@ impl JvmCodeGen {
   // val = 1/-1, expr is inc/dec-ed
   fn pre_inc_dec(&mut self, expr: &mut Expr, val: i32) {
     match expr {
-      Expr::Identifier(identifier) => {
-        let var_def = identifier.symbol.get();
+      Expr::Id(id) => {
+        let var_def = id.symbol.get();
         match var_def.scope.get().kind {
           ScopeKind::Local(_) | ScopeKind::Parameter(_) => {
             self.i_inc(var_def.index, val as u8);
             self.i_load(var_def.index);
           }
           ScopeKind::Class(class) => {
-            self.expr(if let Some(owner) = &mut identifier.owner { owner } else { unreachable!() }); // ref
+            self.expr(if let Some(owner) = &mut id.owner { owner } else { unreachable!() }); // ref
             self.dup(); // ref ref
             self.get_field(class.get().name, var_def.name, &var_def.type_.to_java()); // ref x
             self.int_const(val); // ref x 1
@@ -179,15 +179,15 @@ impl JvmCodeGen {
   // same as above
   fn post_inc_dec(&mut self, expr: &mut Expr, val: i32) {
     match expr {
-      Expr::Identifier(identifier) => {
-        let var_def = identifier.symbol.get();
+      Expr::Id(id) => {
+        let var_def = id.symbol.get();
         match var_def.scope.get().kind {
           ScopeKind::Local(_) | ScopeKind::Parameter(_) => {
             self.i_load(var_def.index);
             self.i_inc(var_def.index, val as u8);
           }
           ScopeKind::Class(class) => {
-            self.expr(if let Some(owner) = &mut identifier.owner { owner } else { unreachable!() }); // ref
+            self.expr(if let Some(owner) = &mut id.owner { owner } else { unreachable!() }); // ref
             self.dup(); // ref ref
             self.get_field(class.get().name, var_def.name, &var_def.type_.to_java()); // ref x
             self.dup_x1(); // x ref x
@@ -373,17 +373,17 @@ impl JvmCodeGen {
 
   fn expr(&mut self, expr: &mut Expr) {
     match expr {
-      Expr::Identifier(identifier) => if !identifier.for_assign {
-        let var_def = identifier.symbol.get();
+      Expr::Id(id) => if !id.for_assign {
+        let var_def = id.symbol.get();
         match var_def.scope.get().kind {
           ScopeKind::Local(_) | ScopeKind::Parameter(_) => self.load_from_stack(&var_def.type_, var_def.index),
           ScopeKind::Class(class) => {
-            self.expr(if let Some(owner) = &mut identifier.owner { owner } else { unreachable!() });
+            self.expr(if let Some(owner) = &mut id.owner { owner } else { unreachable!() });
             self.get_field(class.get().name, var_def.name, &var_def.type_.to_java())
           }
           _ => unreachable!(),
         }
-      } else { if let Some(owner) = &mut identifier.owner { self.expr(owner); } }
+      } else { if let Some(owner) = &mut id.owner { self.expr(owner); } }
       Expr::Indexed(indexed) => self.indexed(indexed),
       Expr::Const(const_) => match const_ {
         Const::IntConst(int_const) => self.int_const(int_const.value),
@@ -539,14 +539,14 @@ impl JvmCodeGen {
   fn assign(&mut self, assign: &mut Assign) {
     match &mut assign.dst {
       Expr::Indexed(indexed) => indexed.for_assign = true,
-      Expr::Identifier(identifier) => identifier.for_assign = true,
+      Expr::Id(id) => id.for_assign = true,
       _ => unreachable!(),
     }
     self.expr(&mut assign.dst);
     self.expr(&mut assign.src);
     match &assign.dst {
-      Expr::Identifier(identifier) => {
-        let var_def = identifier.symbol.get();
+      Expr::Id(id) => {
+        let var_def = id.symbol.get();
         match var_def.scope.get().kind {
           ScopeKind::Local(_) | ScopeKind::Parameter(_) => self.store_to_stack(&var_def.type_, var_def.index),
           ScopeKind::Class(class) => self.put_field(class.get().name, var_def.name, &var_def.type_.to_java()),

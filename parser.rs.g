@@ -847,7 +847,7 @@ Expr
 LValue
   : MaybeReceiver IDENTIFIER {
     |$1: Option<Expr>, $2: Token| -> Expr;
-    $$ = Expr::Identifier(Identifier {
+    $$ = Expr::Id(Id {
       loc: $2.get_loc(),
       owner: match $1 {
         Some(expr) => Some(Box::new(expr)),

@@ -135,7 +135,7 @@ pub struct VarDef {
   pub scope: *const Scope,
   // (jvm code gen)the index on stack, only valid for local & parameter variable
   pub index: u8,
-  // (tac code gen)the offset on stack or in object
+  // (tac code gen)the offset in object OR the virtual register id
   pub offset: i32,
 }
 
@@ -322,9 +322,14 @@ impl Operator {
   }
 }
 
-#[derive(Debug)]
-pub enum Expr {
-  Identifier(Identifier),
+pub struct Expr {
+  pub loc: Loc,
+  pub type_: SemanticType,
+  pub data: ExprData,
+}
+
+pub enum ExprKind {
+  Id(Id),
   Indexed(Indexed),
   Const(Const),
   Call(Call),
@@ -342,33 +347,32 @@ pub enum Expr {
   Comprehension(Comprehension),
 }
 
+//#[derive(Debug)]
+//pub enum Expr {
+//  Id(Id),
+//  Indexed(Indexed),
+//  Const(Const),
+//  Call(Call),
+//  Unary(Unary),
+//  Binary(Binary),
+//  This(This),
+//  ReadInt(ReadInt),
+//  ReadLine(ReadLine),
+//  NewClass(NewClass),
+//  NewArray(NewArray),
+//  TypeTest(TypeTest),
+//  TypeCast(TypeCast),
+//  Range(Range),
+//  Default(Default),
+//  Comprehension(Comprehension),
+//}
+
 impl Expr {
-  pub fn get_loc(&self) -> Loc {
-    use self::Expr::*;
-    match &self {
-      Identifier(identifier) => identifier.loc,
-      Indexed(indexed) => indexed.loc,
-      Const(const_) => const_.get_loc(),
-      Call(call) => call.loc,
-      Unary(unary) => unary.loc,
-      Binary(binary) => binary.loc,
-      This(this) => this.loc,
-      ReadInt(read_int) => read_int.loc,
-      ReadLine(read_line) => read_line.loc,
-      NewClass(new_class) => new_class.loc,
-      NewArray(new_array) => new_array.loc,
-      TypeTest(type_test) => type_test.loc,
-      TypeCast(type_cast) => type_cast.loc,
-      Range(range) => range.loc,
-      Default(default) => default.loc,
-      Comprehension(comprehension) => comprehension.loc,
-    }
-  }
 
   pub fn get_type(&self) -> &SemanticType {
     use self::Expr::*;
     match &self {
-      Identifier(identifier) => &identifier.type_,
+      Id(id) => &id.type_,
       Indexed(indexed) => &indexed.type_,
       Const(const_) => const_.get_type(),
       Call(call) => &call.type_,
@@ -389,7 +393,7 @@ impl Expr {
 
   pub fn is_lvalue(&self) -> bool {
     match self {
-      Expr::Identifier(_) | Expr::Indexed(_) => true,
+      Expr::Id(_) | Expr::Indexed(_) => true,
       _ => false,
     }
   }
@@ -397,7 +401,6 @@ impl Expr {
 
 #[derive(Debug)]
 pub struct Indexed {
-  pub loc: Loc,
   pub arr: Box<Expr>,
   pub idx: Box<Expr>,
   pub type_: SemanticType,
@@ -405,8 +408,7 @@ pub struct Indexed {
 }
 
 #[derive(Debug)]
-pub struct Identifier {
-  pub loc: Loc,
+pub struct Id {
   pub owner: Option<Box<Expr>>,
   pub name: &'static str,
   pub type_: SemanticType,

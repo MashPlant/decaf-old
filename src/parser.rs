@@ -2340,7 +2340,7 @@ impl Parser {
   fn _handler101(&mut self) -> SV {
     let mut _2 = pop!(self.values_stack, _0);
     let mut _1 = pop!(self.values_stack, _16);
-    let _0 = Expr::Identifier(Identifier {
+    let _0 = Expr::Id(Id {
       loc: _2.get_loc(),
       owner: match _1 {
         Some(expr) => Some(Box::new(expr)),
