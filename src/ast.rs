@@ -322,6 +322,7 @@ impl Operator {
   }
 }
 
+#[derive(Debug)]
 pub struct Expr {
   pub loc: Loc,
   pub type_: SemanticType,
@@ -332,39 +333,16 @@ pub struct Expr {
 
 #[derive(Debug)]
 pub enum ExprData {
-  Id {
-    owner: Option<Box<Expr>>,
-    name: &'static str,
-    symbol: *const VarDef,
-    for_assign: bool,
-  },
-  Indexed {
-    arr: Box<Expr>,
-    idx: Box<Expr>,
-    type_: SemanticType,
-    for_assign: bool,
-  },
+  Id(Id),
+  Indexed(Indexed),
   IntConst(i32),
   BoolConst(bool),
   StringConst(String),
   ArrayConst(Vec<Expr>),
   Null,
-  Call {
-    owner: Option<Box<Expr>>,
-    name: &'static str,
-    arg: Vec<Expr>,
-    is_arr_len: bool,
-    method: *const MethodDef,
-  },
-  Unary {
-    op: Operator,
-    r: Box<Expr>,
-  },
-  Binary {
-    op: Operator,
-    l: Box<Expr>,
-    r: Box<Expr>,
-  },
+  Call(Call),
+  Unary(Unary),
+  Binary(Binary),
   This,
   ReadInt,
   ReadLine,
@@ -381,29 +359,83 @@ pub enum ExprData {
     name: &'static str,
     expr: Box<Expr>,
   },
-  Range {
-    arr: Box<Expr>,
-    lb: Box<Expr>,
-    ub: Box<Expr>,
-  },
-  Default {
-    arr: Box<Expr>,
-    idx: Box<Expr>,
-    dft: Box<Expr>,
-  },
-  Comprehension {
-    expr: Box<Expr>,
-    name: &'static str,
-    arr: Box<Expr>,
-    cond: Option<Box<Expr>>,
-  },
+  Range(Range),
+  Default(Default),
+  Comprehension(Comprehension),
 }
 
 impl Expr {
+  pub fn new(loc: Loc, data: ExprData) -> Expr {
+    Expr { loc, type_: D::default(), reg: -1, data }
+  }
+
+  pub fn with_type(loc: Loc, type_: SemanticType, data: ExprData) -> Expr {
+    Expr { loc, type_, reg: -1, data }
+  }
+
   pub fn is_lvalue(&self) -> bool {
-    match self {
-      Expr::Id(_) | Expr::Indexed(_) => true,
+    match self.data {
+      ExprData::Id(_) | ExprData::Indexed(_) => true,
       _ => false,
     }
   }
+}
+
+#[derive(Debug)]
+pub struct Id {
+  pub owner: Option<Box<Expr>>,
+  pub name: &'static str,
+  pub symbol: *const VarDef,
+  pub for_assign: bool,
+}
+
+#[derive(Debug)]
+pub struct Indexed {
+  pub arr: Box<Expr>,
+  pub idx: Box<Expr>,
+  pub for_assign: bool,
+}
+
+#[derive(Debug)]
+pub struct Call {
+  pub owner: Option<Box<Expr>>,
+  pub name: &'static str,
+  pub arg: Vec<Expr>,
+  pub is_arr_len: bool,
+  pub method: *const MethodDef,
+}
+
+#[derive(Debug)]
+pub struct Binary {
+  pub op: Operator,
+  pub l: Box<Expr>,
+  pub r: Box<Expr>,
+}
+
+#[derive(Debug)]
+pub struct Unary {
+  pub op: Operator,
+  pub r: Box<Expr>,
+}
+
+#[derive(Debug)]
+pub struct Range {
+  pub arr: Box<Expr>,
+  pub lb: Box<Expr>,
+  pub ub: Box<Expr>,
+}
+
+#[derive(Debug)]
+pub struct Default {
+  pub arr: Box<Expr>,
+  pub idx: Box<Expr>,
+  pub dft: Box<Expr>,
+}
+
+#[derive(Debug)]
+pub struct Comprehension {
+  pub expr: Box<Expr>,
+  pub name: &'static str,
+  pub arr: Box<Expr>,
+  pub cond: Option<Box<Expr>>,
 }

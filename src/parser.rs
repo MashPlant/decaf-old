@@ -492,28 +492,13 @@ impl Token {
 }
 
 fn gen_binary(l: Expr, opt: Token, r: Expr, op: Operator) -> Expr {
-  Expr {
-    loc: opt.get_loc(),
-    type_: D::default,
-    reg: -1,
-    data: ExprData::Binary {
-      op: kind,
-      l: Box::new(l),
-      r: Box::new(r),
-    },
-  }
+  Expr::new(opt.get_loc(),
+            ExprData::Binary(Binary { op, l: Box::new(l), r: Box::new(r) }))
 }
 
-fn gen_unary(opt: Token, r: Expr, kind: Operator) -> Expr {
-  Expr {
-    loc: opt.get_loc(),
-    type_: D::default,
-    reg: -1,
-    data: ExprData::Unary {
-      op: kind,
-      r: Box::new(r),
-    },
-  }
+fn gen_unary(opt: Token, r: Expr, op: Operator) -> Expr {
+  Expr::new(opt.get_loc(),
+            ExprData::Unary(Unary { op, r: Box::new(r) }))
 }
 
 fn on_parse_error(parser: &Parser, token: &Token) {
@@ -1969,68 +1954,41 @@ impl Parser {
     self.values_stack.pop();
     let mut _2 = pop!(self.values_stack, _0);
     let mut _1 = pop!(self.values_stack, _16);
-    let _0 = Expr {
-      loc: _2.get_loc(),
-      type_: D::default(),
-      reg: -1,
-      data: ExprData::Call {
-        owner: match _1 {
-          Some(expr) => Some(Box::new(expr)),
-          None => None,
-        },
-        name: _2.value,
-        arg: _4,
-        is_arr_len: false,
-        method: ptr::null(),
-      },
-    };
+    let _0 = Expr::new(_2.get_loc(), ExprData::Call(Call {
+      owner: _1.map(|s| Box::new(s)),
+      name: _2.value,
+      arg: _4,
+      is_arr_len: false,
+      method: ptr::null(),
+    }));
     SV::_15(_0)
   }
 
   fn _handler63(&mut self) -> SV {
     let mut _1 = pop!(self.values_stack, _0);
-    let _0 = Expr {
-      loc: _1.get_loc(),
-      type_: INT,
-      reg: -1,
-      data: ExprData::IntConst(_1.value.parse::<i32>().unwrap_or_else(|_| {
-        self.errors.push(Error::new(_1.get_loc(), IntTooLarge { string: _1.value.to_string() }));
-        0
-      })),
-    };
+    let _0 = Expr::with_type(_1.get_loc(), INT, ExprData::IntConst(_1.value.parse::<i32>().unwrap_or_else(|_| {
+      self.errors.push(Error::new(_1.get_loc(), IntTooLarge { string: _1.value.to_string() }));
+      0
+    })));
     SV::_15(_0)
   }
 
   fn _handler64(&mut self) -> SV {
     let mut _1 = pop!(self.values_stack, _0);
-    let _0 = Expr {
-      loc: _1.get_loc(),
-      type_: BOOL,
-      reg: -1,
-      data: ExprData::BoolConst(true),
-    };
+    let _0 = Expr::with_type(_1.get_loc(), BOOL, ExprData::BoolConst(true));
     SV::_15(_0)
   }
 
   fn _handler65(&mut self) -> SV {
     let mut _1 = pop!(self.values_stack, _0);
-    let _0 = Expr {
-      loc: _1.get_loc(),
-      type_: BOOL,
-      reg: -1,
-      data: ExprData::BoolConst(true),
-    };
+    let _0 = Expr::with_type(_1.get_loc(), BOOL, ExprData::BoolConst(false));
     SV::_15(_0)
   }
 
   fn _handler66(&mut self) -> SV {
     self.values_stack.pop();
-    let _0 = Expr {
-      loc: Loc(self.tokenizer.string_builder.1, self.tokenizer.string_builder.2),
-      type_: STRING,
-      reg: -1,
-      data: ExprData::StringConst(self.tokenizer.string_builder.0.clone()),
-    };
+    let _0 = Expr::with_type(Loc(self.tokenizer.string_builder.1, self.tokenizer.string_builder.2),
+                             STRING, ExprData::StringConst(self.tokenizer.string_builder.0.clone()));
     SV::_15(_0)
   }
 
@@ -2038,23 +1996,13 @@ impl Parser {
     self.values_stack.pop();
     self.values_stack.pop();
     let mut _1 = pop!(self.values_stack, _19);
-    let _0 = Expr {
-      loc: _1.get_loc(),
-      type_: D::default,
-      reg: -1,
-      data: ExprData::ArrayConst(_1),
-    };
+    let _0 = Expr::new(self.get_loc(), ExprData::ArrayConst(_1));
     SV::_15(_0)
   }
 
   fn _handler68(&mut self) -> SV {
     let mut _1 = pop!(self.values_stack, _0);
-    let _0 = Expr {
-      loc: _1.get_loc(),
-      type_: NULL,
-      reg: -1,
-      data: ExprData::Null,
-    };
+    let _0 = Expr::new(_1.get_loc(), ExprData::Null);
     SV::_15(_0)
   }
 
@@ -2217,16 +2165,8 @@ impl Parser {
     let mut _3 = pop!(self.values_stack, _15);
     let mut _2 = pop!(self.values_stack, _0);
     let mut _1 = pop!(self.values_stack, _15);
-    let _0 = Expr {
-      loc: _2.get_loc(),
-      type_: D::default(),
-      reg: -1,
-      data: ExprData::Range {
-        arr: Box::new(_1),
-        lb: Box::new(_3),
-        ub: Box::new(_5),
-      },
-    };
+    let _0 = Expr::new(_2.get_loc(),
+                       ExprData::Range(Range { arr: Box::new(_1), lb: Box::new(_3), ub: Box::new(_5) }));
     SV::_15(_0)
   }
 
@@ -2237,16 +2177,8 @@ impl Parser {
     let mut _3 = pop!(self.values_stack, _15);
     let mut _2 = pop!(self.values_stack, _0);
     let mut _1 = pop!(self.values_stack, _15);
-    let _0 = Expr {
-      loc: _2.get_loc(),
-      type_: D::default(),
-      reg: -1,
-      data: ExprData::Default {
-        arr: Box::new(_1),
-        idx: Box::new(_3),
-        dft: Box::new(_6),
-      },
-    };
+    let _0 = Expr::new(_2.get_loc(),
+                       ExprData::Default(Default { arr: Box::new(_1), idx: Box::new(_3), dft: Box::new(_6) }));
     SV::_15(_0)
   }
 
@@ -2258,17 +2190,12 @@ impl Parser {
     self.values_stack.pop();
     let mut _2 = pop!(self.values_stack, _15);
     let mut _1 = pop!(self.values_stack, _0);
-    let _0 = Expr {
-      loc: _1.get_loc(),
-      type_: D::default(),
-      reg: -1,
-      data: ExprData::Comprehension {
-        expr: Box::new(_2),
-        name: _4.value,
-        arr: Box::new(_6),
-        cond: None,
-      },
-    };
+    let _0 = Expr::new(_1.get_loc(), ExprData::Comprehension(Comprehension {
+      expr: Box::new(_2),
+      name: _4.value,
+      arr: Box::new(_6),
+      cond: None,
+    }));
     SV::_15(_0)
   }
 
@@ -2282,17 +2209,12 @@ impl Parser {
     self.values_stack.pop();
     let mut _2 = pop!(self.values_stack, _15);
     let mut _1 = pop!(self.values_stack, _0);
-    let _0 = Expr {
-      loc: _1.get_loc(),
-      type_: D::default(),
-      reg: -1,
-      data: ExprData::Comprehension {
-        expr: Box::new(_2),
-        name: _4.value,
-        arr: Box::new(_6),
-        cond: Some(Box::new(_8)),
-      },
-    };
+    let _0 = Expr::new(_1.get_loc(), ExprData::Comprehension(Comprehension {
+      expr: Box::new(_2),
+      name: _4.value,
+      arr: Box::new(_6),
+      cond: Some(Box::new(_8)),
+    }));
     SV::_15(_0)
   }
 
@@ -2350,12 +2272,7 @@ impl Parser {
     self.values_stack.pop();
     self.values_stack.pop();
     let mut _1 = pop!(self.values_stack, _0);
-    let _0 = Expr {
-      loc: _1.get_loc(),
-      type_: INT,
-      reg: -1,
-      data: ExprData::ReadInt,
-    };
+    let _0 = Expr::with_type(_1.get_loc(), INT, ExprData::ReadInt);
     SV::_15(_0)
   }
 
@@ -2363,23 +2280,13 @@ impl Parser {
     self.values_stack.pop();
     self.values_stack.pop();
     let mut _1 = pop!(self.values_stack, _0);
-    let _0 = Expr {
-      loc: _1.get_loc(),
-      type_: STRING,
-      reg: -1,
-      data: ExprData::ReadLine,
-    };
+    let _0 = Expr::with_type(_1.get_loc(), STRING, ExprData::ReadLine);
     SV::_15(_0)
   }
 
   fn _handler101(&mut self) -> SV {
     let mut _1 = pop!(self.values_stack, _0);
-    let _0 = Expr {
-      loc: _1.get_loc(),
-      type_: D::default,
-      reg: -1,
-      data: ExprData::This,
-    };
+    let _0 = Expr::new(_1.get_loc(), ExprData::This);
     SV::_15(_0)
   }
 
@@ -2388,12 +2295,7 @@ impl Parser {
     self.values_stack.pop();
     let mut _2 = pop!(self.values_stack, _0);
     let mut _1 = pop!(self.values_stack, _0);
-    let _0 = Expr {
-      loc: _1.get_loc(),
-      type_: D::default,
-      reg: -1,
-      data: ExprData::NewClass { name: _2.value },
-    };
+    let _0 = Expr::new(_1.get_loc(), ExprData::NewClass { name: _2.value });
     SV::_15(_0)
   }
 
@@ -2403,15 +2305,7 @@ impl Parser {
     self.values_stack.pop();
     let mut _2 = pop!(self.values_stack, _9);
     let mut _1 = pop!(self.values_stack, _0);
-    let _0 = Expr {
-      loc: _1.get_loc(),
-      type_: D::default,
-      reg: -1,
-      data: ExprData::NewArray {
-        elem_t: _2,
-        len: Box::new(_4),
-      },
-    };
+    let _0 = Expr::new(_1.get_loc(), ExprData::NewArray { elem_t: _2, len: Box::new(_4) });
     SV::_15(_0)
   }
 
@@ -2422,15 +2316,7 @@ impl Parser {
     let mut _3 = pop!(self.values_stack, _15);
     self.values_stack.pop();
     let mut _1 = pop!(self.values_stack, _0);
-    let _0 = Expr {
-      loc: _1.get_loc(),
-      type_: BOOL,
-      reg: -1,
-      data: ExprData::TypeTest {
-        expr: Box::new(_3),
-        name: _5.value,
-      },
-    };
+    let _0 = Expr::new(_1.get_loc(), ExprData::TypeTest { expr: Box::new(_3), name: _5.value });
     SV::_15(_0)
   }
 
@@ -2440,35 +2326,19 @@ impl Parser {
     let mut _3 = pop!(self.values_stack, _0);
     self.values_stack.pop();
     self.values_stack.pop();
-    let _0 = Expr {
-      loc: _5.get_loc(),
-      type_: D::default(),
-      reg: -1,
-      data: ExprData::TypeCast {
-        name: _3.value,
-        expr: Box::new(_5),
-      },
-    };
+    let _0 = Expr::new(_5.loc, ExprData::TypeCast { name: _3.value, expr: Box::new(_5) });
     SV::_15(_0)
   }
 
   fn _handler106(&mut self) -> SV {
     let mut _2 = pop!(self.values_stack, _0);
     let mut _1 = pop!(self.values_stack, _16);
-    let _0 = Expr {
-      loc: _2.get_loc(),
-      type_: D::default,
-      reg: -1,
-      data: ExprData::Id {
-        owner: match _1 {
-          Some(expr) => Some(Box::new(expr)),
-          None => None,
-        },
-        name: _2.value,
-        symbol: ptr::null(),
-        for_assign: D::default(),
-      },
-    };
+    let _0 = Expr::new(_2.get_loc(), ExprData::Id(Id {
+      owner: _1.map(|e| Box::new(e)),
+      name: _2.value,
+      symbol: ptr::null(),
+      for_assign: D::default(),
+    }));
     SV::_15(_0)
   }
 
@@ -2477,17 +2347,11 @@ impl Parser {
     let mut _3 = pop!(self.values_stack, _15);
     self.values_stack.pop();
     let mut _1 = pop!(self.values_stack, _15);
-    let _0 = Expr {
-      loc: _1.loc,
-      type_: D::default,
-      reg: -1,
-      data: ExprData::Indexed {
-        arr: Box::new(_1),
-        idx: Box::new(_3),
-        type_: D::default(),
-        for_assign: D::default(),
-      },
-    };
+    let _0 = Expr::new(_1.loc, ExprData::Indexed(Indexed {
+      arr: Box::new(_1),
+      idx: Box::new(_3),
+      for_assign: D::default(),
+    }));
     SV::_15(_0)
   }
 

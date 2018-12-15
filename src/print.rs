@@ -71,6 +71,11 @@ impl IndentPrinter {
     self
   }
 
+  fn print_ast<T: ASTData>(&mut self, t: &T) -> &mut Self {
+    t.print_ast(self);
+    self
+  }
+
   pub fn newline(&mut self) -> &mut Self {
     self.pop_space();
     self.content += "\n";
@@ -175,9 +180,7 @@ make_ast_data!(self, p,
   },
   Block => {
     p.println("stmtblock").inc_indent();
-    for stmt in &self.stmt {
-      stmt.print_ast(p);
-    }
+    for stmt in &self.stmt { stmt.print_ast(p); }
     p.dec_indent();
   },
   If => {
@@ -257,22 +260,88 @@ make_ast_data!(self, p,
     }
     p.dec_indent();
   },
+  /*
+  Id(Id),
+  Indexed(Indexed),
+  IntConst(i32),
+  BoolConst(bool),
+  StringConst(String),
+  ArrayConst(Vec<Expr>),
+  Null,
+  Call(Call),
+  Unary(Unary),
+  Binary(Binary),
+  This,
+  ReadInt,
+  ReadLine,
+  NewClass { name: &'static str },
+  NewArray {
+    elem_t: Type,
+    len: Box<Expr>,
+  },
+  TypeTest {
+    expr: Box<Expr>,
+    name: &'static str,
+  },
+  TypeCast {
+    name: &'static str,
+    expr: Box<Expr>,
+  },
+  Range {
+    arr: Box<Expr>,
+    lb: Box<Expr>,
+    ub: Box<Expr>,
+  },
+  Default(Default),
+  Comprehension {
+    expr: Box<Expr>,
+    name: &'static str,
+    arr: Box<Expr>,
+    cond: Option<Box<Expr>>,
+  },
+  */
   Expr => {
-    use ast::Expr::*;
-    match &self {
+    use ast::ExprData::*;
+    match &self.data {
       Id(id) => id.print_ast(p),
       Indexed(indexed) => indexed.print_ast(p),
-      Const(const_) => const_.print_ast(p),
+      IntConst(v) => { p.print("intconst").println(&v.to_string()); }
+      BoolConst(v) => { p.print("boolconst").println(&v.to_string()); }
+      StringConst(v) => { p.print("stringconst").println(&quote(&v)); }
+      ArrayConst(v) => {
+        p.println("array const").inc_indent();
+        if v.is_empty() {
+          p.println("<empty>");
+        } else {
+          for expr in v { expr.print_ast(p); }
+        }
+        p.dec_indent();
+      }
+      Null => { p.println("null"); },
       Call(call) => call.print_ast(p),
       Unary(unary) => unary.print_ast(p),
       Binary(binary) => binary.print_ast(p),
-      This(this) => this.print_ast(p),
-      ReadInt(read_int) => read_int.print_ast(p),
-      ReadLine(read_line) => read_line.print_ast(p),
-      NewClass(new_class) => new_class.print_ast(p),
-      NewArray(new_array) => new_array.print_ast(p),
-      TypeTest(type_test) => type_test.print_ast(p),
-      TypeCast(type_cast) => type_cast.print_ast(p),
+      This => { p.println("this"); },
+      ReadInt => { p.println("readint"); },
+      ReadLine => { p.println("readline"); },
+      NewClass{ name } => { p.print("newobj").println(name); },
+      NewArray{ elem_t, len } => {
+        p.print("newarray");
+        elem_t.print_ast(p);
+        p.newline().inc_indent();
+        len.print_ast(p);
+        p.dec_indent();
+      }
+      TypeTest{ expr, name } => {
+        p.println("instanceof").inc_indent();
+        expr.print_ast(p);
+        p.println(name).dec_indent();
+      }
+      TypeCast{ name, expr } =>  {
+        p.println("classcast").inc_indent().println(name);
+        expr.print_ast(p);
+        p.dec_indent();
+      }
       Range(range) => range.print_ast(p),
       Default(default) => default.print_ast(p),
       Comprehension(comprehension) => comprehension.print_ast(p),
@@ -290,40 +359,6 @@ make_ast_data!(self, p,
     p.println("arrref").inc_indent();
     self.arr.print_ast(p);
     self.idx.print_ast(p);
-    p.dec_indent();
-  },
-  Const => {
-    use self::Const::*;
-    match &self {
-      IntConst(int_const) => int_const.print_ast(p),
-      BoolConst(bool_const) => bool_const.print_ast(p),
-      StringConst(string_const) => string_const.print_ast(p),
-      ArrayConst(array_const) => array_const.print_ast(p),
-      Null(null) => null.print_ast(p),
-    }
-  },
-  IntConst => { p.print("intconst").println(&self.value.to_string()); },
-  BoolConst => { p.print("boolconst").println(&self.value.to_string()); },
-  StringConst => { p.print("stringconst").println(&quote(&self.value)); },
-  ArrayConst => {
-    p.println("array const").inc_indent();
-    if self.value.is_empty() {
-      p.println("<empty>");
-    } else {
-      for const_ in &self.value { const_.print_ast(p); }
-    }
-    p.dec_indent();
-  },
-  Null => { p.println("null"); },
-  This => { p.println("this"); },
-  ReadInt => { p.println("readint"); },
-  ReadLine => { p.println("readline"); },
-  NewClass => { p.print("newobj").println(self.name); },
-  NewArray => {
-    p.print("newarray");
-    self.elem_t.print_ast(p);
-    p.newline().inc_indent();
-    self.len.print_ast(p);
     p.dec_indent();
   },
   Call => {
@@ -378,16 +413,6 @@ make_ast_data!(self, p,
     p.println(opname).inc_indent();
     self.l.print_ast(p);
     self.r.print_ast(p);
-    p.dec_indent();
-  },
-  TypeTest => {
-    p.println("instanceof").inc_indent();
-    self.expr.print_ast(p);
-    p.println(self.name).dec_indent();
-  },
-  TypeCast => {
-    p.println("classcast").inc_indent().println(self.name);
-    self.expr.print_ast(p);
     p.dec_indent();
   },
   Range => {

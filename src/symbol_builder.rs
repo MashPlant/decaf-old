@@ -74,13 +74,13 @@ impl SymbolBuilder {
             if parent_symbol.static_ || symbol.static_ {
               issue!(self, symbol.loc, ConflictDeclaration { earlier: parent_symbol.loc, name });
               false
-            } else if !symbol.ret_t.extends(&parent_symbol.ret_t)
+            } else if !symbol.ret_t.assignable_to(&parent_symbol.ret_t)
               || symbol.param.len() != parent_symbol.param.len()
               || {
               let mut unfit = false;
               // start from 1, skip this
               for i in 1..symbol.param.len() {
-                if !parent_symbol.param[i].type_.extends(&symbol.param[i].type_) {
+                if !parent_symbol.param[i].type_.assignable_to(&symbol.param[i].type_) {
                   unfit = true;
                   break;
                 }

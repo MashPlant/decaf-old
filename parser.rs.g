@@ -155,28 +155,13 @@ impl Token {
 }
 
 fn gen_binary(l: Expr, opt: Token, r: Expr, op: Operator) -> Expr {
-  Expr {
-    loc: opt.get_loc(),
-    type_: D::default,
-    reg: -1,
-    data: ExprData::Binary {
-      op: kind,
-      l: Box::new(l),
-      r: Box::new(r),
-    }
-  }
+  Expr::new(opt.get_loc(),
+    ExprData::Binary(Binary { op, l: Box::new(l), r: Box::new(r), }))
 }
 
-fn gen_unary(opt: Token, r: Expr, kind: Operator) -> Expr {
-  Expr {
-    loc: opt.get_loc(),
-    type_: D::default,
-    reg: -1,
-    data: ExprData::Unary {
-      op: kind,
-      r: Box::new(r),
-    }
-  }
+fn gen_unary(opt: Token, r: Expr, op: Operator) -> Expr {
+  Expr::new(opt.get_loc(),
+    ExprData::Unary(Unary { op, r: Box::new(r), }))
 }
 
 fn on_parse_error(parser: &Parser, token: &Token) {
@@ -651,78 +636,41 @@ Expr
   }
   | MaybeReceiver IDENTIFIER '(' ExprListOrEmpty ')' {
     |$1: Option<Expr>, $2: Token, $4: ExprList| -> Expr;
-    $$ = Expr {
-      loc: $2.get_loc(),
-      type_: D::default(),
-      reg: -1,
-      data: ExprData::Call {
-        owner: match $1 {
-          Some(expr) => Some(Box::new(expr)),
-          None => None,
-        },
-        name: $2.value,
-        arg: $4,
-        is_arr_len: false,
-        method: ptr::null(),
-      },
-    };
+    $$ = Expr::new($2.get_loc(), ExprData::Call(Call {
+      owner: $1.map(|s| Box::new(s)),
+      name: $2.value,
+      arg: $4,
+      is_arr_len: false,
+      method: ptr::null(),
+    }));
   }
   | INT_CONST {
     |$1: Token| -> Expr;
-    $$ = Expr {
-      loc: $1.get_loc(),
-      type_: INT,
-      reg: -1,
-      data: ExprData::IntConst($1.value.parse::<i32>().unwrap_or_else(|_| {
-        self.errors.push(Error::new($1.get_loc(), IntTooLarge{ string: $1.value.to_string(), }));
-        0
-      })),
-    };
+    $$ = Expr::with_type($1.get_loc(), INT, ExprData::IntConst($1.value.parse::<i32>().unwrap_or_else(|_| {
+      self.errors.push(Error::new($1.get_loc(), IntTooLarge{ string: $1.value.to_string(), }));
+      0
+    })));
   }
   | TRUE {
     |$1: Token| -> Expr;
-    $$ = Expr {
-      loc: $1.get_loc(),
-      type_: BOOL,
-      reg: -1,
-      data: ExprData::BoolConst(true),
-    };
+    $$ = Expr::with_type($1.get_loc(), BOOL, ExprData::BoolConst(true));
   }
   | FALSE {
     |$1: Token| -> Expr;
-    $$ = Expr {
-      loc: $1.get_loc(),
-      type_: BOOL,
-      reg: -1,
-      data: ExprData::BoolConst(true),
-    };
+    $$ = Expr::with_type($1.get_loc(), BOOL, ExprData::BoolConst(false));
   }
   | STRING_CONST {
     || -> Expr;
-    $$ = Expr {
-      loc: Loc(self.tokenizer.string_builder.1, self.tokenizer.string_builder.2),
-      type_: STRING,
-      reg: -1,
-      data: ExprData::StringConst(self.tokenizer.string_builder.0.clone()),
-    };
+    $$ = Expr::with_type(Loc(self.tokenizer.string_builder.1, self.tokenizer.string_builder.2),
+        STRING, ExprData::StringConst(self.tokenizer.string_builder.0.clone()));
   }
   | '[' ExprList ']' {
     |$1: ExprList| -> Expr;
-    $$ = Expr {
-      loc: $1.get_loc(),
-      type_: D::default,
-      reg: -1,
-      data: ExprData::ArrayConst($1),
-    };
+    $$ = Expr::new(self.get_loc(), ExprData::ArrayConst($1));
   }
   | NULL {
     |$1: Token| -> Expr;
-    $$ = Expr {
-      loc: $1.get_loc(),
-      type_: NULL,
-      reg: -1,
-      data: ExprData::Null,
-    };
+    $$ = Expr::new($1.get_loc(), ExprData::Null);
   }
   | Expr '+' Expr {
     |$1: Expr, $2: Token, $3: Expr| -> Expr;
@@ -802,57 +750,31 @@ Expr
   }
   | Expr '[' Expr ':' Expr ']' {
     |$1: Expr, $2: Token, $3: Expr, $5: Expr| -> Expr;
-    $$ = Expr {
-      loc: $2.get_loc(),
-      type_: D::default(),
-      reg: -1,
-      data: ExprData::Range {
-        arr: Box::new($1),
-        lb: Box::new($3),
-        ub: Box::new($5),
-      },
-    };
+    $$ = Expr::new($2.get_loc(),
+      ExprData::Range(Range { arr: Box::new($1), lb: Box::new($3), ub: Box::new($5), }));
   }
   | Expr '[' Expr ']' DEFAULT Expr {
     |$1: Expr, $2: Token, $3: Expr, $6: Expr| -> Expr;
-    $$ = Expr {
-      loc: $2.get_loc(),
-      type_: D::default(),
-      reg: -1,
-      data: ExprData::Default {
-        arr: Box::new($1),
-        idx: Box::new($3),
-        dft: Box::new($6),
-      },
-    };
+    $$ = Expr::new($2.get_loc(),
+      ExprData::Default(Default { arr: Box::new($1), idx: Box::new($3), dft: Box::new($6), }));
   }
   | '[' Expr FOR IDENTIFIER IN Expr ']' {
     |$1: Token, $2: Expr, $4: Token, $6: Expr| -> Expr;
-    $$ = Expr {
-      loc: $1.get_loc(),
-      type_: D::default(),
-      reg: -1,
-      data: ExprData::Comprehension {
-        expr: Box::new($2),
-        name: $4.value,
-        arr: Box::new($6),
-        cond: None,
-      },
-    };
+    $$ = Expr::new($1.get_loc(), ExprData::Comprehension(Comprehension {
+      expr: Box::new($2),
+      name: $4.value,
+      arr: Box::new($6),
+      cond: None,
+    }));
   }
   | '[' Expr FOR IDENTIFIER IN Expr IF Expr ']' {
     |$1: Token, $2: Expr, $4: Token, $6: Expr, $8: Expr| -> Expr;
-    $$ = Expr {
-      loc: $1.get_loc(),
-      type_: D::default(),
-      reg: -1,
-      data: ExprData::Comprehension {
-        expr: Box::new($2),
-        name: $4.value,
-        arr: Box::new($6),
-        cond: Some(Box::new($8)),
-      },
-    };
+    $$ = Expr::new($1.get_loc(), ExprData::Comprehension(Comprehension {
+      expr: Box::new($2),
+      name: $4.value,
+      arr: Box::new($6),
+      cond: Some(Box::new($8)),
+    }));
   }
   | '(' Expr ')' {
     $$ = $2;
@@ -883,109 +805,51 @@ Expr
   }
   | READ_INTEGER '(' ')' {
     |$1: Token| -> Expr;
-    $$ = Expr {
-      loc: $1.get_loc(),
-      type_: INT,
-      reg: -1,
-      data: ExprData::ReadInt,
-    };
+    $$ = Expr::with_type($1.get_loc(), INT, ExprData::ReadInt);
   }
   | READ_LINE '(' ')' {
     |$1: Token| -> Expr;
-    $$ = Expr {
-      loc: $1.get_loc(),
-      type_: STRING,
-      reg: -1,
-      data: ExprData::ReadLine,
-    };
+    $$ = Expr::with_type($1.get_loc(), STRING, ExprData::ReadLine);
   }
   | THIS {
     |$1: Token| -> Expr;
-    $$ = Expr {
-      loc: $1.get_loc(),
-      type_: D::default,
-      reg: -1,
-      data: ExprData::This,
-    };
+    $$ = Expr::new($1.get_loc(), ExprData::This);
   }
   | NEW IDENTIFIER '(' ')' {
     |$1: Token, $2: Token| -> Expr;
-    $$ = Expr {
-      loc: $1.get_loc(),
-      type_: D::default,
-      reg: -1,
-      data: ExprData::NewClass { name: $2.value, },
-    };
+    $$ = Expr::new($1.get_loc(), ExprData::NewClass { name: $2.value, });
   }
   | NEW Type '[' Expr ']' {
     |$1: Token, $2: Type, $4: Expr| -> Expr;
-    $$ = Expr {
-      loc: $1.get_loc(),
-      type_: D::default,
-      reg: -1,
-      data: ExprData::NewArray {
-        elem_t: $2,
-        len: Box::new($4),
-      },
-    };
+    $$ = Expr::new($1.get_loc(), ExprData::NewArray { elem_t: $2, len: Box::new($4), });
   }
   | INSTANCEOF '(' Expr ',' IDENTIFIER ')' {
     |$1: Token, $3: Expr, $5: Token| -> Expr;
-    $$ = Expr {
-      loc: $1.get_loc(),
-      type_: BOOL,
-      reg: -1,
-      data: ExprData::TypeTest {
-        expr: Box::new($3),
-        name: $5.value,
-      },
-    };
+    $$ = Expr::new($1.get_loc(), ExprData::TypeTest { expr: Box::new($3), name: $5.value, });
   }
   | '(' CLASS IDENTIFIER ')' Expr {
     |$3: Token, $5: Expr| -> Expr;
-    $$ = Expr {
-      loc: $5.get_loc(),
-      type_: D::default(),
-      reg: -1,
-      data: ExprData::TypeCast {
-        name: $3.value,
-        expr: Box::new($5),
-      },
-    };
+    $$ = Expr::new($5.loc, ExprData::TypeCast { name: $3.value, expr: Box::new($5), });
   }
   ;
 
 LValue
   : MaybeReceiver IDENTIFIER {
     |$1: Option<Expr>, $2: Token| -> Expr;
-    $$ = Expr {
-      loc: $2.get_loc(),
-      type_: D::default,
-      reg: -1,
-      data: ExprData::Id {
-        owner: match $1 {
-          Some(expr) => Some(Box::new(expr)),
-          None => None,
-        },
-        name: $2.value,
-        symbol: ptr::null(),
-        for_assign: D::default(),
-      }
-    };
+    $$ = Expr::new($2.get_loc(), ExprData::Id(Id {
+      owner: $1.map(|e| Box::new(e)),
+      name: $2.value,
+      symbol: ptr::null(),
+      for_assign: D::default(),
+    }));
   }
   | Expr '[' Expr ']' {
     |$1: Expr, $3: Expr| -> Expr;
-    $$ = Expr {
-      loc: $1.loc,
-      type_: D::default,
-      reg: -1,
-      data: ExprData::Indexed {
-        arr: Box::new($1),
-        idx: Box::new($3),
-        type_: D::default(),
-        for_assign: D::default(),
-      }
-    };
+    $$ = Expr::new($1.loc, ExprData::Indexed(Indexed {
+      arr: Box::new($1),
+      idx: Box::new($3),
+      for_assign: D::default(),
+    }));
   }
   ;
 

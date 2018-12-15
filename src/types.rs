@@ -14,8 +14,10 @@ pub enum SemanticType {
   Error,
   Var,
   Null,
-  // int, string, bool, void
-  Basic(&'static str),
+  Int,
+  Bool,
+  String,
+  Void,
   // only a name, generated while parsing, whether it can become an object depends on type check process
   Named(&'static str),
   // a class object
@@ -31,10 +33,10 @@ pub enum SemanticType {
 pub const ERROR: SemanticType = SemanticType::Error;
 pub const VAR: SemanticType = SemanticType::Var;
 pub const NULL: SemanticType = SemanticType::Null;
-pub const INT: SemanticType = SemanticType::Basic("int");
-pub const BOOL: SemanticType = SemanticType::Basic("bool");
-pub const VOID: SemanticType = SemanticType::Basic("void");
-pub const STRING: SemanticType = SemanticType::Basic("string");
+pub const INT: SemanticType = SemanticType::Int;
+pub const BOOL: SemanticType = SemanticType::Bool;
+pub const VOID: SemanticType = SemanticType::Void;
+pub const STRING: SemanticType = SemanticType::String;
 
 impl D for SemanticType {
   fn default() -> Self {
@@ -44,16 +46,20 @@ impl D for SemanticType {
 
 impl fmt::Display for SemanticType {
   fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    use self::SemanticType::*;
     match self {
-      SemanticType::Error => write!(f, "error"),
-      SemanticType::Var => write!(f, "unknown"),
-      SemanticType::Null => write!(f, "null"),
-      SemanticType::Basic(name) => write!(f, "{}", name),
-      SemanticType::Named(name) => write!(f, "class : {}", name),
-      SemanticType::Object(class) => write!(f, "class : {}", class.get().name),
-      SemanticType::Class(class) => write!(f, "class : {}", class.get().name),
-      SemanticType::Array(elem) => write!(f, "{}[]", elem),
-      SemanticType::Method(method) => {
+      Error => write!(f, "error"),
+      Var => write!(f, "unknown"),
+      Null => write!(f, "null"),
+      Int => write!(f, "int"),
+      Bool => write!(f, "bool"),
+      String => write!(f, "string"),
+      Void => write!(f, "void"),
+      Named(name) => write!(f, "class : {}", name),
+      Object(class) => write!(f, "class : {}", class.get().name),
+      Class(class) => write!(f, "class : {}", class.get().name),
+      Array(elem) => write!(f, "{}[]", elem),
+      Method(method) => {
         let method = method.get();
         for parameter in &method.param {
           write!(f, "{}->", parameter.type_.sem)?;
@@ -65,12 +71,15 @@ impl fmt::Display for SemanticType {
 }
 
 impl SemanticType {
-  // a relationship of is-subclass-of
-  pub fn extends(&self, rhs: &SemanticType) -> bool {
+  pub fn assignable_to(&self, rhs: &SemanticType) -> bool {
+    use self::SemanticType::*;
     match (self, rhs) {
-      (SemanticType::Error, _) => true,
-      (_, SemanticType::Error) => true,
-      (SemanticType::Basic(name1), SemanticType::Basic(name2)) => name1 == name2,
+      (Error, _) => true,
+      (_, Error) => true,
+      (Int, Int) => true,
+      (Bool, Bool) => true,
+      (String, String) => true,
+      (Void, Void) => true,
       (SemanticType::Object(class1), SemanticType::Object(class2)) => class1.get().extends(*class2),
       (SemanticType::Array(elem1), SemanticType::Array(elem2)) => elem1 == elem2,
       (SemanticType::Null, SemanticType::Object(_)) => true,
@@ -114,14 +123,18 @@ impl SemanticType {
   }
 
   pub fn print_ast(&self, printer: &mut IndentPrinter) {
+    use self::SemanticType::*;
     match self {
-      SemanticType::Var => { printer.print("var"); }
-      SemanticType::Basic(name) => { printer.print(&(name.to_string() + "type")); }
-      SemanticType::Named(name) => {
+      Var => { printer.print("var"); }
+      Int => { printer.print("inttype"); }
+      Bool => { printer.print("booltype"); }
+      String => { printer.print("stringtype"); }
+      Void => { printer.print("voidtype"); }
+      Named(name) => {
         printer.print("classtype");
         printer.print(name);
       }
-      SemanticType::Array(elem) => {
+      Array(elem) => {
         printer.print("arrtype");
         elem.print_ast(printer);
       }
@@ -137,7 +150,10 @@ impl PartialEq for SemanticType {
     match (self, other) {
       (Var, Var) => true,
       (Error, Error) => true,
-      (Basic(name1), Basic(name2)) => name1 == name2,
+      (Int, Int) => true,
+      (Bool, Bool) => true,
+      (String, String) => true,
+      (Void, Void) => true,
       (Object(class1), Object(class2)) => class1 == class2,
       (Array(elem1), Array(elem2)) => elem1 == elem2,
       _ => false,
@@ -168,7 +184,7 @@ pub trait SemanticTypeVisitor {
         if elem.as_ref() == &ERROR {
           true
         } else if elem.as_ref() == &VOID {
-          self.push_error(Error::new(loc, VoidArrayElement{}));
+          self.push_error(Error::new(loc, VoidArrayElement {}));
           true
         } else { false }
       }

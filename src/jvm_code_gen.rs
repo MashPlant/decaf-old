@@ -12,28 +12,19 @@ use super::util::*;
 use std::ptr;
 use std::ops::{DerefMut, Deref};
 
+// assume type can only be one of these
 macro_rules! handle {
   ($t: expr, $int_bool: expr, $object: expr) => {
     match $t {
-      SemanticType::Basic(name) => match *name {
-        "int" | "bool" => $int_bool,
-        "string" => $object,
-        _ => unreachable!(),
-      }
-      SemanticType::Object(_) | SemanticType::Array(_) | SemanticType::Null => $object,
-      _ => unreachable!(),
+      SemanticType::Int | SemanticType::Bool => $int_bool,
+      _ => $object,
     }
   };
   ($t: expr, $int: expr, $bool: expr, $object: expr) => {
     match $t {
-      SemanticType::Basic(name) => match *name {
-        "int" => $int,
-        "bool" => $bool,
-        "string" => $object,
-        _ => unreachable!(),
-      }
-      SemanticType::Object(_) | SemanticType::Array(_) | SemanticType::Null => $object,
-      _ => unreachable!(),
+      SemanticType::Int => $int,
+      SemanticType::Bool => $bool,
+      _ => $object,
     }
   };
 }
@@ -68,16 +59,14 @@ trait ToJavaType {
 // which is regarded ad basic type in decaf
 impl ToJavaType for SemanticType {
   fn to_java(&self) -> JavaType {
+    use types::SemanticType::*;
     match self {
-      SemanticType::Basic(name) => match *name {
-        "int" => JavaType::Int,
-        "void" => JavaType::Void,
-        "bool" => JavaType::Boolean,
-        "string" => JavaType::Class("java/lang/String"),
-        _ => unreachable!(),
-      },
-      SemanticType::Object(class) => JavaType::Class(class.get().name),
-      SemanticType::Array(elem) => JavaType::Array(Box::new(elem.to_java())),
+      Int => JavaType::Int,
+      Bool => JavaType::Boolean,
+      String => JavaType::Class("java/lang/String"),
+      Void => JavaType::Void,
+      Object(class) => JavaType::Class(class.get().name),
+      Array(elem) => JavaType::Array(Box::new(elem.to_java())),
       _ => unreachable!(),
     }
   }
@@ -124,13 +113,11 @@ impl JvmCodeGen {
 
   // assume there is already a length on the top
   fn gen_new_array(&mut self, elem_t: &SemanticType) {
+    use types::SemanticType::*;
     match elem_t {
-      SemanticType::Basic(name) => match *name {
-        "int" => self.new_int_array(),
-        "bool" => self.new_bool_array(),
-        "string" => self.a_new_array("java/lang/String"),
-        _ => unreachable!(),
-      }
+      Int => self.new_int_array(),
+      Bool => self.new_bool_array(),
+      String => self.a_new_array("java/lang/String"),
       // I don't quite understand the design
       // class A[] => A
       // class A[][] => [[LA;
@@ -142,8 +129,8 @@ impl JvmCodeGen {
 
   // val = 1/-1, expr is inc/dec-ed
   fn pre_inc_dec(&mut self, expr: &mut Expr, val: i32) {
-    match expr {
-      Expr::Id(id) => {
+    match &mut expr.data {
+      ExprData::Id(id) => {
         let var_def = id.symbol.get();
         match var_def.scope.get().kind {
           ScopeKind::Local(_) | ScopeKind::Parameter(_) => {
@@ -162,9 +149,9 @@ impl JvmCodeGen {
           _ => unreachable!(),
         }
       }
-      Expr::Indexed(indexed) => {
+      ExprData::Indexed(indexed) => {
         indexed.for_assign = true;
-        self.indexed(indexed); // arr idx
+        self.indexed(indexed, &expr.type_); // arr idx
         self.dup_2(); // arr idx arr idx
         self.i_a_load(); // arr idx x
         self.int_const(val); // arr idx x 1
@@ -178,8 +165,8 @@ impl JvmCodeGen {
 
   // same as above
   fn post_inc_dec(&mut self, expr: &mut Expr, val: i32) {
-    match expr {
-      Expr::Id(id) => {
+    match &mut expr.data {
+      ExprData::Id(id) => {
         let var_def = id.symbol.get();
         match var_def.scope.get().kind {
           ScopeKind::Local(_) | ScopeKind::Parameter(_) => {
@@ -198,9 +185,9 @@ impl JvmCodeGen {
           _ => unreachable!(),
         }
       }
-      Expr::Indexed(indexed) => {
+      ExprData::Indexed(indexed) => {
         indexed.for_assign = true;
-        self.indexed(indexed); // arr idx
+        self.indexed(indexed, &expr.type_); // arr idx
         self.dup_2(); // arr idx arr idx
         self.i_a_load(); // arr idx x
         self.dup_x2(); // x arr idx x
@@ -258,7 +245,7 @@ impl JvmCodeGen {
       method_def.param.insert(0, VarDef {
         loc: method_def.loc,
         name: "args",
-        type_: Type { loc: method_def.loc, sem: SemanticType::Array(Box::new(SemanticType::Basic("string"))) },
+        type_: Type { loc: method_def.loc, sem: SemanticType::Array(Box::new(STRING)) },
         src: None,
         finish_loc: method_def.loc,
         scope: &method_def.scope,
@@ -284,18 +271,11 @@ impl JvmCodeGen {
 
     // well, I don't know how to do control flow analysis, dirty hacks here
     match &method_def.ret_t.sem {
-      SemanticType::Basic(name) => match *name {
-        "int" | "bool" => {
-          method_builder.int_const(0);
-          method_builder.i_return();
-        }
-        "void" => method_builder.return_(),
-        "string" => {
-          method_builder.a_const_null();
-          method_builder.a_return();
-        }
-        _ => unreachable!(),
+      SemanticType::Int | SemanticType::Bool => {
+        method_builder.int_const(0);
+        method_builder.i_return();
       }
+      SemanticType::Void => method_builder.return_(),
       _ => {
         method_builder.a_const_null();
         method_builder.a_return();
@@ -345,14 +325,14 @@ impl JvmCodeGen {
       }
       Return(return_) => if let Some(expr) = &mut return_.expr {
         self.expr(expr);
-        handle!(expr.get_type(), self.i_return(), self.a_return());
+        handle!(expr.type_, self.i_return(), self.a_return());
       } else {
         self.method_builder.get().return_();
       },
       Print(print) => for print in &mut print.print {
         self.get_static("java/lang/System", "out", &JavaType::Class("java/io/PrintStream"));
         self.expr(print);
-        self.invoke_virtual("java/io/PrintStream", "print", &[print.get_type().to_java()], &JavaType::Void);
+        self.invoke_virtual("java/io/PrintStream", "print", &[print.type_.to_java()], &JavaType::Void);
       }
       Break(_) => {
         let out = *self.break_stack.last().unwrap();
@@ -372,8 +352,9 @@ impl JvmCodeGen {
   }
 
   fn expr(&mut self, expr: &mut Expr) {
-    match expr {
-      Expr::Id(id) => if !id.for_assign {
+    use ast::ExprData::*;
+    match &mut expr.data {
+      Id(id) => if !id.for_assign {
         let var_def = id.symbol.get();
         match var_def.scope.get().kind {
           ScopeKind::Local(_) | ScopeKind::Parameter(_) => self.load_from_stack(&var_def.type_, var_def.index),
@@ -384,15 +365,13 @@ impl JvmCodeGen {
           _ => unreachable!(),
         }
       } else { if let Some(owner) = &mut id.owner { self.expr(owner); } }
-      Expr::Indexed(indexed) => self.indexed(indexed),
-      Expr::Const(const_) => match const_ {
-        Const::Int(int_const) => self.int_const(int_const.value),
-        Const::Bool(bool_const) => self.bool_const(bool_const.value),
-        Const::String(string_const) => self.string_const(&string_const.value),
-        Const::Null(_) => self.a_const_null(),
-        _ => unimplemented!(),
-      },
-      Expr::Call(call) => if call.is_arr_len {
+      Indexed(indexed) => self.indexed(indexed, &expr.type_),
+      IntConst(v) => self.int_const(*v),
+      BoolConst(v) => self.bool_const(*v),
+      StringConst(v) => self.string_const(v),
+      ArrayConst(_) => unimplemented!(),
+      Null => self.a_const_null(),
+      Call(call) => if call.is_arr_len {
         self.expr(if let Some(owner) = &mut call.owner { owner } else { unreachable!() });
         self.array_length();
       } else {
@@ -407,28 +386,28 @@ impl JvmCodeGen {
           self.invoke_virtual(method.class.get().name, method.name, &argument_types[1..], &return_type);
         }
       }
-      Expr::Unary(unary) => self.unary(unary),
-      Expr::Binary(binary) => self.binary(binary),
-      Expr::This(_) => self.a_load(0),
-      Expr::NewClass(new_class) => {
-        self.new_(new_class.name);
+      Unary(unary) => self.unary(unary),
+      Binary(binary) => self.binary(binary),
+      This => self.a_load(0),
+      NewClass { name } => {
+        self.new_(name);
         self.dup();
-        self.invoke_special(new_class.name, "<init>", &[], &JavaType::Void);
+        self.invoke_special(name, "<init>", &[], &JavaType::Void);
       }
-      Expr::NewArray(new_array) => {
-        self.expr(&mut new_array.len);
+      NewArray { elem_t, len } => {
+        self.expr(len);
         // new_array.elem_t is not set during type check, it may still be Named
-        self.gen_new_array(if let SemanticType::Array(elem_t) = &new_array.type_ { elem_t } else { unreachable!() });
+        self.gen_new_array(if let SemanticType::Array(elem_t) = &expr.type_ { elem_t } else { unreachable!() });
       }
-      Expr::TypeTest(type_test) => {
-        self.expr(&mut type_test.expr);
-        self.instance_of(type_test.name);
+      TypeTest { expr, name } => {
+        self.expr(expr);
+        self.instance_of(name);
       }
-      Expr::TypeCast(type_cast) => {
-        self.expr(&mut type_cast.expr);
-        self.check_cast(type_cast.name);
+      TypeCast { name, expr } => {
+        self.expr(expr);
+        self.check_cast(name);
       }
-      Expr::Default(default) => self.default(default),
+      Default(default) => self.default(default),
       _ => unimplemented!(),
     };
   }
@@ -450,8 +429,8 @@ impl JvmCodeGen {
       }
       Simple::Expr(expr) => {
         self.expr(expr);
-        match expr {
-          Expr::Call(call) => if call.method.get().ret_t.sem != VOID { self.pop(); }
+        match &expr.data {
+          ExprData::Call(call) => if call.method.get().ret_t.sem != VOID { self.pop(); }
           _ => self.pop(),
         }
       }
@@ -473,7 +452,7 @@ impl JvmCodeGen {
 
   fn s_copy(&mut self, s_copy: &mut SCopy) {
     let src = self.new_local();
-    let class = if let SemanticType::Object(class) = s_copy.src.get_type() { class.get() } else { unreachable!() };
+    let class = if let SemanticType::Object(class) = s_copy.src.type_ { class.get() } else { unreachable!() };
     let dst = s_copy.dst_sym.get().index;
     let tmp = self.new_local();
     self.expr(&mut s_copy.src);
@@ -537,15 +516,15 @@ impl JvmCodeGen {
   }
 
   fn assign(&mut self, assign: &mut Assign) {
-    match &mut assign.dst {
-      Expr::Indexed(indexed) => indexed.for_assign = true,
-      Expr::Id(id) => id.for_assign = true,
+    match &mut assign.dst.data {
+      ExprData::Indexed(indexed) => indexed.for_assign = true,
+      ExprData::Id(id) => id.for_assign = true,
       _ => unreachable!(),
     }
     self.expr(&mut assign.dst);
     self.expr(&mut assign.src);
-    match &assign.dst {
-      Expr::Id(id) => {
+    match &assign.dst.data {
+      ExprData::Id(id) => {
         let var_def = id.symbol.get();
         match var_def.scope.get().kind {
           ScopeKind::Local(_) | ScopeKind::Parameter(_) => self.store_to_stack(&var_def.type_, var_def.index),
@@ -553,7 +532,7 @@ impl JvmCodeGen {
           _ => unreachable!(),
         }
       }
-      Expr::Indexed(indexed) => handle!(&indexed.type_, self.i_a_store(), self.b_a_store(), self.a_a_store()),
+      ExprData::Indexed(indexed) => handle!(assign.dst.type_, self.i_a_store(), self.b_a_store(), self.a_a_store()),
       _ => unreachable!(),
     }
   }
@@ -590,8 +569,8 @@ impl JvmCodeGen {
         let (before, after) = (self.new_label(), self.new_label());
         let (val, it, arr) = (self.new_local(), self.new_local(), self.new_local());
         self.expr(&mut binary.l);
-        let val_t = binary.l.get_type();
-        self.store_to_stack(binary.l.get_type(), val);
+        let val_t = &binary.l.type_;
+        self.store_to_stack(&binary.l.type_, val);
         self.expr(&mut binary.r);
         self.gen_new_array(val_t);
         self.a_store(arr);
@@ -653,15 +632,13 @@ impl JvmCodeGen {
           Lt => cmp!(self, if_i_cmp_lt),
           Ge => cmp!(self, if_i_cmp_ge),
           Gt => cmp!(self, if_i_cmp_gt),
-          Eq => match binary.l.get_type() {
-            SemanticType::Null | SemanticType::Object(_) => cmp!(self, if_a_cmp_eq),
-            SemanticType::Basic(name) if name == &"string" => cmp!(self, if_a_cmp_eq),
-            _ => cmp!(self, if_i_cmp_eq),
+          Eq => match binary.l.type_ {
+            SemanticType::Int | SemanticType::Bool => cmp!(self, if_i_cmp_eq),
+            _ => cmp!(self, if_a_cmp_eq),
           }
-          Ne => match binary.l.get_type() {
-            SemanticType::Null | SemanticType::Object(_) => cmp!(self, if_a_cmp_ne),
-            SemanticType::Basic(name) if name == &"string" => cmp!(self, if_a_cmp_ne),
-            _ => cmp!(self, if_i_cmp_ne),
+          Ne => match binary.l.type_ {
+            SemanticType::Int | SemanticType::Bool => cmp!(self, if_i_cmp_ne),
+            _ => cmp!(self, if_a_cmp_ne),
           }
           _ => unreachable!(),
         }
@@ -669,10 +646,10 @@ impl JvmCodeGen {
     }
   }
 
-  fn indexed(&mut self, indexed: &mut Indexed) {
+  fn indexed(&mut self, indexed: &mut Indexed, expr_type: &SemanticType) {
     self.expr(&mut indexed.arr);
     self.expr(&mut indexed.idx);
-    if !indexed.for_assign { handle!(&indexed.type_, self.i_a_load(), self.b_a_load(), self.a_a_load()); }
+    if !indexed.for_assign { handle!(expr_type, self.i_a_load(), self.b_a_load(), self.a_a_load()); }
   }
 
   fn default(&mut self, default: &mut Default) {
@@ -690,7 +667,7 @@ impl JvmCodeGen {
     self.dup();
     self.a_load(arr);
     self.swap();
-    handle!(&default.type_, self.i_a_load(), self.b_a_load(), self.a_a_load());
+    handle!(&default.dft.type_, self.i_a_load(), self.b_a_load(), self.a_a_load());
     self.goto(after);
     self.label(dft);
     self.expr(&mut default.dft);

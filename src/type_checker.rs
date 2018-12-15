@@ -3,13 +3,9 @@ use super::types::*;
 use super::errors::*;
 use super::symbol::*;
 use super::util::*;
-use std::ptr;
+use super::loc::*;
 
-macro_rules! issue {
-  ($rec:expr, $loc: expr, $err: expr) => {
-      $rec.errors.push(Error::new($loc, $err));
-  };
-}
+use std::ptr;
 
 pub struct TypeChecker {
   errors: Vec<Error>,
@@ -47,17 +43,20 @@ impl TypeChecker {
     }
   }
 
+  fn issue<E: IError + 'static>(&mut self, loc: Loc, error: E) {
+    self.errors.push(Error::new(loc, error));
+  }
+
   fn check_bool(&mut self, expr: &mut Expr) {
     self.expr(expr);
-    let t = expr.get_type();
-    if !t.error_or(&BOOL) {
-      issue!(self, expr.get_loc(), TestNotBool{});
+    if !expr.type_.error_or(&BOOL) {
+      self.issue(expr.loc, TestNotBool {});
     }
   }
 
-  fn check_call(&mut self, call: &mut Call, symbol: Option<Symbol>) {
+  fn check_call(&mut self, call: &mut Call, symbol: Option<Symbol>, expr_loc: Loc, expr_type: &mut SemanticType) {
     let owner_t = match &call.owner {
-      Some(owner) => owner.get_type().clone(),
+      Some(owner) => owner.type_.clone(),
       None => self.cur_class.get().get_object_type(),
     };
     match symbol {
@@ -66,24 +65,22 @@ impl TypeChecker {
           Symbol::Method(method) => {
             let method = method.get();
             call.method = method;
-            call.type_ = method.ret_t.sem.clone();
+            *expr_type = method.ret_t.sem.clone();
             match &call.owner {
               Some(_) => {
                 if owner_t.is_class() && !method.static_ {
                   // call a instance method through class reference
-                  issue!(self, call.loc, BadFieldAccess { name: call.name, owner_t: owner_t.to_string() });
+                  self.issue(expr_loc, BadFieldAccess { name: call.name, owner_t: owner_t.to_string() });
                 }
-                if method.static_ {
-                  call.owner = None;
-                }
+                if method.static_ { call.owner = None; }
               }
               None => {
                 match (self.cur_method.get().static_, method.static_) {
-                  (true, false) => issue!(self, call.loc, RefInStatic { field: method.name, method: self.cur_method.get().name }),
-                  (false, false) => call.owner = Some(Box::new(Expr::This(This {
-                    loc: call.loc,
-                    type_: self.cur_class.get().get_object_type(),
-                  }))),
+                  (true, false) => {
+                    let cur_method = self.cur_method.get().name;
+                    self.issue(expr_loc, RefInStatic { field: method.name, method: cur_method });
+                  }
+                  (false, false) => call.owner = Some(Box::new(Expr::with_type(expr_loc, self.cur_class.get().get_object_type(), ExprData::This))),
                   _ => {}
                 }
               }
@@ -92,24 +89,24 @@ impl TypeChecker {
             let this_offset = if method.static_ { 0 } else { 1 };
             let argc = call.arg.len();
             if argc != method.param.len() - this_offset {
-              issue!(self, call.loc, WrongArgc { name: call.name, expect: method.param.len() as i32, actual: argc as i32 });
+              self.issue(expr_loc, WrongArgc { name: call.name, expect: method.param.len() as i32, actual: argc as i32 });
             } else {
               for i in this_offset..argc + this_offset {
-                let arg_t = call.arg[i - this_offset].get_type();
-                if !arg_t.extends(&method.param[i].type_.sem) {
-                  issue!(self, call.arg[i].get_loc(), WrongArgType {
+                let arg_t = &call.arg[i - this_offset].type_;
+                if !arg_t.assignable_to(&method.param[i].type_.sem) {
+                  self.issue(call.arg[i].loc, WrongArgType {
                     loc: (i + 1 - this_offset) as i32,
                     arg_t: arg_t.to_string(),
-                    param_t: method.param[i].type_.sem.to_string()
+                    param_t: method.param[i].type_.sem.to_string(),
                   });
                 }
               }
             }
           }
-          _ => issue!(self, call.loc, NotMethod { name: call.name, owner_t: owner_t.to_string() }),
+          _ => self.issue(expr_loc, NotMethod { name: call.name, owner_t: owner_t.to_string() }),
         }
       }
-      None => issue!(self, call.loc, NoSuchField { name: call.name, owner_t: owner_t.to_string() }),
+      None => self.issue(expr_loc, NoSuchField { name: call.name, owner_t: owner_t.to_string() }),
     };
   }
 }
@@ -168,26 +165,24 @@ impl TypeChecker {
         match &mut return_.expr {
           Some(expr) => {
             self.expr(expr);
-            let expr_t = expr.get_type();
-            if !expr_t.extends(expect) {
-              issue!(self, return_.loc, WrongReturnType { ret_t: expr_t.to_string(), expect_t: expect.to_string() });
+            if !expr.type_.assignable_to(expect) {
+              self.issue(return_.loc, WrongReturnType { ret_t: expr.type_.to_string(), expect_t: expect.to_string() });
             }
           }
           None => {
             if expect != &VOID {
-              issue!(self, return_.loc, WrongReturnType { ret_t: "void".to_owned(), expect_t: expect.to_string() });
+              self.issue(return_.loc, WrongReturnType { ret_t: "void".to_owned(), expect_t: expect.to_string() });
             }
           }
         }
       }
       Print(print) => for (i, expr) in print.print.iter_mut().enumerate() {
         self.expr(expr);
-        let expr_t = expr.get_type();
-        if expr_t != &ERROR && expr_t != &BOOL && expr_t != &INT && expr_t != &STRING {
-          issue!(self, expr.get_loc(), BadPrintArg { loc: i as i32 + 1, type_: expr_t.to_string() });
+        if expr.type_ != ERROR && expr.type_ != BOOL && expr.type_ != INT && expr.type_ != STRING {
+          self.issue(expr.loc, BadPrintArg { loc: i as i32 + 1, type_: expr.type_.to_string() });
         }
       },
-      Break(break_) => if self.loop_cnt == 0 { issue!(self, break_.loc, BreakOutOfLoop{}); },
+      Break(break_) => if self.loop_cnt == 0 { self.issue(break_.loc, BreakOutOfLoop {}); },
       SCopy(s_copy) => self.s_copy(s_copy),
       Foreach(foreach) => self.foreach(foreach),
       Guarded(guarded) => for (e, b) in &mut guarded.guarded {
@@ -201,22 +196,20 @@ impl TypeChecker {
   fn simple(&mut self, simple: &mut Simple) {
     match simple {
       Simple::Assign(assign) => {
-        self.expr(&mut assign.dst);
-        self.expr(&mut assign.src);
-        let dst_t = assign.dst.get_type();
-        let src_t = assign.src.get_type();
+        let Assign { dst, src, loc: _ } = assign;
+        self.expr(dst);
+        self.expr(src);
         // error check is contained in extends
-        if dst_t.is_method() || !src_t.extends(dst_t) {
-          issue!(self, assign.loc, IncompatibleBinary{l_t: dst_t.to_string(), op: "=", r_t: src_t.to_string() })
+        if dst.type_.is_method() || !src.type_.assignable_to(&dst.type_) {
+          self.issue(assign.loc, IncompatibleBinary { l_t: dst.type_.to_string(), op: "=", r_t: src.type_.to_string() })
         }
       }
       Simple::VarDef(var_def) => if let Some(src) = &mut var_def.src {
         self.expr(src);
-        let src_t = src.get_type();
         if var_def.type_.sem == VAR {
-          var_def.type_.sem = src_t.clone();
-        } else if !src_t.extends(&var_def.type_) {
-          issue!(self, var_def.loc, IncompatibleBinary{l_t: var_def.type_.sem.to_string(), op: "=", r_t: src_t.to_string() })
+          var_def.type_.sem = src.type_.clone();
+        } else if !src.type_.assignable_to(&var_def.type_) {
+          self.issue(var_def.loc, IncompatibleBinary { l_t: var_def.type_.sem.to_string(), op: "=", r_t: src.type_.to_string() })
         }
       }
       Simple::Expr(expr) => self.expr(expr),
@@ -225,63 +218,62 @@ impl TypeChecker {
   }
 
   fn expr(&mut self, expr: &mut Expr) {
-    use self::Expr::*;
-    match expr {
-      Id(id) => self.id(id),
+    use self::ExprData::*;
+    let p = expr as *const Expr;
+    match &mut expr.data {
+      Id(id) => self.id(id, expr.loc, &mut expr.type_),
       Indexed(indexed) => {
         self.expr(&mut indexed.arr);
         self.expr(&mut indexed.idx);
-        let (arr_t, idx_t) = (indexed.arr.get_type(), indexed.idx.get_type());
-        match &arr_t {
-          SemanticType::Array(elem) => indexed.type_ = *elem.clone(),
+        match &indexed.arr.type_ {
+          SemanticType::Array(elem) => expr.type_ = *elem.clone(),
           SemanticType::Error => {}
-          _ => issue!(self, indexed.arr.get_loc(), NotArray{}),
+          _ => self.issue(indexed.arr.loc, NotArray {}),
         }
-        if !idx_t.error_or(&INT) {
-          issue!(self, indexed.loc, ArrayIndexNotInt{});
+
+        if !indexed.idx.type_.error_or(&INT) {
+          self.issue(expr.loc, ArrayIndexNotInt {});
         }
       }
-      Call(call) => self.call(call),
-      Unary(unary) => self.unary(unary),
-      Binary(binary) => self.binary(binary),
-      This(this) => if self.cur_method.get().static_ {
-        issue!(self, this.loc, ThisInStatic{});
-      } else { this.type_ = self.cur_class.get().get_object_type(); }
-      NewClass(new_class) => match self.scopes.lookup_class(new_class.name) {
-        Some(class) => new_class.type_ = class.get_type(),
-        None => issue!(self, new_class.loc, NoSuchClass { name: new_class.name }),
+      Call(call) => self.call(call, expr.loc, &mut expr.type_),
+      Unary(unary) => self.unary(unary, expr.loc, &mut expr.type_),
+      Binary(binary) => self.binary(binary, expr.loc, &mut expr.type_),
+      This => if self.cur_method.get().static_ {
+        self.issue(expr.loc, ThisInStatic {});
+      } else {
+        expr.type_ = self.cur_class.get().get_object_type();
+      }
+      NewClass { name } => match self.scopes.lookup_class(name) {
+        Some(class) => expr.type_ = class.get_type(),
+        None => self.issue(expr.loc, NoSuchClass { name }),
       },
-      NewArray(new_array) => {
-        let elem_t = &mut new_array.elem_t;
-        new_array.type_ = SemanticType::Array(Box::new(elem_t.sem.clone()));
-        self.semantic_type(&mut new_array.type_, elem_t.loc);
-        self.expr(&mut new_array.len);
-        let len_t = new_array.len.get_type();
-        if !len_t.error_or(&INT) { issue!(self, new_array.len.get_loc(), BadNewArrayLen{}); }
+      NewArray { elem_t, len } => {
+        expr.type_ = SemanticType::Array(Box::new(elem_t.sem.clone()));
+        self.semantic_type(&mut expr.type_, elem_t.loc);
+        self.expr(len);
+        if !len.type_.error_or(&INT) { self.issue(len.loc, BadNewArrayLen {}); }
       }
-      TypeTest(type_test) => {
-        self.expr(&mut type_test.expr);
-        let expr_t = type_test.expr.get_type();
-        if expr_t != &ERROR && !expr_t.is_object() {
-          issue!(self, type_test.loc, NotObject { type_: expr_t.to_string() });
+      TypeTest { expr: src, name } => {
+        self.expr(src);
+        if src.type_ != ERROR && !src.type_.is_object() {
+          self.issue(expr.loc, NotObject { type_: src.type_.to_string() });
         }
-        if self.scopes.lookup_class(type_test.name).is_none() {
-          issue!(self, type_test.loc, NoSuchClass { name: type_test.name });
+        if self.scopes.lookup_class(name).is_none() {
+          self.issue(expr.loc, NoSuchClass { name });
         }
       }
-      TypeCast(type_cast) => {
-        self.expr(&mut type_cast.expr);
-        let expr_t = type_cast.expr.get_type();
-        if expr_t != &ERROR && !expr_t.is_object() {
-          issue!(self, type_cast.loc, NotObject { type_: expr_t.to_string() });
+      TypeCast { name, expr: src } => {
+        self.expr(src);
+        if src.type_ != ERROR && !src.type_.is_object() {
+          self.issue(expr.loc, NotObject { type_: src.type_.to_string() });
         }
         // doesn't need to set type to error because it originally was
-        match self.scopes.lookup_class(type_cast.name) {
-          Some(class) => type_cast.type_ = class.get_type(),
-          None => issue!(self, type_cast.loc, NoSuchClass { name: type_cast.name }),
+        match self.scopes.lookup_class(name) {
+          Some(class) => src.type_ = class.get_type(),
+          None => self.issue(expr.loc, NoSuchClass { name }),
         }
       }
-      Default(default) => self.default(default),
+      Default(default) => self.default(default, expr.loc, &mut expr.type_),
       _ => {}
     };
   }
@@ -294,26 +286,26 @@ impl TypeChecker {
 
   fn s_copy(&mut self, s_copy: &mut SCopy) {
     self.expr(&mut s_copy.src);
-    let src_t = s_copy.src.get_type();
+    let src_t = &s_copy.src.type_;
     match self.scopes.lookup_before(s_copy.dst, s_copy.loc) {
       Some(symbol) => {
         let dst_t = symbol.get_type();
         if &dst_t != &ERROR && !dst_t.is_object() {
-          issue!(self, s_copy.dst_loc, SCopyNotClass { which: "dst", type_: dst_t.to_string() });
+          self.issue(s_copy.dst_loc, SCopyNotClass { which: "dst", type_: dst_t.to_string() });
         };
         if !dst_t.is_object() {
           if src_t != &ERROR && !src_t.is_object() {
-            issue!(self, s_copy.src.get_loc(), SCopyNotClass { which: "src", type_: src_t.to_string() });
+            self.issue(s_copy.src.loc, SCopyNotClass { which: "src", type_: src_t.to_string() });
           };
         } else if !src_t.error_or(&dst_t) {
-          issue!(self, s_copy.loc, SCopyMismatch { dst_t: dst_t.to_string(), src_t: src_t.to_string() });
+          self.issue(s_copy.loc, SCopyMismatch { dst_t: dst_t.to_string(), src_t: src_t.to_string() });
         }
         if let Symbol::Var(var) = symbol { s_copy.dst_sym = var; }
       }
       None => {
-        issue!(self, s_copy.dst_loc, UndeclaredVar { name: s_copy.dst });
+        self.issue(s_copy.dst_loc, UndeclaredVar { name: s_copy.dst });
         if src_t != &ERROR && !src_t.is_object() {
-          issue!(self, s_copy.src.get_loc(), SCopyNotClass { which: "src", type_: src_t.to_string() });
+          self.issue(s_copy.src.loc, SCopyNotClass { which: "src", type_: src_t.to_string() });
         };
       }
     }
@@ -322,15 +314,14 @@ impl TypeChecker {
   fn foreach(&mut self, foreach: &mut Foreach) {
     // arr is visited before scope open, cond is after
     self.expr(&mut foreach.arr);
-    let arr_t = foreach.arr.get_type();
-    match arr_t {
+    match &foreach.arr.type_ {
       SemanticType::Array(elem) => match foreach.def.type_.sem {
         ref mut t if t == &VAR => {
           *t = *elem.clone();
           foreach.body.scope.kind = ScopeKind::Local(&mut foreach.body);
           foreach.def.scope = &foreach.body.scope;
         }
-        ref t if !elem.extends(t) => issue!(self, foreach.def.loc, ForeachMismatch{ elem_t: elem.to_string(), def_t: t.to_string() }),
+        ref t if !elem.assignable_to(t) => self.issue(foreach.def.loc, ForeachMismatch { elem_t: elem.to_string(), def_t: t.to_string() }),
         _ => {}
       }
       SemanticType::Error => if &foreach.def.type_.sem == &VAR {
@@ -338,7 +329,7 @@ impl TypeChecker {
         foreach.def.type_.sem = ERROR;
       }
       _ => {
-        issue!(self, foreach.arr.get_loc(), BadArrayOp{});
+        self.issue(foreach.arr.loc, BadArrayOp {});
         if &foreach.def.type_.sem == &VAR {
           foreach.def.type_.sem = ERROR;
         }
@@ -353,132 +344,134 @@ impl TypeChecker {
     self.loop_cnt -= 1;
   }
 
-  fn unary(&mut self, unary: &mut Unary) {
+  fn unary(&mut self, unary: &mut Unary, expr_loc: Loc, expr_type: &mut SemanticType) {
     use super::ast::Operator::*;
     self.expr(&mut unary.r);
-    let r = unary.r.get_type();
+    let r = &unary.r.type_;
     match unary.op {
       Neg => {
         if !r.error_or(&INT) {
-          issue!(self, unary.loc, IncompatibleUnary { op: "-", r_t: r.to_string() });
+          self.issue(expr_loc, IncompatibleUnary { op: "-", r_t: r.to_string() });
         }
-        unary.type_ = INT;
+        *expr_type = INT;
       }
       Not => {
         if !r.error_or(&BOOL) {
-          issue!(self, unary.loc, IncompatibleUnary { op: "!", r_t: r.to_string() });
+          self.issue(expr_loc, IncompatibleUnary { op: "!", r_t: r.to_string() });
         }
-        unary.type_ = BOOL;
+        *expr_type = BOOL;
       }
       PreInc | PreDec | PostInc | PostDec => {
         let op = unary.op.to_str();
         if !unary.r.is_lvalue() {
-          issue!(self, unary.loc, NotLValue { op });
+          self.issue(expr_loc, NotLValue { op });
         }
         if !r.error_or(&INT) {
-          issue!(self, unary.loc, IncompatibleUnary { op, r_t: r.to_string() });
+          self.issue(expr_loc, IncompatibleUnary { op, r_t: r.to_string() });
         }
-        unary.type_ = INT;
+        *expr_type = INT;
       }
       _ => unreachable!(),
     }
   }
 
-  fn binary(&mut self, binary: &mut Binary) {
+  fn binary(&mut self, binary: &mut Binary, expr_loc: Loc, expr_type: &mut SemanticType) {
     use super::ast::Operator::*;
     self.expr(&mut binary.l);
     self.expr(&mut binary.r);
     let (l, r) = (&mut binary.l, &mut binary.r);
-    let (l_t, r_t) = (l.get_type(), r.get_type());
+    let (l_t, r_t) = (&l.type_, &r.type_);
     match binary.op {
       Repeat => {
-        if !r_t.error_or(&INT) { issue!(self, r.get_loc(), ArrayRepeatNotInt{}); }
+        if !r_t.error_or(&INT) { self.issue(r.loc, ArrayRepeatNotInt {}); }
         // l_t cannot be void here
         if l_t != &ERROR {
-          binary.type_ = SemanticType::Array(Box::new(l_t.clone()));
+          *expr_type = SemanticType::Array(Box::new(l_t.clone()));
         }
       }
       Concat => {
-        if l_t != &ERROR && !l_t.is_array() { issue!(self, l.get_loc(), BadArrayOp{}); }
-        if r_t != &ERROR && !r_t.is_array() { issue!(self, r.get_loc(), BadArrayOp{}); }
+        if l_t != &ERROR && !l_t.is_array() { self.issue(l.loc, BadArrayOp {}); }
+        if r_t != &ERROR && !r_t.is_array() { self.issue(r.loc, BadArrayOp {}); }
         if l_t.is_array() && r_t.is_array() {
           if l_t != r_t {
-            issue!(self, binary.loc, ConcatMismatch { l_t: l_t.to_string(), r_t: r_t.to_string() });
+            self.issue(expr_loc, ConcatMismatch { l_t: l_t.to_string(), r_t: r_t.to_string() });
           }
-          binary.type_ = l_t.clone();
+          *expr_type = l_t.clone();
         }
       }
       _ => {
         if l_t == &ERROR || r_t == &ERROR {
-          return binary.type_ = match binary.op {
+          return *expr_type = match binary.op {
             Add | Sub | Mul | Div | Mod | BAnd | BOr | BXor | Shl | Shr => l_t.clone(),
             _ => BOOL,
           };
         }
         if !match binary.op {
           Add | Sub | Mul | Div | Mod | BAnd | BOr | BXor | Shl | Shr => {
-            binary.type_ = l_t.clone();
+            *expr_type = l_t.clone();
             l_t == &INT && r_t == &INT
           }
           Lt | Le | Gt | Ge => {
-            binary.type_ = BOOL;
+            *expr_type = BOOL;
             l_t == &INT && r_t == &INT
           }
           Eq | Ne => {
-            binary.type_ = BOOL;
-            l_t.extends(r_t) || r_t.extends(l_t)
+            *expr_type = BOOL;
+            l_t.assignable_to(r_t) || r_t.assignable_to(l_t)
           }
           And | Or => {
-            binary.type_ = BOOL;
+            *expr_type = BOOL;
             l_t == &BOOL && r_t == &BOOL
           }
           _ => unreachable!(),
         } {
-          issue!(self, binary.loc, IncompatibleBinary {
-            l_t: l_t.to_string(), op: binary.op.to_str(), r_t: r_t.to_string(),
+          self.issue(expr_loc, IncompatibleBinary {
+            l_t: l_t.to_string(),
+            op: binary.op.to_str(),
+            r_t: r_t.to_string(),
           });
         }
       }
     }
   }
 
-  fn call(&mut self, call: &mut Call) {
+  fn call(&mut self, call: &mut Call, expr_loc: Loc, expr_type: &mut SemanticType) {
     let call_ptr = call as *mut Call;
     match { &mut call_ptr.get().owner } {
       Some(owner) => {
         self.cur_id_used_for_ref = true;
         self.expr(owner);
-        let owner_t = owner.get_type();
+        let owner_t = &owner.type_;
         if owner_t == &ERROR { return; }
         // check array length call, quite a dirty implementation
         if call.name == "length" {
           if owner_t.is_array() {
             if !call.arg.is_empty() {
-              issue!(self, call.loc, LengthWithArgument { count: call.arg.len() as i32 });
+              self.issue(expr_loc, LengthWithArgument { count: call.arg.len() as i32 });
             }
-            call.type_ = INT;
+            *expr_type = INT;
             call.is_arr_len = true;
             return;
           } else if !owner_t.is_object() && !owner_t.is_class() {
-            issue!(self, call.loc, BadLength{});
+            self.issue(expr_loc, BadLength {});
             return;
           }
         }
         if !owner_t.is_object() && !owner_t.is_class() {
-          issue!(self, call.loc, BadFieldAccess{name: call.name, owner_t: owner_t.to_string() });
+          self.issue(expr_loc, BadFieldAccess { name: call.name, owner_t: owner_t.to_string() });
         } else {
           let symbol = owner_t.get_class().lookup(call.name);
-          self.check_call(call, symbol);
+          self.check_call(call, symbol, expr_loc, expr_type);
         }
       }
       None => {
         let symbol = self.cur_class.get().lookup(call.name);
-        self.check_call(call, symbol);
+        self.check_call(call, symbol, expr_loc, expr_type);
       }
     }
   }
 
-  fn id(&mut self, id: &mut Id) {
+  fn id(&mut self, id: &mut Id, expr_loc: Loc, expr_type: &mut SemanticType) {
     // not found(no owner) or sole ClassName => UndeclaredVar
     // refer to field in static function => RefInStatic
     // <not object>.a (Main.a, 1.a, func.a) => BadFieldAssess
@@ -492,7 +485,7 @@ impl TypeChecker {
       Some(owner) => {
         self.cur_id_used_for_ref = true;
         self.expr(owner);
-        let owner_t = owner.get_type();
+        let owner_t = &owner.type_;
         match owner_t {
           SemanticType::Object(class) => {
             let class = class.get();
@@ -501,78 +494,73 @@ impl TypeChecker {
               Some(symbol) => {
                 match symbol {
                   Symbol::Var(var_def) => {
-                    id.type_ = var_def.get().type_.clone();
+                    *expr_type = var_def.get().type_.clone();
                     id.symbol = var_def;
                     if !self.cur_class.get().extends(class) {
-                      issue!(self, id.loc, PrivateFieldAccess { name: id.name, owner_t: owner_t.to_string() });
+                      self.issue(expr_loc, PrivateFieldAccess { name: id.name, owner_t: owner_t.to_string() });
                     }
                   }
-                  _ => id.type_ = symbol.get_type(),
+                  _ => *expr_type = symbol.get_type(),
                 }
               }
-              None => issue!(self, id.loc, NoSuchField { name: id.name, owner_t: owner_t.to_string() }),
+              None => self.issue(expr_loc, NoSuchField { name: id.name, owner_t: owner_t.to_string() }),
             }
           }
           SemanticType::Error => {}
-          _ => issue!(self, id.loc, BadFieldAccess{name: id.name, owner_t: owner_t.to_string() }),
+          _ => self.issue(expr_loc, BadFieldAccess { name: id.name, owner_t: owner_t.to_string() }),
         }
       }
       None => {
-        match self.scopes.lookup_before(id.name, id.loc) {
+        match self.scopes.lookup_before(id.name, expr_loc) {
           Some(symbol) => {
             match symbol {
               Symbol::Class(class) => {
                 if !self.cur_id_used_for_ref {
-                  issue!(self, id.loc, UndeclaredVar { name: id.name });
-                } else { id.type_ = SemanticType::Class(class); }
+                  self.issue(expr_loc, UndeclaredVar { name: id.name });
+                } else { *expr_type = SemanticType::Class(class); }
               }
-              Symbol::Method(method) => id.type_ = SemanticType::Method(method),
+              Symbol::Method(method) => *expr_type = SemanticType::Method(method),
               Symbol::Var(var) => {
                 let var = var.get();
-                id.type_ = var.type_.clone();
+                *expr_type = var.type_.clone();
                 id.symbol = var;
                 if var.scope.get().is_class() {
                   if self.cur_method.get().static_ {
-                    issue!(self, id.loc, RefInStatic { field: id.name, method: self.cur_method.get().name });
+                    let method = self.cur_method.get().name;
+                    self.issue(expr_loc, RefInStatic { field: id.name, method });
                   } else {
                     // add a virtual `this`, it doesn't need visit
-                    *owner_ptr.get() = Some(Box::new(Expr::This(This {
-                      loc: id.loc,
-                      type_: SemanticType::Object(self.cur_class),
-                    })));
+                    *owner_ptr.get() = Some(Box::new(Expr::with_type(expr_loc, SemanticType::Object(self.cur_class), ExprData::This)));
                   }
                 }
               }
             }
           }
-          None => issue!(self, id.loc, UndeclaredVar { name: id.name }),
+          None => self.issue(expr_loc, UndeclaredVar { name: id.name }),
         }
         self.cur_id_used_for_ref = false;
       }
     }
   }
 
-  fn default(&mut self, default: &mut Default) {
-    self.expr(&mut default.arr);
-    self.expr(&mut default.idx);
-    self.expr(&mut default.dft);
-    let (arr_t, idx_t, dft_t) =
-      (default.arr.get_type(), default.idx.get_type(), default.dft.get_type());
-    match arr_t {
+  fn default(&mut self, default: &mut Default, expr_loc: Loc, expr_type: &mut SemanticType) {
+    let Default { arr, idx, dft } = default;
+    (self.expr(arr), self.expr(idx), self.expr(dft));
+    match &arr.type_ {
       SemanticType::Array(elem) => {
-        default.type_ = *elem.clone();
-        if dft_t != &ERROR && dft_t != elem.as_ref() {
-          issue!(self, default.loc, DefaultMismatch { elem_t: elem.to_string(), dft_t: dft_t.to_string() });
+        *expr_type = *elem.clone();
+        if dft.type_ != ERROR && &dft.type_ != elem.as_ref() {
+          self.issue(expr_loc, DefaultMismatch { elem_t: elem.to_string(), dft_t: dft.type_.to_string() });
         }
       }
       SemanticType::Error => {}
       _ => {
-        issue!(self, default.arr.get_loc(), BadArrayOp{});
-        default.type_ = dft_t.clone();
+        self.issue(arr.loc, BadArrayOp {});
+        *expr_type = dft.type_.clone();
       }
     }
-    if !idx_t.error_or(&INT) {
-      issue!(self, default.idx.get_loc(), ArrayIndexNotInt{});
+    if !idx.type_.error_or(&INT) {
+      self.issue(idx.loc, ArrayIndexNotInt {});
     }
   }
 }

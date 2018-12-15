@@ -73,7 +73,7 @@ impl TacCodeGen {
   }
 
   fn stmt(&mut self, stmt: &mut Stmt) {
-    match stmt {}
+//    match stmt {}
   }
 
   fn simple(&mut self, simple: &mut Simple) {
@@ -102,15 +102,17 @@ impl TacCodeGen {
                 break;
         }
         */
-        match &assign.dst {
-          Expr::Id(id) => {
+        match &assign.dst.data {
+          ExprData::Id(id) => {
             let var_def = id.symbol.get();
             match var_def.scope.get().kind {
               ScopeKind::Local(_) | ScopeKind::Parameter(_) => { self.add(Tac::Assign(var_def.offset, assign.src.reg)); }
               ScopeKind::Class(_) => {}
+              _ => unreachable!(),
             }
           }
-          Expr::Indexed(indexed) => {}
+          ExprData::Indexed(indexed) => {}
+          _ => unreachable!(),
         }
       }
       Simple::VarDef(var_def) => {}
