@@ -216,6 +216,7 @@ impl SymbolBuilder {
         type_: Type { loc: method_def.loc, sem: SemanticType::Object(class) },
         scope: &method_def.scope,
         index: 0, // 'this' is at 0
+        offset: -1,
       });
     }
     method_def.scope = Scope { symbols: D::default(), kind: ScopeKind::Parameter(method_def) };

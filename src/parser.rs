@@ -1486,6 +1486,7 @@ impl Parser {
       body: _7,
       scope: D::default(),
       class: ptr::null(),
+      offset: -1,
     };
     SV::_8(_0)
   }
@@ -1506,6 +1507,7 @@ impl Parser {
       body: _6,
       scope: D::default(),
       class: ptr::null(),
+      offset: -1,
     };
     SV::_8(_0)
   }
@@ -1696,6 +1698,7 @@ impl Parser {
         name: _4.value,
         scope: ptr::null(),
         index: D::default(),
+        offset: -1,
       },
       arr: _6,
       cond: _7,
@@ -2482,6 +2485,7 @@ impl Parser {
       type_: _1,
       scope: ptr::null(),
       index: D::default(),
+      offset: -1,
     };
     SV::_7(_0)
   }

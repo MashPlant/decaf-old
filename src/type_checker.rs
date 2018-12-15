@@ -14,10 +14,10 @@ macro_rules! issue {
 pub struct TypeChecker {
   errors: Vec<Error>,
   scopes: ScopeStack,
-  loop_counter: i32,
-  current_method: *const MethodDef,
-  current_class: *const ClassDef,
-  current_id_used_for_ref: bool,
+  loop_cnt: i32,
+  cur_method: *const MethodDef,
+  cur_class: *const ClassDef,
+  cur_id_used_for_ref: bool,
 }
 
 impl TypeChecker {
@@ -28,10 +28,10 @@ impl TypeChecker {
         global_scope: ptr::null_mut(),
         scopes: Vec::new(),
       },
-      loop_counter: 0,
-      current_method: ptr::null(),
-      current_class: ptr::null(),
-      current_id_used_for_ref: false,
+      loop_cnt: 0,
+      cur_method: ptr::null(),
+      cur_class: ptr::null(),
+      cur_id_used_for_ref: false,
     }
   }
 
@@ -58,7 +58,7 @@ impl TypeChecker {
   fn check_call(&mut self, call: &mut Call, symbol: Option<Symbol>) {
     let owner_t = match &call.owner {
       Some(owner) => owner.get_type().clone(),
-      None => self.current_class.get().get_object_type(),
+      None => self.cur_class.get().get_object_type(),
     };
     match symbol {
       Some(symbol) => {
@@ -78,11 +78,11 @@ impl TypeChecker {
                 }
               }
               None => {
-                match (self.current_method.get().static_, method.static_) {
-                  (true, false) => issue!(self, call.loc, RefInStatic { field: method.name, method: self.current_method.get().name }),
+                match (self.cur_method.get().static_, method.static_) {
+                  (true, false) => issue!(self, call.loc, RefInStatic { field: method.name, method: self.cur_method.get().name }),
                   (false, false) => call.owner = Some(Box::new(Expr::This(This {
                     loc: call.loc,
-                    type_: self.current_class.get().get_object_type(),
+                    type_: self.cur_class.get().get_object_type(),
                   }))),
                   _ => {}
                 }
@@ -126,12 +126,12 @@ impl SemanticTypeVisitor for TypeChecker {
 
 impl TypeChecker {
   fn class_def(&mut self, class_def: &mut ClassDef) {
-    self.current_class = class_def;
+    self.cur_class = class_def;
     self.scopes.open(&mut class_def.scope);
     for field_def in &mut class_def.field {
       if let FieldDef::MethodDef(method_def) = field_def {
-        self.current_method = method_def;
-        method_def.class = self.current_class;
+        self.cur_method = method_def;
+        method_def.class = self.cur_class;
         self.scopes.open(&mut method_def.scope);
         self.block(&mut method_def.body);
         self.scopes.close();
@@ -151,9 +151,9 @@ impl TypeChecker {
       }
       While(while_) => {
         self.check_bool(&mut while_.cond);
-        self.loop_counter += 1;
+        self.loop_cnt += 1;
         self.block(&mut while_.body);
-        self.loop_counter -= 1;
+        self.loop_cnt -= 1;
       }
       For(for_) => {
         self.scopes.open(&mut for_.body.scope);
@@ -164,7 +164,7 @@ impl TypeChecker {
         self.scopes.close();
       }
       Return(return_) => {
-        let expect = &self.current_method.get().ret_t.sem;
+        let expect = &self.cur_method.get().ret_t.sem;
         match &mut return_.expr {
           Some(expr) => {
             self.expr(expr);
@@ -187,7 +187,7 @@ impl TypeChecker {
           issue!(self, expr.get_loc(), BadPrintArg { loc: i as i32 + 1, type_: expr_t.to_string() });
         }
       },
-      Break(break_) => if self.loop_counter == 0 { issue!(self, break_.loc, BreakOutOfLoop{}); },
+      Break(break_) => if self.loop_cnt == 0 { issue!(self, break_.loc, BreakOutOfLoop{}); },
       SCopy(s_copy) => self.s_copy(s_copy),
       Foreach(foreach) => self.foreach(foreach),
       Guarded(guarded) => for (e, b) in &mut guarded.guarded {
@@ -244,10 +244,10 @@ impl TypeChecker {
       Call(call) => self.call(call),
       Unary(unary) => self.unary(unary),
       Binary(binary) => self.binary(binary),
-      This(this) => if self.current_method.get().static_ {
+      This(this) => if self.cur_method.get().static_ {
         issue!(self, this.loc, ThisInStatic{});
       } else {
-        this.type_ = self.current_class.get().get_object_type();
+        this.type_ = self.cur_class.get().get_object_type();
       },
       NewClass(new_class) => match self.scopes.lookup_class(new_class.name) {
         Some(class) => new_class.type_ = class.get_type(),
@@ -347,12 +347,12 @@ impl TypeChecker {
       }
     };
     // first open the scope, where the loop variable is defined
-    self.loop_counter += 1;
+    self.loop_cnt += 1;
     self.scopes.open(&mut foreach.body.scope);
     if let Some(cond) = &mut foreach.cond { self.check_bool(cond); }
     for stmt in &mut foreach.body.stmt { self.stmt(stmt); }
     self.scopes.close();
-    self.loop_counter -= 1;
+    self.loop_cnt -= 1;
   }
 
   fn unary(&mut self, unary: &mut Unary) {
@@ -448,7 +448,7 @@ impl TypeChecker {
     let call_ptr = call as *mut Call;
     match { &mut call_ptr.get().owner } {
       Some(owner) => {
-        self.current_id_used_for_ref = true;
+        self.cur_id_used_for_ref = true;
         self.expr(owner);
         let owner_t = owner.get_type();
         if owner_t == &ERROR { return; }
@@ -474,7 +474,7 @@ impl TypeChecker {
         }
       }
       None => {
-        let symbol = self.current_class.get().lookup(call.name);
+        let symbol = self.cur_class.get().lookup(call.name);
         self.check_call(call, symbol);
       }
     }
@@ -492,7 +492,7 @@ impl TypeChecker {
     let owner_ptr = &mut id.owner as *mut Option<Box<Expr>>; // workaround with borrow check
     match &mut id.owner {
       Some(owner) => {
-        self.current_id_used_for_ref = true;
+        self.cur_id_used_for_ref = true;
         self.expr(owner);
         let owner_t = owner.get_type();
         match owner_t {
@@ -505,7 +505,7 @@ impl TypeChecker {
                   Symbol::Var(var) => {
                     id.type_ = var.get_type().clone();
                     id.symbol = var;
-                    if !self.current_class.get().extends(class) {
+                    if !self.cur_class.get().extends(class) {
                       issue!(self, id.loc, PrivateFieldAccess { name: id.name, owner_t: owner_t.to_string() });
                     }
                   }
@@ -524,7 +524,7 @@ impl TypeChecker {
           Some(symbol) => {
             match symbol {
               Symbol::Class(class) => {
-                if !self.current_id_used_for_ref {
+                if !self.cur_id_used_for_ref {
                   issue!(self, id.loc, UndeclaredVar { name: id.name });
                 } else { id.type_ = SemanticType::Class(class); }
               }
@@ -533,13 +533,13 @@ impl TypeChecker {
                 id.type_ = var.get_type().clone();
                 id.symbol = var;
                 if var.get_scope().is_class() {
-                  if self.current_method.get().static_ {
-                    issue!(self, id.loc, RefInStatic { field: id.name, method: self.current_method.get().name });
+                  if self.cur_method.get().static_ {
+                    issue!(self, id.loc, RefInStatic { field: id.name, method: self.cur_method.get().name });
                   } else {
                     // add a virtual `this`, it doesn't need visit
                     *owner_ptr.get() = Some(Box::new(Expr::This(This {
                       loc: id.loc,
-                      type_: SemanticType::Object(self.current_class),
+                      type_: SemanticType::Object(self.cur_class),
                     })));
                   }
                 }
@@ -548,7 +548,7 @@ impl TypeChecker {
           }
           None => issue!(self, id.loc, UndeclaredVar { name: id.name }),
         }
-        self.current_id_used_for_ref = false;
+        self.cur_id_used_for_ref = false;
       }
     }
   }

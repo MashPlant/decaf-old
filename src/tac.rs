@@ -5,8 +5,10 @@ use std::fmt;
 
 pub const INT_SIZE: i32 = 4;
 
+#[derive(Debug)]
 pub struct VTable {
-  pub class: String,
+  pub class: *const ClassDef,
+  pub methods: Vec<*const MethodDef>,
 }
 
 pub struct Method {
@@ -76,8 +78,8 @@ impl fmt::Display for Tac {
       Jmp(target) => write!(f, "branch _L{}", target),
       Je(cond, target) => write!(f, "if ({} == 0) branch _L{}", cond, target),
       Jne(cond, target) => write!(f, "if ({} != 0) branch _L{}", cond, target),
-      Load { dst, base, offset } => if *offset > 0 { write!(f, "{} = *({} + {})", dst, base, offset) } else { write!(f, "{} = *({} - {})", dst, base, -offset) },
-      Store { src, base, offset } => if *offset > 0 { write!(f, "*({} + {}) = {}", base, offset, src) } else { write!(f, "*({} - {}) = {}", base, -offset, src) },
+      Load { dst, base, offset } => if *offset > 0 { write!(f, "_T{} = *({} + {})", dst, base, offset) } else { write!(f, "{} = *({} - {})", dst, base, -offset) },
+      Store { src, base, offset } => if *offset > 0 { write!(f, "*({} + {}) = _T{}", base, offset, src) } else { write!(f, "*({} - {}) = {}", base, -offset, src) },
       IntConst(dst, src) => write!(f, "_T{} = {}", dst, src),
       StrConst(dst, src) => write!(f, "_T{} = {}", dst, quote(src)),
       Label(label) => write!(f, "_L{}", label),

@@ -18,6 +18,7 @@ pub mod type_checker;
 pub mod jvm_code_gen;
 pub mod tac;
 pub mod util;
+pub mod tac_code_gen;
 
 use symbol_builder::SymbolBuilder;
 use type_checker::TypeChecker;

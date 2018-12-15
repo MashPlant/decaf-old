@@ -279,6 +279,7 @@ impl JvmCodeGen {
         type_: Type { loc: method_def.loc, sem: SemanticType::Array(Box::new(SemanticType::Basic("string"))) },
         scope: &method_def.scope,
         index: 0,
+        offset: -1,
       });
     }
     let argument_types: Vec<JavaType> = method_def.param.iter().map(|var_def| var_def.type_.to_java()).collect();

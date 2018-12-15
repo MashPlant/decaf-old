@@ -2,6 +2,7 @@ use super::loc::*;
 use super::symbol::*;
 use super::types::*;
 use super::util::*;
+use super::tac::VTable;
 
 use std::default::Default as D;
 use std::ptr;
@@ -39,6 +40,9 @@ pub struct ClassDef {
   pub checked: bool,
   pub p_ptr: *mut ClassDef,
   pub scope: Scope,
+  // default field_cnt is -1, for `not resolved`
+  pub field_cnt: i32,
+  pub v_tbl: VTable,
 }
 
 impl D for ClassDef {
@@ -53,6 +57,8 @@ impl D for ClassDef {
       checked: D::default(),
       p_ptr: ptr::null_mut(),
       scope: D::default(),
+      field_cnt: -1,
+      v_tbl: VTable { class: ptr::null(), methods: Vec::new() },
     }
   }
 }
@@ -112,6 +118,8 @@ pub struct MethodDef {
   // scope for parameters
   pub scope: Scope,
   pub class: *const ClassDef,
+  // (tac code gen)the offset in v-table
+  pub offset: i32,
 }
 
 #[derive(Debug)]
@@ -120,8 +128,10 @@ pub struct VarDef {
   pub name: &'static str,
   pub type_: Type,
   pub scope: *const Scope,
-  // the index on the stack, only valid for local & parameter variable
+  // (jvm code gen)the index on stack, only valid for local & parameter variable
   pub index: u8,
+  // (tac code gen)the offset on stack or in object
+  pub offset: i32,
 }
 
 #[derive(Debug, Default)]
@@ -420,7 +430,6 @@ pub struct Identifier {
   pub owner: Option<Box<Expr>>,
   pub name: &'static str,
   pub type_: SemanticType,
-  // pointer to VarDef & VarAssign
   pub symbol: Var,
   pub for_assign: bool,
 }
