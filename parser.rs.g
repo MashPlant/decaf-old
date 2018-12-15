@@ -73,27 +73,27 @@
 ":"           return "':'";
 
 <INITIAL>\"   {
-            self.begin("S");
-            self.string_builder.0.clear();
-            self.string_builder.1 = self.token_start_line;
-            self.string_builder.2 = self.token_start_column + 1;
-            return "";
+                self.begin("S");
+                self.string_builder.0.clear();
+                self.string_builder.1 = self.token_start_line;
+                self.string_builder.2 = self.token_start_column + 1;
+                return "";
               }
 <S>\n         {
-            let loc = Loc(self.string_builder.1, self.string_builder.2);
-            let string = print::quote(&self.string_builder.0.clone());
-            self.report_error(Error::new(loc, NewlineInStr{ string }));
-            return "";
-          }
+                let loc = Loc(self.string_builder.1, self.string_builder.2);
+                let string = print::quote(&self.string_builder.0.clone());
+                self.report_error(Error::new(loc, NewlineInStr{ string }));
+                return "";
+                }
 // it must be accompanied by \n, so no-op here
 <S>\r         return "";
-<S>$        {
-            let loc = Loc(self.string_builder.1, self.string_builder.2);
-            let string = print::quote(&self.string_builder.0.clone());
-            self.report_error(Error::new(loc, UnterminatedStr{ string }));
-            self.begin("INITIAL");
-            return "";
-          }
+<S>$          {
+                let loc = Loc(self.string_builder.1, self.string_builder.2);
+                let string = print::quote(&self.string_builder.0.clone());
+                self.report_error(Error::new(loc, UnterminatedStr{ string }));
+                self.begin("INITIAL");
+                return "";
+              }
 <S>\"         { self.begin("INITIAL"); return "STRING_CONST"; }
 <S>"\n"       { self.string_builder.0.push('\n'); return ""; }
 <S>"\t"       { self.string_builder.0.push('\t'); return ""; }
@@ -154,23 +154,29 @@ impl Token {
   }
 }
 
-fn gen_binary(l: Expr, opt: Token, r: Expr, kind: Operator) -> Expr {
-  Expr::Binary(Binary {
+fn gen_binary(l: Expr, opt: Token, r: Expr, op: Operator) -> Expr {
+  Expr {
     loc: opt.get_loc(),
-    op: kind,
-    l: Box::new(l),
-    r: Box::new(r),
-    type_: D::default(),
-  })
+    type_: D::default,
+    reg: -1,
+    data: ExprData::Binary {
+      op: kind,
+      l: Box::new(l),
+      r: Box::new(r),
+    }
+  }
 }
 
 fn gen_unary(opt: Token, r: Expr, kind: Operator) -> Expr {
-  Expr::Unary(Unary {
+  Expr {
     loc: opt.get_loc(),
-    op: kind,
-    r: Box::new(r),
-    type_: D::default(),
-  })
+    type_: D::default,
+    reg: -1,
+    data: ExprData::Unary {
+      op: kind,
+      r: Box::new(r),
+    }
+  }
 }
 
 fn on_parse_error(parser: &Parser, token: &Token) {
@@ -644,12 +650,81 @@ Expr
   : LValue {
     $$ = $1;
   }
-  | Call {
-    $$ = $1;
+  | MaybeReceiver IDENTIFIER '(' ExprListOrEmpty ')' {
+    |$1: Option<Expr>, $2: Token, $4: ExprList| -> Expr;
+    $$ = Expr {
+      loc: $2.get_loc(),
+      type_: D::default(),
+      reg: -1,
+      data: ExprData::Call {
+        loc: $2.get_loc(),
+        owner: match $1 {
+          Some(expr) => Some(Box::new(expr)),
+          None => None,
+        },
+        name: $2.value,
+        arg: $4,
+        is_arr_len: false,
+        method: ptr::null(),
+      },
+    };
   }
-  | Const {
-    |$1: Const| -> Expr;
-    $$ = Expr::Const($1);
+  | INT_CONST {
+    |$1: Token| -> Expr;
+    $$ = Expr {
+      loc: $1.get_loc(),
+      type_: INT,
+      reg: -1,
+      data: ExprData::IntConst($1.value.parse::<i32>().unwrap_or_else(|_| {
+        self.errors.push(Error::new($1.get_loc(), IntTooLarge{ string: $1.value.to_string(), }));
+        0
+      })),
+    };
+  }
+  | TRUE {
+    |$1: Token| -> Expr;
+    $$ = Expr {
+      loc: $1.get_loc(),
+      type_: BOOL,
+      reg: -1,
+      data: ExprData::BoolConst(true),
+    };
+  }
+  | FALSE {
+    |$1: Token| -> Expr;
+    $$ = Expr {
+      loc: $1.get_loc(),
+      type_: BOOL,
+      reg: -1,
+      data: ExprData::BoolConst(true),
+    };
+  }
+  | STRING_CONST {
+    || -> Expr;
+    $$ = Expr {
+      loc: Loc(self.tokenizer.string_builder.1, self.tokenizer.string_builder.2),
+      type_: STRING,
+      reg: -1,
+      data: ExprData::StringConst(self.tokenizer.string_builder.0.clone()),
+    };
+  }
+  | ArrayConst {
+    |$1: ExprList| -> Expr;
+    $$ = Const::ArrayConst(ArrayConst {
+      loc: self.get_loc(),
+      type_: D::default(),
+      reg: -1,
+      data: ExprData::ArrayConst($1),
+    });
+  }
+  | NULL {
+    |$1: Token| -> Expr;
+    $$ = Expr {
+      loc: $1.get_loc(),
+      type_: NULL,
+      reg: -1,
+      data: ExprData::Null,
+    };
   }
   | Expr '+' Expr {
     |$1: Expr, $2: Token, $3: Expr| -> Expr;
@@ -729,13 +804,18 @@ Expr
   }
   | Expr '[' Expr ':' Expr ']' {
     |$1: Expr, $2: Token, $3: Expr, $5: Expr| -> Expr;
-    $$ = Expr::Range(Range {
+    Expr {
       loc: $2.get_loc(),
-      arr: Box::new($1),
-      lb: Box::new($3),
-      ub: Box::new($5),
       type_: D::default(),
-    });
+      reg: -1,
+      data: Expr::Range(Range {
+        loc: $2.get_loc(),
+        arr: Box::new($1),
+        lb: Box::new($3),
+        ub: Box::new($5),
+        type_: D::default(),
+      });
+    }
   }
   | Expr '[' Expr ']' DEFAULT Expr {
     |$1: Expr, $2: Token, $3: Expr, $6: Expr| -> Expr;
@@ -847,27 +927,34 @@ Expr
 LValue
   : MaybeReceiver IDENTIFIER {
     |$1: Option<Expr>, $2: Token| -> Expr;
-    $$ = Expr::Id(Id {
+    $$ = Expr {
       loc: $2.get_loc(),
-      owner: match $1 {
-        Some(expr) => Some(Box::new(expr)),
-        None => None,
-      },
-      name: $2.value,
-      symbol: ptr::null(),
-      type_: D::default(),
-      for_assign: D::default(),
-    });
+      type_: D::default,
+      reg: -1,
+      data: ExprData::Id {
+        owner: match $1 {
+          Some(expr) => Some(Box::new(expr)),
+          None => None,
+        },
+        name: $2.value,
+        symbol: ptr::null(),
+        for_assign: D::default(),
+      }
+    };
   }
   | Expr '[' Expr ']' {
     |$1: Expr, $3: Expr| -> Expr;
-    $$ = Expr::Indexed(Indexed {
-      loc: $1.get_loc(),
-      arr: Box::new($1),
-      idx: Box::new($3),
-      type_: D::default(),
-      for_assign: D::default(),
-    });
+    $$ = Expr {
+      loc: $1.loc,
+      type_: D::default,
+      reg: -1,
+      data: ExprData::Indexed {
+        arr: Box::new($1),
+        idx: Box::new($3),
+        type_: D::default(),
+        for_assign: D::default(),
+      }
+    };
   }
   ;
 
@@ -879,24 +966,6 @@ MaybeReceiver
   | /* empty */ {
     || -> Option<Expr>;
     $$ = None;
-  }
-  ;
-
-Call
-  : MaybeReceiver IDENTIFIER '(' ExprListOrEmpty ')' {
-    |$1: Option<Expr>, $2: Token, $4: ExprList| -> Expr;
-    $$ = Expr::Call(Call {
-      loc: $2.get_loc(),
-      owner: match $1 {
-        Some(expr) => Some(Box::new(expr)),
-        None => None,
-      },
-      name: $2.value,
-      arg: $4,
-      type_: D::default(),
-      is_arr_len: false,
-      method: ptr::null(),
-    });
   }
   ;
         

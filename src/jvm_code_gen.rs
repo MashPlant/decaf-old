@@ -386,9 +386,9 @@ impl JvmCodeGen {
       } else { if let Some(owner) = &mut id.owner { self.expr(owner); } }
       Expr::Indexed(indexed) => self.indexed(indexed),
       Expr::Const(const_) => match const_ {
-        Const::IntConst(int_const) => self.int_const(int_const.value),
-        Const::BoolConst(bool_const) => self.bool_const(bool_const.value),
-        Const::StringConst(string_const) => self.string_const(&string_const.value),
+        Const::Int(int_const) => self.int_const(int_const.value),
+        Const::Bool(bool_const) => self.bool_const(bool_const.value),
+        Const::String(string_const) => self.string_const(&string_const.value),
         Const::Null(_) => self.a_const_null(),
         _ => unimplemented!(),
       },

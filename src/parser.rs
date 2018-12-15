@@ -2404,7 +2404,7 @@ impl Parser {
 
   fn _handler106(&mut self) -> SV {
     let mut _1 = pop!(self.values_stack, _0);
-    let _0 = Const::IntConst(IntConst {
+    let _0 = Const::Int(IntConst {
       loc: _1.get_loc(),
       value: _1.value.parse::<i32>().unwrap_or_else(|_| {
         self.errors.push(Error::new(_1.get_loc(), IntTooLarge { string: _1.value.to_string() }));
@@ -2416,7 +2416,7 @@ impl Parser {
 
   fn _handler107(&mut self) -> SV {
     let mut _1 = pop!(self.values_stack, _0);
-    let _0 = Const::BoolConst(BoolConst {
+    let _0 = Const::Bool(BoolConst {
       loc: _1.get_loc(),
       value: true,
     });
@@ -2425,7 +2425,7 @@ impl Parser {
 
   fn _handler108(&mut self) -> SV {
     let mut _1 = pop!(self.values_stack, _0);
-    let _0 = Const::BoolConst(BoolConst {
+    let _0 = Const::Bool(BoolConst {
       loc: _1.get_loc(),
       value: false,
     });
@@ -2434,7 +2434,7 @@ impl Parser {
 
   fn _handler109(&mut self) -> SV {
     self.values_stack.pop();
-    let _0 = Const::StringConst(StringConst {
+    let _0 = Const::String(StringConst {
       loc: Loc(self.tokenizer.string_builder.1, self.tokenizer.string_builder.2),
       value: self.tokenizer.string_builder.0.clone(),
     });
@@ -2443,7 +2443,7 @@ impl Parser {
 
   fn _handler110(&mut self) -> SV {
     let mut _1 = pop!(self.values_stack, _21);
-    let _0 = Const::ArrayConst(ArrayConst {
+    let _0 = Const::Array(ArrayConst {
       loc: self.get_loc(),
       value: _1,
       type_: D::default(),

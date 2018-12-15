@@ -34,5 +34,7 @@ I have made some changes to the grammar:
 
 3. Support initialization of local variable when declaring it(like 'int x = 0;')
 
-4. Support: ++ -- & ^ | << >> 
+4. Support array literal with non-const elements(like [x, y, z], original accept [1, 2, 3] only)
+
+5. Support: ++ -- & ^ | << >> 
 ```

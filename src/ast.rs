@@ -325,6 +325,8 @@ impl Operator {
 pub struct Expr {
   pub loc: Loc,
   pub type_: SemanticType,
+  // virtual register id
+  pub reg: i32,
   pub data: ExprData,
 }
 
@@ -343,7 +345,11 @@ pub enum ExprKind {
     type_: SemanticType,
     for_assign: bool,
   },
-  Const(Const),
+  IntConst(i32),
+  BoolConst(bool),
+  StringConst(String),
+  ArrayConst(Vec<Expr>),
+  Null,
   Call {
     owner: Option<Box<Expr>>,
     name: &'static str,
@@ -402,13 +408,4 @@ impl Expr {
       _ => false,
     }
   }
-}
-
-#[derive(Debug)]
-pub enum Const {
-  IntConst(i32),
-  BoolConst(bool),
-  StringConst(String),
-  ArrayConst(Vec<Const>),
-  Null,
 }
