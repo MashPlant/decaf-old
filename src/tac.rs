@@ -32,7 +32,7 @@ impl TacProgram {
       let class = vt.class.get();
       printer.println(&format!("VTABLE(_{}) {}", class.name, "{"))
         .inc_indent()
-        .println(if let Some(parent) = class.parent { parent } else { "<empty>" })
+        .println(&if let Some(parent) = class.parent { format!("_{}", parent) } else { "<empty>".to_owned() })
         .println(class.name);
       for method in &vt.methods {
         printer.println(&format!("_{}.{};", method.get().class.get().name, method.get().name));
@@ -90,8 +90,10 @@ pub enum Tac {
   Je(i32, i32),
   Jne(i32, i32),
   // offset is int literal, not a virtual register
-  Load { dst: i32, base: i32, offset: i32 },
-  Store { base: i32, offset: i32, src: i32 },
+  // dst base offset
+  Load(i32, i32, i32),
+  // base offset src
+  Store(i32, i32, i32),
   IntConst(i32, i32),
   StrConst(i32, String),
   Label(i32),
@@ -125,8 +127,8 @@ impl fmt::Display for Tac {
       Jmp(target) => write!(f, "branch _L{}", target),
       Je(cond, target) => write!(f, "if (_T{} == 0) branch _L{}", cond, target),
       Jne(cond, target) => write!(f, "if (_T{} != 0) branch _L{}", cond, target),
-      Load { dst, base, offset } => if *offset >= 0 { write!(f, "_T{} = *(_T{} + {})", dst, base, offset) } else { write!(f, "{} = *({} - {})", dst, base, -offset) },
-      Store { base, offset, src } => if *offset >= 0 { write!(f, "*(_T{} + {}) = _T{}", base, offset, src) } else { write!(f, "*({} - {}) = {}", base, -offset, src) },
+      Load(dst, base, offset) => if *offset >= 0 { write!(f, "_T{} = *(_T{} + {})", dst, base, offset) } else { write!(f, "_T{} = *(_T{} - {})", dst, base, -offset) },
+      Store(base, offset, src) => if *offset >= 0 { write!(f, "*(_T{} + {}) = _T{}", base, offset, src) } else { write!(f, "*(_T{} - {}) = _T{}", base, -offset, src) },
       IntConst(dst, src) => write!(f, "_T{} = {}", dst, src),
       StrConst(dst, src) => write!(f, "_T{} = {}", dst, src),
       Label(label) => write!(f, "_L{}:", label),

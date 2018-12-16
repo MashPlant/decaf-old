@@ -49,7 +49,7 @@ impl TacCodeGen {
 
   fn array_length(&mut self, array: i32) -> i32 {
     let ret = self.new_reg();
-    self.push(Tac::Load { dst: ret, base: array, offset: -INT_SIZE });
+    self.push(Tac::Load(ret, array, -INT_SIZE));
     ret
   }
 
@@ -58,23 +58,16 @@ impl TacCodeGen {
     self.push(Tac::IntConst(int_size, INT_SIZE));
     self.push(Tac::Mul(offset, index, int_size));
     self.push(Tac::Add(offset, array, offset));
-    self.push(Tac::Load { dst: ret, base: offset, offset: 0 });
+    self.push(Tac::Load(ret, offset, 0));
     ret
   }
 
   fn check_array_index(&mut self, array: i32, index: i32) -> i32 {
     let (ret, zero, arr_len, cmp) = (self.new_reg(), self.new_reg(), self.array_length(array), self.new_reg());
-    let (err, after) = (self.new_label(), self.new_label());
     self.push(Tac::IntConst(zero, 0));
-    self.push(Tac::Lt(cmp, index, zero));
-    self.push(Tac::Jne(cmp, err));
+    self.push(Tac::Ge(ret, index, zero));
     self.push(Tac::Lt(cmp, index, arr_len));
-    self.push(Tac::Je(cmp, err));
-    self.push(Tac::IntConst(ret, 1));
-    self.push(Tac::Jmp(after));
-    self.push(Tac::Label(err));
-    self.push(Tac::IntConst(ret, 0));
-    self.push(Tac::Label(after));
+    self.push(Tac::And(ret, ret, cmp));
     ret
   }
 
@@ -96,12 +89,12 @@ impl TacCodeGen {
     let (cur, target) = (self.new_reg(), self.new_reg());
     self.push(Tac::IntConst(ret, 0));
     self.push(Tac::LoadVTbl(target, class));
-    self.push(Tac::Load { dst: cur, base: object, offset: 0 });
+    self.push(Tac::Load(cur, object, 0));
     self.push(Tac::Label(before_cond));
     self.push(Tac::Je(cur, after_body));
     self.push(Tac::Eq(ret, cur, target));
     self.push(Tac::Jne(ret, after_body));
-    self.push(Tac::Load { dst: cur, base: cur, offset: 0 });
+    self.push(Tac::Load(cur, cur, 0));
     self.push(Tac::Jmp(before_cond));
     self.push(Tac::Label(after_body));
     ret
@@ -165,11 +158,11 @@ impl TacCodeGen {
       let ret = self.intrinsic_call(ALLOCATE);
       let v_tbl = self.new_reg();
       self.push(Tac::LoadVTbl(v_tbl, class_def.name));
-      self.push(Tac::Store { base: ret, offset: 0, src: v_tbl });
+      self.push(Tac::Store(ret, 0, v_tbl));
       let zero = self.new_reg();
       self.push(Tac::IntConst(zero, 0));
       for i in 0..class_def.field_cnt {
-        self.push(Tac::Store { base: ret, offset: (i + 1) * INT_SIZE, src: zero });
+        self.push(Tac::Store(ret, (i + 1) * INT_SIZE, zero));
       }
       self.push(Tac::Ret(ret));
       let class_def_ptr = class_def as *const _;
@@ -260,24 +253,26 @@ impl TacCodeGen {
         let class = s_copy.src.type_.get_class();
         self.push(Tac::DirectCall(new_obj, format!("_{}_New", class.name)));
         for i in 0..class.field_cnt {
-          self.push(Tac::Load { dst: tmp, base: s_copy.src.reg, offset: (i + 1) * INT_SIZE });
-          self.push(Tac::Store { base: new_obj, offset: (i + 1) * INT_SIZE, src: tmp });
+          self.push(Tac::Load(tmp, s_copy.src.reg, (i + 1) * INT_SIZE));
+          self.push(Tac::Store(new_obj, (i + 1) * INT_SIZE, tmp));
         }
         self.push(Tac::Assign(s_copy.dst_sym.get().offset, new_obj));
       }
       Foreach(foreach) => {
         self.expr(&mut foreach.arr);
         foreach.def.offset = self.new_reg();
-        let (x, i, one, cmp) = (self.new_reg(), self.new_reg(), self.new_reg(), self.new_reg());
+        let (i, int_size, cmp) = (self.new_reg(), self.new_reg(), self.new_reg());
         let (before_cond, after_body) = (self.new_label(), self.new_label());
         self.push(Tac::IntConst(i, 0));
-        self.push(Tac::IntConst(one, 1));
+        self.push(Tac::IntConst(int_size, INT_SIZE));
+        let end = self.array_length(foreach.arr.reg);
+        self.push(Tac::Mul(end, end, int_size));
+        self.push(Tac::Add(end, end, foreach.arr.reg));
+        self.push(Tac::Assign(i, foreach.arr.reg));
         self.push(Tac::Label(before_cond));
-        let array_length = self.array_length(foreach.arr.reg);
-        self.push(Tac::Le(cmp, i, array_length));
+        self.push(Tac::Lt(cmp, i, end));
         self.push(Tac::Je(cmp, after_body));
-        let array_elem = self.array_at(foreach.arr.reg, i);
-        self.push(Tac::Assign(x, array_elem));
+        self.push(Tac::Load(foreach.def.offset, i, 0));
         if let Some(cond) = &mut foreach.cond {
           self.expr(cond);
           self.push(Tac::Je(cond.reg, after_body));
@@ -285,7 +280,7 @@ impl TacCodeGen {
         self.break_stack.push(after_body);
         self.block(&mut foreach.body);
         self.break_stack.pop();
-        self.push(Tac::Add(i, i, one));
+        self.push(Tac::Add(i, i, int_size));
         self.push(Tac::Jmp(before_cond));
         self.push(Tac::Label(after_body));
       }
@@ -311,7 +306,7 @@ impl TacCodeGen {
             match var_def.scope.get().kind {
               ScopeKind::Local(_) | ScopeKind::Parameter(_) => { self.push(Tac::Assign(var_def.offset, assign.src.reg)); }
               ScopeKind::Class(_) => {
-                self.push(Tac::Store { base: id.owner.as_ref().unwrap().reg, offset: (var_def.offset + 1) * INT_SIZE, src: assign.src.reg });
+                self.push(Tac::Store(id.owner.as_ref().unwrap().reg, (var_def.offset + 1) * INT_SIZE, assign.src.reg));
               }
               _ => unreachable!(),
             }
@@ -321,7 +316,7 @@ impl TacCodeGen {
             self.push(Tac::IntConst(int_size, INT_SIZE));
             self.push(Tac::Mul(offset, indexed.idx.reg, int_size));
             self.push(Tac::Add(offset, indexed.arr.reg, offset));
-            self.push(Tac::Store { base: offset, offset: 0, src: assign.src.reg });
+            self.push(Tac::Store(offset, 0, assign.src.reg));
           }
           _ => unreachable!(),
         }
@@ -353,7 +348,7 @@ impl TacCodeGen {
             let owner = id.owner.as_mut().unwrap();
             self.expr(owner);
             expr.reg = self.new_reg();
-            self.push(Tac::Load { dst: expr.reg, base: owner.reg, offset: (var_def.offset + 1) * INT_SIZE });
+            self.push(Tac::Load(expr.reg, owner.reg, (var_def.offset + 1) * INT_SIZE));
           }
           _ => unreachable!(),
         };
@@ -400,22 +395,22 @@ impl TacCodeGen {
         let class = method.class.get();
         expr.reg = if method.ret_t.sem != VOID { self.new_reg() } else { -1 };
         if method.static_ {
-          for arg in &mut call.arg {
-            self.expr(arg);
-            self.push(Tac::Param(arg.reg));
-          }
+          // fuck vm spec
+          // 'parm' can only be consecutive for one call, there cannot be other call in this process
+          // e.g. my old version: f(1, x[0]) : parm 1 => (if <out of bound> call _Halt) => parm x[0]
+          // which caused error
+          for arg in &mut call.arg { self.expr(arg); }
+          for arg in &mut call.arg { self.push(Tac::Param(arg.reg)); }
           self.push(Tac::DirectCall(expr.reg, format!("_{}.{}", class.name, method.name)));
         } else {
           let owner = call.owner.as_mut().unwrap();
           self.expr(owner);
+          for arg in &mut call.arg { self.expr(arg); }
           self.push(Tac::Param(owner.reg));
-          for arg in &mut call.arg {
-            self.expr(arg);
-            self.push(Tac::Param(arg.reg));
-          }
+          for arg in &mut call.arg { self.push(Tac::Param(arg.reg)); }
           let slot = self.new_reg();
-          self.push(Tac::Load { dst: slot, base: owner.reg, offset: 0 });
-          self.push(Tac::Load { dst: slot, base: slot, offset: (method.offset + 2) * INT_SIZE });
+          self.push(Tac::Load(slot, owner.reg, 0));
+          self.push(Tac::Load(slot, slot, (method.offset + 2) * INT_SIZE));
           self.push(Tac::IndirectCall(expr.reg, slot));
         }
       }
@@ -455,7 +450,44 @@ impl TacCodeGen {
             self.push(if binary.op == Eq { Tac::Eq(d, l, r) } else { Tac::Ne(d, l, r) });
           }
           Repeat => {
-            unimplemented!();
+            let (ok, before_cond, finish) = (self.new_label(), self.new_label(), self.new_label());
+            let (zero, int_size, cmp, msg, i) = (self.new_reg(), self.new_reg(), self.new_reg(), self.new_reg(), self.new_reg());
+            self.push(Tac::IntConst(zero, 0));
+            self.push(Tac::IntConst(int_size, INT_SIZE));
+            self.push(Tac::Ge(cmp, r, zero));
+            self.push(Tac::Jne(cmp, ok));
+            self.push(Tac::StrConst(msg, quote(REPEAT_NEG)));
+            self.push(Tac::Param(msg));
+            self.intrinsic_call(PRINT_STRING);
+            self.intrinsic_call(HALT);
+            self.push(Tac::Label(ok));
+            self.push(Tac::Mul(i, r, int_size));
+            self.push(Tac::Add(i, i, int_size));
+            self.push(Tac::Param(i));
+            expr.reg = self.intrinsic_call(ALLOCATE);
+            self.push(Tac::Add(i, expr.reg, i));
+            self.push(Tac::Label(before_cond));
+            self.push(Tac::Sub(i, i, int_size));
+            self.push(Tac::Eq(cmp, i, expr.reg));
+            self.push(Tac::Jne(cmp, finish));
+            match &binary.l.type_ {
+              SemanticType::Class(class) => {
+                // perform s_copy
+                let (new_obj, tmp) = (self.new_reg(), self.new_reg());
+                let class = class.get();
+                self.push(Tac::DirectCall(new_obj, format!("_{}_New", class.name)));
+                for i in 0..class.field_cnt {
+                  self.push(Tac::Load(tmp, r, (i + 1) * INT_SIZE));
+                  self.push(Tac::Store(new_obj, (i + 1) * INT_SIZE, tmp));
+                }
+                self.push(Tac::Store(i, 0, new_obj));
+              }
+              _ => self.push(Tac::Store(i, 0, l)),
+            }
+            self.push(Tac::Jmp(before_cond));
+            self.push(Tac::Label(finish));
+            self.push(Tac::Store(i, 0, r));
+            self.push(Tac::Add(expr.reg, expr.reg, int_size));
           }
           _ => unimplemented!(),
         }
@@ -482,18 +514,18 @@ impl TacCodeGen {
         self.push(Tac::Add(i, expr.reg, i));
         self.push(Tac::Label(before_cond));
         self.push(Tac::Sub(i, i, int_size));
-        self.push(Tac::Lt(cmp, i, expr.reg));
+        self.push(Tac::Eq(cmp, i, expr.reg));
         self.push(Tac::Jne(cmp, finish));
-        self.push(Tac::Store { base: i, offset: 0, src: zero });
+        self.push(Tac::Store(i, 0, zero));
         self.push(Tac::Jmp(before_cond));
         self.push(Tac::Label(halt));
-        self.push(Tac::StrConst(msg, quote(ARRAY_INDEX_OUT_OF_BOUND)));
+        self.push(Tac::StrConst(msg, quote(NEGATIVE_ARRAY_SIZE)));
         self.push(Tac::Param(msg));
         self.intrinsic_call(PRINT_STRING);
         self.intrinsic_call(HALT);
         self.push(Tac::Label(finish));
-        self.push(Tac::Store { base: i, offset: 0, src: len.reg }); // array[-1] = len
-        self.push(Tac::Sub(expr.reg, expr.reg, int_size));
+        self.push(Tac::Store(i, 0, len.reg)); // array[-1] = len
+        self.push(Tac::Add(expr.reg, expr.reg, int_size));
       }
       TypeTest { expr: src, name } => {
         self.expr(src);
@@ -509,7 +541,7 @@ impl TacCodeGen {
         self.push(Tac::StrConst(msg, quote(CLASS_CAST1)));
         self.push(Tac::Param(msg));
         self.intrinsic_call(PRINT_STRING);
-        self.push(Tac::Load { dst: msg, base: src.reg, offset: INT_SIZE });
+        self.push(Tac::Load(msg, src.reg, INT_SIZE));
         self.push(Tac::Param(msg));
         self.intrinsic_call(PRINT_STRING);
         self.push(Tac::StrConst(msg, quote(CLASS_CAST2)));

@@ -94,7 +94,7 @@ impl TypeChecker {
               for i in this_offset..argc + this_offset {
                 let arg_t = &call.arg[i - this_offset].type_;
                 if !arg_t.assignable_to(&method.param[i].type_.sem) {
-                  self.issue(call.arg[i].loc, WrongArgType {
+                  self.issue(call.arg[i - this_offset].loc, WrongArgType {
                     loc: (i + 1 - this_offset) as i32,
                     arg_t: arg_t.to_string(),
                     param_t: method.param[i].type_.sem.to_string(),
