@@ -3,9 +3,10 @@ use super::types::*;
 use super::symbol::*;
 use super::util::*;
 use super::tac::*;
+use super::config::*;
 use super::print::quote;
 
-use std::default::Default as D;
+use std::ptr;
 
 pub struct TacCodeGen {
   cur_method: *mut Vec<Tac>,
@@ -17,9 +18,23 @@ pub struct TacCodeGen {
 }
 
 impl TacCodeGen {
-  pub fn gen(&mut self, program: &mut Program) -> TacProgram {
+  pub fn new() -> TacCodeGen {
+    TacCodeGen {
+      cur_method: ptr::null_mut(),
+      break_stack: Vec::new(),
+      methods: Vec::new(),
+      reg_cnt: -1,
+      label_cnt: -1,
+      cur_this: -1,
+    }
+  }
+
+  pub fn gen(mut self, program: &mut Program) -> TacProgram {
     self.program(program);
-    unimplemented!()
+    TacProgram {
+      v_tables: program.class.iter().map(|class| class.v_tbl.clone()).collect(),
+      methods: self.methods,
+    }
   }
 
   fn new_reg(&mut self) -> i32 {
@@ -99,29 +114,32 @@ impl TacCodeGen {
 
 fn resolve_field_order(class_def: &mut ClassDef) {
   if class_def.field_cnt >= 0 { return; } // already handled
-  let mut field_cnt = if class_def.p_ptr.is_null() { 0 } else {
+  class_def.field_cnt = if class_def.p_ptr.is_null() { 0 } else {
     let p = class_def.p_ptr.get();
     resolve_field_order(p);
     class_def.v_tbl = p.v_tbl.clone();
     p.field_cnt
   };
+  class_def.v_tbl.class = class_def;
   'out: for field in &mut class_def.field {
     match field {
       FieldDef::MethodDef(method_def) => if !method_def.static_ {
-        let p = class_def.p_ptr.get();
-        for p_method in &p.v_tbl.methods {
-          if p_method.get().name == method_def.name {
-            method_def.offset = p_method.get().offset;
-            class_def.v_tbl.methods[method_def.offset as usize] = method_def;
-            continue 'out;
+        if !class_def.p_ptr.is_null() {
+          let p = class_def.p_ptr.get();
+          for p_method in &p.v_tbl.methods {
+            if p_method.get().name == method_def.name {
+              method_def.offset = p_method.get().offset;
+              class_def.v_tbl.methods[method_def.offset as usize] = method_def;
+              continue 'out;
+            }
           }
         }
         method_def.offset = class_def.v_tbl.methods.len() as i32;
         class_def.v_tbl.methods.push(method_def);
       }
       FieldDef::VarDef(var_def) => {
-        var_def.offset = field_cnt;
-        field_cnt += 1;
+        var_def.offset = class_def.field_cnt;
+        class_def.field_cnt += 1;
       }
     }
   }
@@ -139,7 +157,7 @@ impl TacCodeGen {
           }
         }
       }
-      self.methods.push(TacMethod { name: format!("_{}_New", class_def.name), ..D::default() });
+      self.methods.push(TacMethod { name: format!("_{}_New", class_def.name), code: Vec::new(), method: ptr::null() });
       self.cur_method = &mut self.methods.last_mut().unwrap().code;
       let size = self.new_reg();
       self.push(Tac::IntConst(size, (class_def.field_cnt + 1) * INT_SIZE));
@@ -154,8 +172,15 @@ impl TacCodeGen {
         self.push(Tac::Store { base: ret, offset: (i + 1) * INT_SIZE, src: zero });
       }
       self.push(Tac::Ret(ret));
+      let class_def_ptr = class_def as *const _;
       for field_def in &mut class_def.field {
         if let FieldDef::MethodDef(method_def) = field_def {
+          self.methods.push(TacMethod {
+            name: if class_def_ptr == program.main && method_def.name == MAIN_METHOD { "main".to_owned() } else { format!("_{}.{}", class_def.name, method_def.name) },
+            code: Vec::new(),
+            method: method_def,
+          });
+          self.cur_method = &mut self.methods.last_mut().unwrap().code;
           if !method_def.static_ {
             self.cur_this = method_def.param[0].offset;
           }
@@ -390,7 +415,7 @@ impl TacCodeGen {
           }
           let slot = self.new_reg();
           self.push(Tac::Load { dst: slot, base: owner.reg, offset: 0 });
-          self.push(Tac::Load { dst: slot, base: slot, offset: method.offset * INT_SIZE });
+          self.push(Tac::Load { dst: slot, base: slot, offset: (method.offset + 2) * INT_SIZE });
           self.push(Tac::IndirectCall(expr.reg, slot));
         }
       }

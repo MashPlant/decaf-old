@@ -1,8 +1,8 @@
 use super::ast::*;
+use super::print::*;
+use super::util::*;
 
-use std::ptr;
 use std::fmt;
-use std::default::Default as D;
 
 pub const INT_SIZE: i32 = 4;
 
@@ -16,26 +16,52 @@ pub struct VTable {
 #[derive(Debug)]
 pub struct TacMethod {
   pub name: String,
-  pub memo: String,
   pub code: Vec<Tac>,
   pub method: *const MethodDef,
-}
-
-impl D for TacMethod {
-  fn default() -> Self {
-    TacMethod {
-      name: D::default(),
-      memo: D::default(),
-      code: D::default(),
-      method: ptr::null(),
-    }
-  }
 }
 
 pub struct TacProgram {
   pub v_tables: Vec<VTable>,
   pub methods: Vec<TacMethod>,
   // there maybe labels / temps in the future
+}
+
+impl TacProgram {
+  pub fn print_to(&self, printer: &mut IndentPrinter) {
+    for vt in &self.v_tables {
+      let class = vt.class.get();
+      printer.println(&format!("VTABLE(_{}) {}", class.name, "{"))
+        .inc_indent()
+        .println(if let Some(parent) = class.parent { parent } else { "<empty>" })
+        .println(class.name);
+      for method in &vt.methods {
+        printer.println(&format!("_{}.{};", method.get().class.get().name, method.get().name));
+      }
+      printer.dec_indent().println("}").println("");
+    }
+    for method in &self.methods {
+      printer.println(&format!("FUNCTION({}) {}", method.name, "{")) // the name is already mangled
+        .print("memo").println(&{
+        let mut memo = "'".to_owned();
+        if !method.method.is_null() { // for ctor
+          for (offset, param) in method.method.get().param.iter().enumerate() {
+            memo += &format!("_T{}:{} ", param.offset, (offset + 1) * INT_SIZE as usize);
+          }
+        }
+        memo += "'";
+        memo
+      }).println(&format!("{}:", method.name))
+        .inc_indent();
+      for tac in &method.code {
+        if let Tac::Label(_) = tac {
+          printer.dec_indent().println(&tac.to_string()).inc_indent();
+        } else {
+          printer.println(&tac.to_string());
+        }
+      }
+      printer.dec_indent().println("}").println("");
+    }
+  }
 }
 
 #[derive(Debug)]
@@ -97,13 +123,13 @@ impl fmt::Display for Tac {
       DirectCall(dst, func) => if *dst == -1 { write!(f, "call {}", func) } else { write!(f, "_T{} = call {}", dst, func) },
       Ret(src) => if *src == -1 { write!(f, "return <empty>") } else { write!(f, "return _T{}", src) },
       Jmp(target) => write!(f, "branch _L{}", target),
-      Je(cond, target) => write!(f, "if ({} == 0) branch _L{}", cond, target),
-      Jne(cond, target) => write!(f, "if ({} != 0) branch _L{}", cond, target),
-      Load { dst, base, offset } => if *offset > 0 { write!(f, "_T{} = *({} + {})", dst, base, offset) } else { write!(f, "{} = *({} - {})", dst, base, -offset) },
-      Store { base, offset, src } => if *offset > 0 { write!(f, "*({} + {}) = _T{}", base, offset, src) } else { write!(f, "*({} - {}) = {}", base, -offset, src) },
+      Je(cond, target) => write!(f, "if (_T{} == 0) branch _L{}", cond, target),
+      Jne(cond, target) => write!(f, "if (_T{} != 0) branch _L{}", cond, target),
+      Load { dst, base, offset } => if *offset >= 0 { write!(f, "_T{} = *(_T{} + {})", dst, base, offset) } else { write!(f, "{} = *({} - {})", dst, base, -offset) },
+      Store { base, offset, src } => if *offset >= 0 { write!(f, "*(_T{} + {}) = _T{}", base, offset, src) } else { write!(f, "*({} - {}) = {}", base, -offset, src) },
       IntConst(dst, src) => write!(f, "_T{} = {}", dst, src),
       StrConst(dst, src) => write!(f, "_T{} = {}", dst, src),
-      Label(label) => write!(f, "_L{}", label),
+      Label(label) => write!(f, "_L{}:", label),
       Param(src) => write!(f, "parm _T{}", src),
     }
   }

@@ -1,1 +1,3 @@
-4 4 7 3 1
+*** Error at (74,5): syntax error
+*** Error: undefined function _Stack.Pop
+*** Error: undefined function _Stack.NumElems

@@ -29,6 +29,7 @@ use std::mem;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
+use std::io;
 
 fn string_to_static_str(s: String) -> &'static str {
   unsafe {
@@ -49,9 +50,9 @@ fn main() {
   let mut input = String::new();
   {
     let filename = env::args().nth(1).unwrap_or_else(|| {
-//      "in.txt".to_string()
-      eprintln!("Please specify input filename");
-      std::process::exit(1);
+      "in.txt".to_string()
+//      eprintln!("Please specify input filename");
+//      std::process::exit(1);
     });
     let mut f = File::open(filename).unwrap();
     f.read_to_string(&mut input).unwrap();
@@ -59,9 +60,14 @@ fn main() {
   let input = string_to_static_str(input);
 
   match compile(input) {
-    Ok(program) => {
-      let mut code_gen = jvm_code_gen::JvmCodeGen::new();
-      code_gen.gen(program);
+    Ok(mut program) => {
+      let mut code_gen = tac_code_gen::TacCodeGen::new();
+      let tac_program = code_gen.gen(&mut program);
+      let mut printer = print::IndentPrinter::new();
+      tac_program.print_to(&mut printer);
+      printer.flush(&mut io::stdout());
+//      let mut code_gen = jvm_code_gen::JvmCodeGen::new();
+//      code_gen.gen(program);
     }
     Err(errors) => for error in errors { println!("{}", error); },
   }

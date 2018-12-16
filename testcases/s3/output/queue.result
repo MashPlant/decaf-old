@@ -1,2 +1,7 @@
-0 1 2 3 
-4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 Queue Is Empty0 
+decaf.tacvm.exec.ExecuteException: memory access base = 0 offset = 12 out of bounds
+	at decaf.tacvm.exec.Memory.checkHeapAccess(Unknown Source)
+	at decaf.tacvm.exec.Memory.load(Unknown Source)
+	at decaf.tacvm.exec.Executor.exec(Unknown Source)
+	at decaf.tacvm.TacVM.run(Unknown Source)
+	at decaf.tacvm.TacVM.main(Unknown Source)
+***Error at (49,10), tac = _T18 = *(_T0 + 12): memory access base = 0 offset = 12 out of bounds
