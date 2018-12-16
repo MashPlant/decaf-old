@@ -15,6 +15,10 @@ pub struct TacCodeGen {
   reg_cnt: i32,
   label_cnt: i32,
   cur_this: i32,
+  // cache frequently used constant
+  cur_zero: i32,
+  cur_one: i32,
+  cur_int_size: i32,
 }
 
 impl TacCodeGen {
@@ -26,6 +30,9 @@ impl TacCodeGen {
       reg_cnt: -1,
       label_cnt: -1,
       cur_this: -1,
+      cur_zero: -1,
+      cur_one: -1,
+      cur_int_size: -1,
     }
   }
 
@@ -40,6 +47,39 @@ impl TacCodeGen {
   fn new_reg(&mut self) -> i32 {
     self.reg_cnt += 1;
     self.reg_cnt
+  }
+
+  fn zero(&mut self) -> i32 {
+    if self.cur_zero == -1 {
+      let cur_zero = self.new_reg();
+      self.cur_zero = cur_zero;
+      self.push(Tac::IntConst(cur_zero, 0));
+    }
+    self.cur_zero
+  }
+
+  fn one(&mut self) -> i32 {
+    if self.cur_one == -1 {
+      let cur_one = self.new_reg();
+      self.cur_one = cur_one;
+      self.push(Tac::IntConst(cur_one, 1));
+    }
+    self.cur_one
+  }
+
+  fn int_size(&mut self) -> i32 {
+    if self.cur_int_size == -1 {
+      let cur_int_size = self.new_reg();
+      self.cur_int_size = cur_int_size;
+      self.push(Tac::IntConst(cur_int_size, INT_SIZE));
+    }
+    self.cur_int_size
+  }
+
+  fn reset_const(&mut self) {
+    self.cur_zero = -1;
+    self.cur_one = -1;
+    self.cur_int_size = -1;
   }
 
   fn new_label(&mut self) -> i32 {
@@ -177,6 +217,7 @@ impl TacCodeGen {
           if !method_def.static_ {
             self.cur_this = method_def.param[0].offset;
           }
+          self.reset_const();
           self.block(&mut method_def.body);
         }
       }
@@ -261,10 +302,9 @@ impl TacCodeGen {
       Foreach(foreach) => {
         self.expr(&mut foreach.arr);
         foreach.def.offset = self.new_reg();
-        let (i, int_size, cmp) = (self.new_reg(), self.new_reg(), self.new_reg());
+        let (i, int_size, cmp) = (self.new_reg(), self.int_size(), self.new_reg());
         let (before_cond, after_body) = (self.new_label(), self.new_label());
         self.push(Tac::IntConst(i, 0));
-        self.push(Tac::IntConst(int_size, INT_SIZE));
         let end = self.array_length(foreach.arr.reg);
         self.push(Tac::Mul(end, end, int_size));
         self.push(Tac::Add(end, end, foreach.arr.reg));
@@ -298,6 +338,8 @@ impl TacCodeGen {
   fn simple(&mut self, simple: &mut Simple) {
     match simple {
       Simple::Assign(assign) => {
+        if let ExprData::Id(id) = &mut assign.dst.data { id.for_assign = true; }
+        if let ExprData::Indexed(indexed) = &mut assign.dst.data { indexed.for_assign = true; }
         self.expr(&mut assign.dst);
         self.expr(&mut assign.src);
         match &assign.dst.data {
@@ -312,8 +354,7 @@ impl TacCodeGen {
             }
           }
           ExprData::Indexed(indexed) => {
-            let (int_size, offset) = (self.new_reg(), self.new_reg());
-            self.push(Tac::IntConst(int_size, INT_SIZE));
+            let (int_size, offset) = (self.int_size(), self.new_reg());
             self.push(Tac::Mul(offset, indexed.idx.reg, int_size));
             self.push(Tac::Add(offset, indexed.arr.reg, offset));
             self.push(Tac::Store(offset, 0, assign.src.reg));
@@ -347,8 +388,10 @@ impl TacCodeGen {
           ScopeKind::Class(_) => {
             let owner = id.owner.as_mut().unwrap();
             self.expr(owner);
-            expr.reg = self.new_reg();
-            self.push(Tac::Load(expr.reg, owner.reg, (var_def.offset + 1) * INT_SIZE));
+            if !id.for_assign {
+              expr.reg = self.new_reg();
+              self.push(Tac::Load(expr.reg, owner.reg, (var_def.offset + 1) * INT_SIZE));
+            }
           }
           _ => unreachable!(),
         };
@@ -359,7 +402,9 @@ impl TacCodeGen {
         let check = self.check_array_index(indexed.arr.reg, indexed.idx.reg);
         let (halt, after) = (self.new_label(), self.new_label());
         self.push(Tac::Je(check, halt));
-        expr.reg = self.array_at(indexed.arr.reg, indexed.idx.reg);
+        if !indexed.for_assign { // not used, but still check index here
+          expr.reg = self.array_at(indexed.arr.reg, indexed.idx.reg);
+        }
         self.push(Tac::Jmp(after));
         self.push(Tac::Label(halt));
         let msg = self.new_reg();
@@ -373,19 +418,13 @@ impl TacCodeGen {
         expr.reg = self.new_reg();
         self.push(Tac::IntConst(expr.reg, *v));
       }
-      BoolConst(v) => {
-        expr.reg = self.new_reg();
-        self.push(Tac::IntConst(expr.reg, if *v { 1 } else { 0 }));
-      }
+      BoolConst(v) => expr.reg = if *v { self.one() } else { self.zero() },
       StringConst(v) => {
         expr.reg = self.new_reg();
         self.push(Tac::StrConst(expr.reg, quote(v)));
       }
       ArrayConst(_) => unimplemented!(),
-      Null => {
-        expr.reg = self.new_reg();
-        self.push(Tac::IntConst(expr.reg, 0));
-      }
+      Null => expr.reg = self.zero(),
       Call(call) => if call.is_arr_len {
         let owner = call.owner.as_mut().unwrap();
         self.expr(owner);
@@ -451,9 +490,7 @@ impl TacCodeGen {
           }
           Repeat => {
             let (ok, before_cond, finish) = (self.new_label(), self.new_label(), self.new_label());
-            let (zero, int_size, cmp, msg, i) = (self.new_reg(), self.new_reg(), self.new_reg(), self.new_reg(), self.new_reg());
-            self.push(Tac::IntConst(zero, 0));
-            self.push(Tac::IntConst(int_size, INT_SIZE));
+            let (zero, int_size, cmp, msg, i) = (self.zero(), self.int_size(), self.new_reg(), self.new_reg(), self.new_reg());
             self.push(Tac::Ge(cmp, r, zero));
             self.push(Tac::Jne(cmp, ok));
             self.push(Tac::StrConst(msg, quote(REPEAT_NEG)));
@@ -502,9 +539,7 @@ impl TacCodeGen {
       NewArray { elem_t: _, len } => {
         self.expr(len);
         let (halt, before_cond, finish) = (self.new_label(), self.new_label(), self.new_label());
-        let (zero, int_size, cmp, i, msg) = (self.new_reg(), self.new_reg(), self.new_reg(), self.new_reg(), self.new_reg());
-        self.push(Tac::IntConst(zero, 0));
-        self.push(Tac::IntConst(int_size, INT_SIZE));
+        let (zero, int_size, cmp, i, msg) = (self.zero(), self.int_size(), self.new_reg(), self.new_reg(), self.new_reg());
         self.push(Tac::Lt(cmp, len.reg, zero));
         self.push(Tac::Jne(cmp, halt));
         self.push(Tac::Mul(i, len.reg, int_size));
