@@ -111,6 +111,17 @@ impl TacCodeGen {
     ret
   }
 
+  fn check_div_0(&mut self, r: i32) {
+    let ok = self.new_label();
+    let msg = self.new_reg();
+    self.push(Tac::Jne(r, ok));
+    self.push(Tac::StrConst(msg, quote(DIV_0)));
+    self.push(Tac::Param(msg));
+    self.intrinsic_call(PRINT_STRING);
+    self.intrinsic_call(HALT);
+    self.push(Tac::Label(ok));
+  }
+
   fn intrinsic_call(&mut self, call: IntrinsicCall) -> i32 {
     let ret = if call.ret { self.new_reg() } else { -1 };
     self.push(Tac::DirectCall(ret, call.name.to_owned()));
@@ -124,9 +135,8 @@ impl TacCodeGen {
     //     ret = 1
     //     break
     //   cur = cur->parent
-    let ret = self.new_reg();
+    let (ret, cur, target) = (self.new_reg(), self.new_reg(), self.new_reg());
     let (before_cond, after_body) = (self.new_label(), self.new_label());
-    let (cur, target) = (self.new_reg(), self.new_reg());
     self.push(Tac::IntConst(ret, 0));
     self.push(Tac::LoadVTbl(target, class));
     self.push(Tac::Load(cur, object, 0));
@@ -472,8 +482,14 @@ impl TacCodeGen {
           Add => self.push(Tac::Add(d, l, r)),
           Sub => self.push(Tac::Sub(d, l, r)),
           Mul => self.push(Tac::Mul(d, l, r)),
-          Div => self.push(Tac::Div(d, l, r)),
-          Mod => self.push(Tac::Mod(d, l, r)),
+          Div => {
+            self.check_div_0(r);
+            self.push(Tac::Div(d, l, r));
+          }
+          Mod => {
+            self.check_div_0(r);
+            self.push(Tac::Mod(d, l, r));
+          }
           Lt => self.push(Tac::Lt(d, l, r)),
           Le => self.push(Tac::Le(d, l, r)),
           Gt => self.push(Tac::Gt(d, l, r)),
@@ -508,13 +524,13 @@ impl TacCodeGen {
             self.push(Tac::Eq(cmp, i, expr.reg));
             self.push(Tac::Jne(cmp, finish));
             match &binary.l.type_ {
-              SemanticType::Class(class) => {
+              SemanticType::Object(class) => {
                 // perform s_copy
                 let (new_obj, tmp) = (self.new_reg(), self.new_reg());
                 let class = class.get();
                 self.push(Tac::DirectCall(new_obj, format!("_{}_New", class.name)));
                 for i in 0..class.field_cnt {
-                  self.push(Tac::Load(tmp, r, (i + 1) * INT_SIZE));
+                  self.push(Tac::Load(tmp, l, (i + 1) * INT_SIZE));
                   self.push(Tac::Store(new_obj, (i + 1) * INT_SIZE, tmp));
                 }
                 self.push(Tac::Store(i, 0, new_obj));
@@ -571,12 +587,13 @@ impl TacCodeGen {
         expr.reg = src.reg;
         let check = self.instance_of(src.reg, name);
         let ok = self.new_label();
+        let (msg, v_tbl) = (self.new_reg(), self.new_reg());
         self.push(Tac::Jne(check, ok));
-        let msg = self.new_reg();
         self.push(Tac::StrConst(msg, quote(CLASS_CAST1)));
         self.push(Tac::Param(msg));
         self.intrinsic_call(PRINT_STRING);
-        self.push(Tac::Load(msg, src.reg, INT_SIZE));
+        self.push(Tac::Load(v_tbl, src.reg, 0));
+        self.push(Tac::Load(msg, v_tbl, INT_SIZE)); // name info is in v-table[1]
         self.push(Tac::Param(msg));
         self.intrinsic_call(PRINT_STRING);
         self.push(Tac::StrConst(msg, quote(CLASS_CAST2)));
