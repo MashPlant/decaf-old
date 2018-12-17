@@ -64,37 +64,41 @@ program
                         print
                             stringconst "Sub4\n"
                 else
-                    if
-                        instanceof
-                            varref base
-                            Sub3
-                        stmtblock
-                            print
-                                stringconst "Sub3\n"
-                    else
+                    stmtblock
                         if
                             instanceof
                                 varref base
-                                Sub2
+                                Sub3
                             stmtblock
                                 print
-                                    stringconst "Sub2\n"
+                                    stringconst "Sub3\n"
                         else
-                            if
-                                instanceof
-                                    varref base
-                                    Sub1
-                                stmtblock
-                                    print
-                                        stringconst "Sub1\n"
-                            else
+                            stmtblock
                                 if
                                     instanceof
                                         varref base
-                                        Base
+                                        Sub2
                                     stmtblock
                                         print
-                                            stringconst "Base\n"
+                                            stringconst "Sub2\n"
+                                else
+                                    stmtblock
+                                        if
+                                            instanceof
+                                                varref base
+                                                Sub1
+                                            stmtblock
+                                                print
+                                                    stringconst "Sub1\n"
+                                        else
+                                            stmtblock
+                                                if
+                                                    instanceof
+                                                        varref base
+                                                        Base
+                                                    stmtblock
+                                                        print
+                                                            stringconst "Base\n"
     class Base <empty>
     class Sub1 Base
     class Sub2 Base

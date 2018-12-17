@@ -83,15 +83,15 @@ program
                 vardef z3 inttype
                 assign
                     varref z3
-                    array concat
-                        array repeat
-                            arrref
-                                varref xs
-                                intconst 3
-                                default
-                                    intconst 2
-                            intconst 2
-                        array const
+                    array repeat
+                        arrref
+                            varref xs
+                            intconst 3
+                            default
+                                intconst 2
+                        arrref
+                            postinc
+                                intconst 2
                             intconst 1
                 vardef z4 inttype
                 assign

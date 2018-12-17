@@ -12,7 +12,7 @@ def read_txt_file(filename):
 
 
 def main():
-    decafc = os.path.join('..', '..', 'target', 'release', 'decaf')
+    decaf = os.path.join('..', '..', 'target', 'release', 'decaf')
     names = sys.argv[1:]
     if not names:
         names = sorted(os.listdir('.'))
@@ -21,7 +21,7 @@ def main():
         if ext != '.decaf':
             continue
         # Run the test case, redirecting stdout/stderr to output/bname.result
-        subprocess.call([decafc, name],
+        subprocess.call([decaf, '-s', name],
                         stdout=open(os.path.join('output', bname + '.result'), 'w'),
                         stderr=subprocess.STDOUT)
         # Check the result

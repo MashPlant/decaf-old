@@ -1,1 +1,15 @@
-*** Error at (5,15): syntax error
+program
+    class Main <empty>
+        static func main voidtype
+            formals
+            stmtblock
+                vardef i inttype
+                assign
+                    i
+                    intconst 0
+                intconst 0
+                assign
+                    varref i
+                    add
+                        varref i
+                        intconst 1

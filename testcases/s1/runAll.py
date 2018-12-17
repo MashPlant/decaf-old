@@ -21,7 +21,7 @@ def main():
         if ext != '.decaf':
             continue
         # Run the test case, redirecting stdout/stderr to output/bname.result
-        subprocess.call([decafc, name],
+        subprocess.call([decafc, '-l', name],
                         stdout=open(os.path.join('output', bname + '.result'), 'w'),
                         stderr=subprocess.STDOUT)
         # Check the result

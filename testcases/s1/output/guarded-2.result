@@ -6,11 +6,13 @@ program
                 guarded
                     guard
                         boolconst true
-                        guarded
-                            guard
-                                boolconst false
-                                print
-                                    stringconst "unreachable"
+                        stmtblock
+                            guarded
+                                guard
+                                    boolconst false
+                                    stmtblock
+                                        print
+                                            stringconst "unreachable"
         func bar voidtype
             formals
             stmtblock
@@ -21,26 +23,31 @@ program
                 guarded
                     guard
                         boolconst true
-                        if
-                            gtr
-                                varref x
-                                intconst 0
-                            guarded
-                                guard
-                                    equ
-                                        varref x
-                                        intconst 1
-                                    print
-                                        stringconst "x=1"
-                                guard
-                                    equ
-                                        varref x
-                                        intconst 2
-                                    print
-                                        stringconst "x=2"
-                        else
-                            guarded
-                                <empty>
+                        stmtblock
+                            if
+                                gtr
+                                    varref x
+                                    intconst 0
+                                stmtblock
+                                    guarded
+                                        guard
+                                            equ
+                                                varref x
+                                                intconst 1
+                                            stmtblock
+                                                print
+                                                    stringconst "x=1"
+                                        guard
+                                            equ
+                                                varref x
+                                                intconst 2
+                                            stmtblock
+                                                print
+                                                    stringconst "x=2"
+                            else
+                                stmtblock
+                                    guarded
+                                        <empty>
         static func main voidtype
             formals
             stmtblock

@@ -23,8 +23,7 @@ if __name__ == '__main__':
         if ext != '.decaf':
             continue
         # Run the test case, redirecting stdout/stderr to output/bname.tac
-        cmd = [decaf, name]
-        code = subprocess.call(cmd,
+        code = subprocess.call([decaf, '-t', name],
                                stdout = open(os.path.join('output',bname+'.tac'), 'w'),
                                stderr = subprocess.STDOUT)
         fw = open(os.path.join('output',bname+'.result'), 'w')
