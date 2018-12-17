@@ -665,7 +665,7 @@ Expr
         STRING, ExprData::StringConst(self.tokenizer.string_builder.0.clone()));
   }
   | '[' ExprList ']' {
-    |$1: ExprList| -> Expr;
+    |$2: ExprList| -> Expr;
     $$ = Expr::new(self.get_loc(), ExprData::ArrayConst($1));
   }
   | NULL {

@@ -1,2 +1,1 @@
-thread 'main' panicked at 'internal error: entered unreachable code', src/parser.rs:1998:18
-note: Run with `RUST_BACKTRACE=1` for a backtrace.
+*** Error at (7,32): syntax error

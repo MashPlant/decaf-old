@@ -19,6 +19,8 @@ pub struct TacCodeGen {
   cur_zero: i32,
   cur_one: i32,
   cur_int_size: i32,
+  // for one method, merge all 'array_index_out_of_bound' together for better performance
+  out_of_bound_to_fill: Vec<i32>,
 }
 
 impl TacCodeGen {
@@ -33,6 +35,7 @@ impl TacCodeGen {
       cur_zero: -1,
       cur_one: -1,
       cur_int_size: -1,
+      out_of_bound_to_fill: Vec::new(),
     }
   }
 
@@ -76,10 +79,11 @@ impl TacCodeGen {
     self.cur_int_size
   }
 
-  fn reset_const(&mut self) {
+  fn reset_cache(&mut self) {
     self.cur_zero = -1;
     self.cur_one = -1;
     self.cur_int_size = -1;
+    self.out_of_bound_to_fill.clear();
   }
 
   fn new_label(&mut self) -> i32 {
@@ -94,8 +98,7 @@ impl TacCodeGen {
   }
 
   fn array_at(&mut self, array: i32, index: i32) -> i32 {
-    let (ret, int_size, offset) = (self.new_reg(), self.new_reg(), self.new_reg());
-    self.push(Tac::IntConst(int_size, INT_SIZE));
+    let (ret, int_size, offset) = (self.new_reg(), self.int_size(), self.new_reg());
     self.push(Tac::Mul(offset, index, int_size));
     self.push(Tac::Add(offset, array, offset));
     self.push(Tac::Load(ret, offset, 0));
@@ -227,8 +230,24 @@ impl TacCodeGen {
           if !method_def.static_ {
             self.cur_this = method_def.param[0].offset;
           }
-          self.reset_const();
+          self.reset_cache();
           self.block(&mut method_def.body);
+          if !self.out_of_bound_to_fill.is_empty() {
+            let (halt, after) = (self.new_label(), self.new_label());
+            let msg = self.new_reg();
+            self.push(Tac::Jmp(after));
+            self.push(Tac::Label(halt));
+            self.push(Tac::StrConst(msg, quote(ARRAY_INDEX_OUT_OF_BOUND)));
+            self.push(Tac::Param(msg));
+            self.intrinsic_call(PRINT_STRING);
+            self.intrinsic_call(HALT);
+            self.push(Tac::Label(after));
+            for to_fill in &self.out_of_bound_to_fill {
+              if let Tac::Je(_, label) = &mut self.cur_method.get()[*to_fill as usize] {
+                *label = halt;
+              } else { unreachable!(); }
+            }
+          }
         }
       }
     }
@@ -410,19 +429,11 @@ impl TacCodeGen {
         self.expr(&mut indexed.arr);
         self.expr(&mut indexed.idx);
         let check = self.check_array_index(indexed.arr.reg, indexed.idx.reg);
-        let (halt, after) = (self.new_label(), self.new_label());
-        self.push(Tac::Je(check, halt));
+        self.out_of_bound_to_fill.push(self.cur_method.get().len() as i32);
+        self.push(Tac::Je(check, -1)); // jump where not determined yet
         if !indexed.for_assign { // not used, but still check index here
           expr.reg = self.array_at(indexed.arr.reg, indexed.idx.reg);
         }
-        self.push(Tac::Jmp(after));
-        self.push(Tac::Label(halt));
-        let msg = self.new_reg();
-        self.push(Tac::StrConst(msg, quote(ARRAY_INDEX_OUT_OF_BOUND)));
-        self.push(Tac::Param(msg));
-        self.intrinsic_call(PRINT_STRING);
-        self.intrinsic_call(HALT);
-        self.push(Tac::Label(after));
       }
       IntConst(v) => {
         expr.reg = self.new_reg();

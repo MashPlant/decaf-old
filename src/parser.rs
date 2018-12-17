@@ -1994,9 +1994,9 @@ impl Parser {
 
   fn _handler67(&mut self) -> SV {
     self.values_stack.pop();
+    let mut _2 = pop!(self.values_stack, _19);
     self.values_stack.pop();
-    let mut _1 = pop!(self.values_stack, _19);
-    let _0 = Expr::new(self.get_loc(), ExprData::ArrayConst(_1));
+    let _0 = Expr::new(self.get_loc(), ExprData::ArrayConst(_2));
     SV::_15(_0)
   }
 
