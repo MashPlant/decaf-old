@@ -15,10 +15,6 @@ pub struct TacCodeGen {
   reg_cnt: i32,
   label_cnt: i32,
   cur_this: i32,
-  // cache frequently used constant
-  cur_zero: i32,
-  cur_one: i32,
-  cur_int_size: i32,
   // for one method, merge all 'array_index_out_of_bound' together for better performance
   out_of_bound_to_fill: Vec<i32>,
 }
@@ -32,9 +28,6 @@ impl TacCodeGen {
       reg_cnt: -1,
       label_cnt: -1,
       cur_this: -1,
-      cur_zero: -1,
-      cur_one: -1,
-      cur_int_size: -1,
       out_of_bound_to_fill: Vec::new(),
     }
   }
@@ -52,38 +45,10 @@ impl TacCodeGen {
     self.reg_cnt
   }
 
-  fn zero(&mut self) -> i32 {
-    if self.cur_zero == -1 {
-      let cur_zero = self.new_reg();
-      self.cur_zero = cur_zero;
-      self.push(Tac::IntConst(cur_zero, 0));
-    }
-    self.cur_zero
-  }
-
-  fn one(&mut self) -> i32 {
-    if self.cur_one == -1 {
-      let cur_one = self.new_reg();
-      self.cur_one = cur_one;
-      self.push(Tac::IntConst(cur_one, 1));
-    }
-    self.cur_one
-  }
-
-  fn int_size(&mut self) -> i32 {
-    if self.cur_int_size == -1 {
-      let cur_int_size = self.new_reg();
-      self.cur_int_size = cur_int_size;
-      self.push(Tac::IntConst(cur_int_size, INT_SIZE));
-    }
-    self.cur_int_size
-  }
-
-  fn reset_cache(&mut self) {
-    self.cur_zero = -1;
-    self.cur_one = -1;
-    self.cur_int_size = -1;
-    self.out_of_bound_to_fill.clear();
+  fn int_const(&mut self, value: i32) -> i32 {
+    let ret = self.new_reg();
+    self.push(Tac::IntConst(ret, value));
+    ret
   }
 
   fn new_label(&mut self) -> i32 {
@@ -98,7 +63,7 @@ impl TacCodeGen {
   }
 
   fn array_at(&mut self, array: i32, index: i32) -> i32 {
-    let (ret, int_size, offset) = (self.new_reg(), self.int_size(), self.new_reg());
+    let (ret, int_size, offset) = (self.new_reg(), self.int_const(INT_SIZE), self.new_reg());
     self.push(Tac::Mul(offset, index, int_size));
     self.push(Tac::Add(offset, array, offset));
     self.push(Tac::Load(ret, offset, 0));
@@ -230,7 +195,7 @@ impl TacCodeGen {
           if !method_def.static_ {
             self.cur_this = method_def.param[0].offset;
           }
-          self.reset_cache();
+          self.out_of_bound_to_fill.clear();
           self.block(&mut method_def.body);
           if !self.out_of_bound_to_fill.is_empty() {
             let (halt, after) = (self.new_label(), self.new_label());
@@ -331,7 +296,7 @@ impl TacCodeGen {
       Foreach(foreach) => {
         self.expr(&mut foreach.arr);
         foreach.def.offset = self.new_reg();
-        let (i, int_size, cmp) = (self.new_reg(), self.int_size(), self.new_reg());
+        let (i, int_size, cmp) = (self.new_reg(), self.int_const(INT_SIZE), self.new_reg());
         let (before_cond, after_body) = (self.new_label(), self.new_label());
         self.push(Tac::IntConst(i, 0));
         let end = self.array_length(foreach.arr.reg);
@@ -383,7 +348,7 @@ impl TacCodeGen {
             }
           }
           ExprData::Indexed(indexed) => {
-            let (int_size, offset) = (self.int_size(), self.new_reg());
+            let (int_size, offset) = (self.int_const(INT_SIZE), self.new_reg());
             self.push(Tac::Mul(offset, indexed.idx.reg, int_size));
             self.push(Tac::Add(offset, indexed.arr.reg, offset));
             self.push(Tac::Store(offset, 0, assign.src.reg));
@@ -439,13 +404,13 @@ impl TacCodeGen {
         expr.reg = self.new_reg();
         self.push(Tac::IntConst(expr.reg, *v));
       }
-      BoolConst(v) => expr.reg = if *v { self.one() } else { self.zero() },
+      BoolConst(v) => expr.reg = if *v { self.int_const(1) } else { self.int_const(0) },
       StringConst(v) => {
         expr.reg = self.new_reg();
         self.push(Tac::StrConst(expr.reg, quote(v)));
       }
       ArrayConst(_) => unimplemented!(),
-      Null => expr.reg = self.zero(),
+      Null => expr.reg = self.int_const(0),
       Call(call) => if call.is_arr_len {
         let owner = call.owner.as_mut().unwrap();
         self.expr(owner);
@@ -517,7 +482,7 @@ impl TacCodeGen {
           }
           Repeat => {
             let (ok, before_cond, finish) = (self.new_label(), self.new_label(), self.new_label());
-            let (zero, int_size, cmp, msg, i) = (self.zero(), self.int_size(), self.new_reg(), self.new_reg(), self.new_reg());
+            let (zero, int_size, cmp, msg, i) = (self.int_const(0), self.int_const(INT_SIZE), self.new_reg(), self.new_reg(), self.new_reg());
             self.push(Tac::Ge(cmp, r, zero));
             self.push(Tac::Jne(cmp, ok));
             self.push(Tac::StrConst(msg, quote(REPEAT_NEG)));
@@ -566,7 +531,7 @@ impl TacCodeGen {
       NewArray { elem_t: _, len } => {
         self.expr(len);
         let (halt, before_cond, finish) = (self.new_label(), self.new_label(), self.new_label());
-        let (zero, int_size, cmp, i, msg) = (self.zero(), self.int_size(), self.new_reg(), self.new_reg(), self.new_reg());
+        let (zero, int_size, cmp, i, msg) = (self.int_const(0), self.int_const(INT_SIZE), self.new_reg(), self.new_reg(), self.new_reg());
         self.push(Tac::Lt(cmp, len.reg, zero));
         self.push(Tac::Jne(cmp, halt));
         self.push(Tac::Mul(i, len.reg, int_size));
