@@ -1,8 +1,8 @@
-extern crate backend;
+extern crate jvm;
 
-use backend::*;
-use backend::jvm::class::{ACC_PUBLIC, ACC_STATIC, ACC_FINAL};
-use backend::jvm::writer::*;
+use jvm::*;
+use jvm::jvm::class::{ACC_PUBLIC, ACC_STATIC, ACC_FINAL};
+use jvm::jvm::writer::*;
 
 use super::ast::*;
 use super::types::*;

@@ -1,5 +1,5 @@
 [package]
-name = "backend"
+name = "jvm"
 version = "0.1.0"
 authors = ["MashPlant <740678788@qq.com>"]
 
