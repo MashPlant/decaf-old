@@ -8,6 +8,8 @@ use std::default::Default as D;
 use std::ptr;
 use std::ops::Deref;
 
+use llvm_sys::prelude::*;
+
 #[derive(Debug)]
 pub struct Program {
   pub class: Vec<ClassDef>,
@@ -118,8 +120,15 @@ pub struct MethodDef {
   // scope for parameters
   pub scope: Scope,
   pub class: *const ClassDef,
-  // (tac code gen)the offset in v-table
+  // tac & llvm: the offset in v-table
   pub offset: i32,
+  pub llvm_val: LLVMValueRef,
+}
+
+impl MethodDef {
+  pub fn new(loc: Loc, name: &'static str, ret_t: Type, param: Vec<VarDef>, static_: bool, body: Block) -> MethodDef {
+    MethodDef { loc, name, ret_t, param, static_, body, scope: D::default(), class: ptr::null(), offset: -1, llvm_val: ptr::null_mut() }
+  }
 }
 
 // int x = 1;
@@ -133,10 +142,18 @@ pub struct VarDef {
   pub src: Option<Expr>,
   pub finish_loc: Loc,
   pub scope: *const Scope,
-  // (jvm code gen)the index on stack, only valid for local & parameter variable
-  pub index: u8,
-  // (tac code gen)the offset in object OR the virtual register id
+  // jvm: the index on stack, only valid for local & parameter variable
+  pub jvm_index: u8,
+  // tac: the offset in object OR the virtual register id
+  // llvm: the offset in object
   pub offset: i32,
+  pub llvm_val: LLVMValueRef,
+}
+
+impl VarDef {
+  pub fn new(loc: Loc, name: &'static str, type_: Type, src: Option<Expr>, finish_loc: Loc) -> VarDef {
+    VarDef { loc, name, type_, src, finish_loc, scope: ptr::null(), jvm_index: 255, offset: -1, llvm_val: ptr::null_mut() }
+  }
 }
 
 #[derive(Debug, Default)]
@@ -326,8 +343,9 @@ impl Operator {
 pub struct Expr {
   pub loc: Loc,
   pub type_: SemanticType,
-  // virtual register id
-  pub reg: i32,
+  // virtual register id for tac code gen
+  pub tac_reg: i32,
+  pub llvm_val: LLVMValueRef,
   pub data: ExprData,
 }
 
@@ -366,11 +384,11 @@ pub enum ExprData {
 
 impl Expr {
   pub fn new(loc: Loc, data: ExprData) -> Expr {
-    Expr { loc, type_: D::default(), reg: -1, data }
+    Expr { loc, type_: D::default(), tac_reg: -1, llvm_val: ptr::null_mut(), data }
   }
 
   pub fn with_type(loc: Loc, type_: SemanticType, data: ExprData) -> Expr {
-    Expr { loc, type_, reg: -1, data }
+    Expr { loc, type_, tac_reg: -1, llvm_val: ptr::null_mut(), data }
   }
 
   pub fn is_lvalue(&self) -> bool {

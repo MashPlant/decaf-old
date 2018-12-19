@@ -31,23 +31,20 @@ fn calc_order(class_def: *mut ClassDef) -> i32 {
 }
 
 impl SymbolBuilder {
-  pub fn new() -> SymbolBuilder {
-    SymbolBuilder {
+  pub fn build(mut program: Program) -> Result<Program, Vec<Error>> {
+    let mut builder = SymbolBuilder {
       errors: Vec::new(),
       scopes: ScopeStack {
         global_scope: ptr::null_mut(),
         scopes: Vec::new(),
       },
-    }
-  }
-
-  pub fn build(mut self, mut program: Program) -> Result<Program, Vec<Error>> {
-    self.program(&mut program);
-    if self.errors.is_empty() {
+    };
+    builder.program(&mut program);
+    if builder.errors.is_empty() {
       Ok(program)
     } else {
-      self.errors.sort_by_key(|x| x.loc);
-      Err(self.errors)
+      builder.errors.sort_by_key(|x| x.loc);
+      Err(builder.errors)
     }
   }
 }
@@ -217,8 +214,9 @@ impl SymbolBuilder {
         src: None,
         finish_loc: method_def.loc,
         scope: &method_def.scope,
-        index: 0, // 'this' is at 0
+        jvm_index: 0, // 'this' is at 0
         offset: -1,
+        llvm_val: ptr::null_mut(),
       });
     }
     method_def.scope = Scope { symbols: D::default(), kind: ScopeKind::Parameter(method_def) };

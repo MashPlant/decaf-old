@@ -17,8 +17,8 @@ pub struct TypeChecker {
 }
 
 impl TypeChecker {
-  pub fn new() -> TypeChecker {
-    TypeChecker {
+  pub fn check(mut program: Program) -> Result<Program, Vec<Error>> {
+    let mut checker = TypeChecker {
       errors: Vec::new(),
       scopes: ScopeStack {
         global_scope: ptr::null_mut(),
@@ -28,18 +28,15 @@ impl TypeChecker {
       cur_method: ptr::null(),
       cur_class: ptr::null(),
       cur_id_used_for_ref: false,
-    }
-  }
-
-  pub fn check(mut self, mut program: Program) -> Result<Program, Vec<Error>> {
-    self.scopes.open(&mut program.scope);
-    for class_def in &mut program.class { self.class_def(class_def); }
-    self.scopes.close();
-    if self.errors.is_empty() {
+    };
+    checker.scopes.open(&mut program.scope);
+    for class_def in &mut program.class { checker.class_def(class_def); }
+    checker.scopes.close();
+    if checker.errors.is_empty() {
       Ok(program)
     } else {
-      self.errors.sort_by_key(|x| x.loc);
-      Err(self.errors)
+      checker.errors.sort_by_key(|x| x.loc);
+      Err(checker.errors)
     }
   }
 

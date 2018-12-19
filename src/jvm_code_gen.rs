@@ -73,21 +73,18 @@ impl ToJavaType for SemanticType {
 }
 
 impl JvmCodeGen {
-  pub fn new() -> JvmCodeGen {
-    JvmCodeGen {
+  pub fn gen(mut program: Program) {
+    let mut code_gen = JvmCodeGen {
       class_builder: ptr::null_mut(),
       method_builder: ptr::null_mut(),
       main: ptr::null(),
       break_stack: Vec::new(),
       label: 0,
       stack_index: 0,
-    }
-  }
-
-  pub fn gen(mut self, mut program: Program) {
-    self.main = program.main;
+    };
+    code_gen.main = program.main;
     for class_def in &mut program.class {
-      self.class_def(class_def);
+      code_gen.class_def(class_def);
     }
   }
 
@@ -134,8 +131,8 @@ impl JvmCodeGen {
         let var_def = id.symbol.get();
         match var_def.scope.get().kind {
           ScopeKind::Local(_) | ScopeKind::Parameter(_) => {
-            self.i_inc(var_def.index, val as u8);
-            self.i_load(var_def.index);
+            self.i_inc(var_def.jvm_index, val as u8);
+            self.i_load(var_def.jvm_index);
           }
           ScopeKind::Class(class) => {
             self.expr(if let Some(owner) = &mut id.owner { owner } else { unreachable!() }); // ref
@@ -170,8 +167,8 @@ impl JvmCodeGen {
         let var_def = id.symbol.get();
         match var_def.scope.get().kind {
           ScopeKind::Local(_) | ScopeKind::Parameter(_) => {
-            self.i_load(var_def.index);
-            self.i_inc(var_def.index, val as u8);
+            self.i_load(var_def.jvm_index);
+            self.i_inc(var_def.jvm_index, val as u8);
           }
           ScopeKind::Class(class) => {
             self.expr(if let Some(owner) = &mut id.owner { owner } else { unreachable!() }); // ref
@@ -249,8 +246,9 @@ impl JvmCodeGen {
         src: None,
         finish_loc: method_def.loc,
         scope: &method_def.scope,
-        index: 0,
+        jvm_index: 0,
         offset: -1,
+        llvm_val: ptr::null_mut(),
       });
     }
     let argument_types: Vec<JavaType> = method_def.param.iter().map(|var_def| var_def.type_.to_java()).collect();
@@ -357,7 +355,7 @@ impl JvmCodeGen {
       Id(id) => if !id.for_assign {
         let var_def = id.symbol.get();
         match var_def.scope.get().kind {
-          ScopeKind::Local(_) | ScopeKind::Parameter(_) => self.load_from_stack(&var_def.type_, var_def.index),
+          ScopeKind::Local(_) | ScopeKind::Parameter(_) => self.load_from_stack(&var_def.type_, var_def.jvm_index),
           ScopeKind::Class(class) => {
             self.expr(if let Some(owner) = &mut id.owner { owner } else { unreachable!() });
             self.get_field(class.get().name, var_def.name, &var_def.type_.to_java())
@@ -418,7 +416,7 @@ impl JvmCodeGen {
       Simple::Assign(assign) => self.assign(assign),
       Simple::VarDef(var_def) => {
         let index = self.new_local();
-        var_def.index = index;
+        var_def.jvm_index = index;
         if let Some(src) = &mut var_def.src {
           self.expr(src);
           self.store_to_stack(&var_def.type_, index);
@@ -440,7 +438,7 @@ impl JvmCodeGen {
 
   fn var_def(&mut self, var_def: &mut VarDef) {
     match var_def.scope.get().kind {
-      ScopeKind::Local(_) | ScopeKind::Parameter(_) => var_def.index = self.new_local(),
+      ScopeKind::Local(_) | ScopeKind::Parameter(_) => var_def.jvm_index = self.new_local(),
       ScopeKind::Class(_) => self.class_builder.get().define_field(ACC_PUBLIC, var_def.name, &var_def.type_.to_java()),
       _ => unreachable!(),
     }
@@ -453,7 +451,7 @@ impl JvmCodeGen {
   fn s_copy(&mut self, s_copy: &mut SCopy) {
     let src = self.new_local();
     let class = if let SemanticType::Object(class) = s_copy.src.type_ { class.get() } else { unreachable!() };
-    let dst = s_copy.dst_sym.get().index;
+    let dst = s_copy.dst_sym.get().jvm_index;
     let tmp = self.new_local();
     self.expr(&mut s_copy.src);
     self.a_store(src);
@@ -500,8 +498,8 @@ impl JvmCodeGen {
     // x = arr[i]
     self.a_load(arr);
     self.i_load(it);
-    handle!(&foreach.def.type_.sem, { self.i_a_load(); self.i_store(foreach.def.index); },
-            { self.b_a_load(); self.i_store(foreach.def.index); }, { self.a_a_load(); self.a_store(foreach.def.index); });
+    handle!(&foreach.def.type_.sem, { self.i_a_load(); self.i_store(foreach.def.jvm_index); },
+            { self.b_a_load(); self.i_store(foreach.def.jvm_index); }, { self.a_a_load(); self.a_store(foreach.def.jvm_index); });
     // if (!cond) break
     if let Some(cond) = &mut foreach.cond {
       self.expr(cond);
@@ -527,7 +525,7 @@ impl JvmCodeGen {
       ExprData::Id(id) => {
         let var_def = id.symbol.get();
         match var_def.scope.get().kind {
-          ScopeKind::Local(_) | ScopeKind::Parameter(_) => self.store_to_stack(&var_def.type_, var_def.index),
+          ScopeKind::Local(_) | ScopeKind::Parameter(_) => self.store_to_stack(&var_def.type_, var_def.jvm_index),
           ScopeKind::Class(class) => self.put_field(class.get().name, var_def.name, &var_def.type_.to_java()),
           _ => unreachable!(),
         }

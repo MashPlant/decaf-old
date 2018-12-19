@@ -7,6 +7,8 @@ extern crate jvm;
 
 extern crate clap;
 
+extern crate llvm_sys;
+
 use clap::{Arg, App, ArgMatches, ArgGroup};
 
 pub mod ast;
@@ -23,6 +25,7 @@ pub mod jvm_code_gen;
 pub mod tac;
 pub mod util;
 pub mod tac_code_gen;
+pub mod llvm_code_gen;
 
 use print::{ASTData, ScopeData};
 use errors::Error;
@@ -58,18 +61,18 @@ fn compile(input: &'static str, cmd: &ArgMatches) -> Result<(), Vec<Error>> {
     printer.flush(&mut io::stdout());
     return Ok(());
   }
-  program = symbol_builder::SymbolBuilder::new().build(program)?;
-  program = type_checker::TypeChecker::new().check(program)?;
+  program = symbol_builder::SymbolBuilder::build(program)?;
+  program = type_checker::TypeChecker::check(program)?;
   if cmd.is_present("SCOPE") {
     program.print_scope(&mut printer);
     printer.flush(&mut io::stdout());
     return Ok(());
   }
   if cmd.is_present("JVM") {
-    jvm_code_gen::JvmCodeGen::new().gen(program);
+    jvm_code_gen::JvmCodeGen::gen(program);
     return Ok(());
   } else if cmd.is_present("TAC") {
-    let tac_program = tac_code_gen::TacCodeGen::new().gen(&mut program);
+    let tac_program = tac_code_gen::TacCodeGen::gen(&mut program);
     let mut printer = print::IndentPrinter::new();
     tac_program.print_to(&mut printer);
     printer.flush(&mut io::stdout());

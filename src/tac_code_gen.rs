@@ -20,8 +20,8 @@ pub struct TacCodeGen {
 }
 
 impl TacCodeGen {
-  pub fn new() -> TacCodeGen {
-    TacCodeGen {
+  pub fn gen(program: &mut Program) -> TacProgram {
+    let mut code_gen = TacCodeGen {
       cur_method: ptr::null_mut(),
       break_stack: Vec::new(),
       methods: Vec::new(),
@@ -29,14 +29,11 @@ impl TacCodeGen {
       label_cnt: -1,
       cur_this: -1,
       out_of_bound_to_fill: Vec::new(),
-    }
-  }
-
-  pub fn gen(mut self, program: &mut Program) -> TacProgram {
-    self.program(program);
+    };
+    code_gen.program(program);
     TacProgram {
       v_tables: program.class.iter().map(|class| class.v_tbl.clone()).collect(),
-      methods: self.methods,
+      methods: code_gen.methods,
     }
   }
 
@@ -225,7 +222,7 @@ impl TacCodeGen {
       If(if_) => {
         let before_else = self.new_label();
         self.expr(&mut if_.cond);
-        self.push(Tac::Je(if_.cond.reg, before_else));
+        self.push(Tac::Je(if_.cond.tac_reg, before_else));
         self.block(&mut if_.on_true);
         if let Some(on_false) = &mut if_.on_false {
           let after_else = self.new_label();
@@ -241,7 +238,7 @@ impl TacCodeGen {
         let (before_cond, after_body) = (self.new_label(), self.new_label());
         self.push(Tac::Label(before_cond));
         self.expr(&mut while_.cond);
-        self.push(Tac::Je(while_.cond.reg, after_body));
+        self.push(Tac::Je(while_.cond.tac_reg, after_body));
         self.break_stack.push(after_body);
         self.block(&mut while_.body);
         self.break_stack.pop();
@@ -253,7 +250,7 @@ impl TacCodeGen {
         self.simple(&mut for_.init);
         self.push(Tac::Label(before_cond));
         self.expr(&mut for_.cond);
-        self.push(Tac::Je(for_.cond.reg, after_body));
+        self.push(Tac::Je(for_.cond.tac_reg, after_body));
         self.break_stack.push(after_body);
         self.block(&mut for_.body);
         self.break_stack.pop();
@@ -263,13 +260,13 @@ impl TacCodeGen {
       }
       Return(return_) => if let Some(expr) = &mut return_.expr {
         self.expr(expr);
-        self.push(Tac::Ret(expr.reg));
+        self.push(Tac::Ret(expr.tac_reg));
       } else {
         self.push(Tac::Ret(-1));
       }
       Print(print) => for expr in &mut print.print {
         self.expr(expr);
-        self.push(Tac::Param(expr.reg));
+        self.push(Tac::Param(expr.tac_reg));
         match &expr.type_ {
           SemanticType::Int => { self.intrinsic_call(PRINT_INT); }
           SemanticType::Bool => { self.intrinsic_call(PRINT_BOOL); }
@@ -288,7 +285,7 @@ impl TacCodeGen {
         let class = s_copy.src.type_.get_class();
         self.push(Tac::DirectCall(new_obj, format!("_{}_New", class.name)));
         for i in 0..class.field_cnt {
-          self.push(Tac::Load(tmp, s_copy.src.reg, (i + 1) * INT_SIZE));
+          self.push(Tac::Load(tmp, s_copy.src.tac_reg, (i + 1) * INT_SIZE));
           self.push(Tac::Store(new_obj, (i + 1) * INT_SIZE, tmp));
         }
         self.push(Tac::Assign(s_copy.dst_sym.get().offset, new_obj));
@@ -299,17 +296,17 @@ impl TacCodeGen {
         let (i, int_size, cmp) = (self.new_reg(), self.int_const(INT_SIZE), self.new_reg());
         let (before_cond, after_body) = (self.new_label(), self.new_label());
         self.push(Tac::IntConst(i, 0));
-        let end = self.array_length(foreach.arr.reg);
+        let end = self.array_length(foreach.arr.tac_reg);
         self.push(Tac::Mul(end, end, int_size));
-        self.push(Tac::Add(end, end, foreach.arr.reg));
-        self.push(Tac::Assign(i, foreach.arr.reg));
+        self.push(Tac::Add(end, end, foreach.arr.tac_reg));
+        self.push(Tac::Assign(i, foreach.arr.tac_reg));
         self.push(Tac::Label(before_cond));
         self.push(Tac::Lt(cmp, i, end));
         self.push(Tac::Je(cmp, after_body));
         self.push(Tac::Load(foreach.def.offset, i, 0));
         if let Some(cond) = &mut foreach.cond {
           self.expr(cond);
-          self.push(Tac::Je(cond.reg, after_body));
+          self.push(Tac::Je(cond.tac_reg, after_body));
         }
         self.break_stack.push(after_body);
         self.block(&mut foreach.body);
@@ -321,7 +318,7 @@ impl TacCodeGen {
       Guarded(guarded) => for (e, b) in &mut guarded.guarded {
         self.expr(e);
         let after_body = self.new_label();
-        self.push(Tac::Je(e.reg, after_body));
+        self.push(Tac::Je(e.tac_reg, after_body));
         self.block(b);
         self.push(Tac::Label(after_body));
       }
@@ -340,18 +337,18 @@ impl TacCodeGen {
           ExprData::Id(id) => {
             let var_def = id.symbol.get();
             match var_def.scope.get().kind {
-              ScopeKind::Local(_) | ScopeKind::Parameter(_) => { self.push(Tac::Assign(var_def.offset, assign.src.reg)); }
+              ScopeKind::Local(_) | ScopeKind::Parameter(_) => { self.push(Tac::Assign(var_def.offset, assign.src.tac_reg)); }
               ScopeKind::Class(_) => {
-                self.push(Tac::Store(id.owner.as_ref().unwrap().reg, (var_def.offset + 1) * INT_SIZE, assign.src.reg));
+                self.push(Tac::Store(id.owner.as_ref().unwrap().tac_reg, (var_def.offset + 1) * INT_SIZE, assign.src.tac_reg));
               }
               _ => unreachable!(),
             }
           }
           ExprData::Indexed(indexed) => {
             let (int_size, offset) = (self.int_const(INT_SIZE), self.new_reg());
-            self.push(Tac::Mul(offset, indexed.idx.reg, int_size));
-            self.push(Tac::Add(offset, indexed.arr.reg, offset));
-            self.push(Tac::Store(offset, 0, assign.src.reg));
+            self.push(Tac::Mul(offset, indexed.idx.tac_reg, int_size));
+            self.push(Tac::Add(offset, indexed.arr.tac_reg, offset));
+            self.push(Tac::Store(offset, 0, assign.src.tac_reg));
           }
           _ => unreachable!(),
         }
@@ -360,7 +357,7 @@ impl TacCodeGen {
         var_def.offset = self.new_reg();
         if let Some(src) = &mut var_def.src {
           self.expr(src);
-          self.push(Tac::Assign(var_def.offset, src.reg));
+          self.push(Tac::Assign(var_def.offset, src.tac_reg));
         }
       }
       Simple::Expr(expr) => self.expr(expr),
@@ -378,13 +375,13 @@ impl TacCodeGen {
       Id(id) => {
         let var_def = id.symbol.get();
         match var_def.scope.get().kind {
-          ScopeKind::Local(_) | ScopeKind::Parameter(_) => expr.reg = var_def.offset,
+          ScopeKind::Local(_) | ScopeKind::Parameter(_) => expr.tac_reg = var_def.offset,
           ScopeKind::Class(_) => {
             let owner = id.owner.as_mut().unwrap();
             self.expr(owner);
             if !id.for_assign {
-              expr.reg = self.new_reg();
-              self.push(Tac::Load(expr.reg, owner.reg, (var_def.offset + 1) * INT_SIZE));
+              expr.tac_reg = self.new_reg();
+              self.push(Tac::Load(expr.tac_reg, owner.tac_reg, (var_def.offset + 1) * INT_SIZE));
             }
           }
           _ => unreachable!(),
@@ -393,58 +390,58 @@ impl TacCodeGen {
       Indexed(indexed) => {
         self.expr(&mut indexed.arr);
         self.expr(&mut indexed.idx);
-        let check = self.check_array_index(indexed.arr.reg, indexed.idx.reg);
+        let check = self.check_array_index(indexed.arr.tac_reg, indexed.idx.tac_reg);
         self.out_of_bound_to_fill.push(self.cur_method.get().len() as i32);
         self.push(Tac::Je(check, -1)); // jump where not determined yet
         if !indexed.for_assign { // not used, but still check index here
-          expr.reg = self.array_at(indexed.arr.reg, indexed.idx.reg);
+          expr.tac_reg = self.array_at(indexed.arr.tac_reg, indexed.idx.tac_reg);
         }
       }
       IntConst(v) => {
-        expr.reg = self.new_reg();
-        self.push(Tac::IntConst(expr.reg, *v));
+        expr.tac_reg = self.new_reg();
+        self.push(Tac::IntConst(expr.tac_reg, *v));
       }
-      BoolConst(v) => expr.reg = if *v { self.int_const(1) } else { self.int_const(0) },
+      BoolConst(v) => expr.tac_reg = if *v { self.int_const(1) } else { self.int_const(0) },
       StringConst(v) => {
-        expr.reg = self.new_reg();
-        self.push(Tac::StrConst(expr.reg, quote(v)));
+        expr.tac_reg = self.new_reg();
+        self.push(Tac::StrConst(expr.tac_reg, quote(v)));
       }
       ArrayConst(_) => unimplemented!(),
-      Null => expr.reg = self.int_const(0),
+      Null => expr.tac_reg = self.int_const(0),
       Call(call) => if call.is_arr_len {
         let owner = call.owner.as_mut().unwrap();
         self.expr(owner);
-        expr.reg = self.array_length(owner.reg);
+        expr.tac_reg = self.array_length(owner.tac_reg);
       } else {
         let method = call.method.get();
         let class = method.class.get();
-        expr.reg = if method.ret_t.sem != VOID { self.new_reg() } else { -1 };
+        expr.tac_reg = if method.ret_t.sem != VOID { self.new_reg() } else { -1 };
         if method.static_ {
           // fuck vm spec
           // 'parm' can only be consecutive for one call, there cannot be other call in this process
           // e.g. my old version: f(1, x[0]) : parm 1 => (if <out of bound> call _Halt) => parm x[0]
           // which caused error
           for arg in &mut call.arg { self.expr(arg); }
-          for arg in &mut call.arg { self.push(Tac::Param(arg.reg)); }
-          self.push(Tac::DirectCall(expr.reg, format!("_{}.{}", class.name, method.name)));
+          for arg in &mut call.arg { self.push(Tac::Param(arg.tac_reg)); }
+          self.push(Tac::DirectCall(expr.tac_reg, format!("_{}.{}", class.name, method.name)));
         } else {
           let owner = call.owner.as_mut().unwrap();
           self.expr(owner);
           for arg in &mut call.arg { self.expr(arg); }
-          self.push(Tac::Param(owner.reg));
-          for arg in &mut call.arg { self.push(Tac::Param(arg.reg)); }
+          self.push(Tac::Param(owner.tac_reg));
+          for arg in &mut call.arg { self.push(Tac::Param(arg.tac_reg)); }
           let slot = self.new_reg();
-          self.push(Tac::Load(slot, owner.reg, 0));
+          self.push(Tac::Load(slot, owner.tac_reg, 0));
           self.push(Tac::Load(slot, slot, (method.offset + 2) * INT_SIZE));
-          self.push(Tac::IndirectCall(expr.reg, slot));
+          self.push(Tac::IndirectCall(expr.tac_reg, slot));
         }
       }
       Unary(unary) => {
         self.expr(&mut unary.r);
-        expr.reg = self.new_reg();
+        expr.tac_reg = self.new_reg();
         match unary.op {
-          Operator::Neg => self.push(Tac::Neg(expr.reg, unary.r.reg)),
-          Operator::Not => self.push(Tac::Not(expr.reg, unary.r.reg)),
+          Operator::Neg => self.push(Tac::Neg(expr.tac_reg, unary.r.tac_reg)),
+          Operator::Not => self.push(Tac::Not(expr.tac_reg, unary.r.tac_reg)),
           _ => unimplemented!(),
         }
       }
@@ -452,8 +449,8 @@ impl TacCodeGen {
         use ast::Operator::*;
         self.expr(&mut binary.l);
         self.expr(&mut binary.r);
-        expr.reg = self.new_reg();
-        let (l, r, d) = (binary.l.reg, binary.r.reg, expr.reg);
+        expr.tac_reg = self.new_reg();
+        let (l, r, d) = (binary.l.tac_reg, binary.r.tac_reg, expr.tac_reg);
         match binary.op {
           Add => self.push(Tac::Add(d, l, r)),
           Sub => self.push(Tac::Sub(d, l, r)),
@@ -475,8 +472,8 @@ impl TacCodeGen {
           Eq | Ne => if binary.l.type_ == STRING {
             self.push(Tac::Param(l));
             self.push(Tac::Param(r));
-            expr.reg = self.intrinsic_call(STRING_EQUAL);
-            if binary.op == Ne { self.push(Tac::Not(expr.reg, expr.reg)); }
+            expr.tac_reg = self.intrinsic_call(STRING_EQUAL);
+            if binary.op == Ne { self.push(Tac::Not(expr.tac_reg, expr.tac_reg)); }
           } else {
             self.push(if binary.op == Eq { Tac::Eq(d, l, r) } else { Tac::Ne(d, l, r) });
           }
@@ -493,11 +490,11 @@ impl TacCodeGen {
             self.push(Tac::Mul(i, r, int_size));
             self.push(Tac::Add(i, i, int_size));
             self.push(Tac::Param(i));
-            expr.reg = self.intrinsic_call(ALLOCATE);
-            self.push(Tac::Add(i, expr.reg, i));
+            expr.tac_reg = self.intrinsic_call(ALLOCATE);
+            self.push(Tac::Add(i, expr.tac_reg, i));
             self.push(Tac::Label(before_cond));
             self.push(Tac::Sub(i, i, int_size));
-            self.push(Tac::Eq(cmp, i, expr.reg));
+            self.push(Tac::Eq(cmp, i, expr.tac_reg));
             self.push(Tac::Jne(cmp, finish));
             match &binary.l.type_ {
               SemanticType::Object(class) => {
@@ -516,32 +513,32 @@ impl TacCodeGen {
             self.push(Tac::Jmp(before_cond));
             self.push(Tac::Label(finish));
             self.push(Tac::Store(i, 0, r));
-            self.push(Tac::Add(expr.reg, expr.reg, int_size));
+            self.push(Tac::Add(expr.tac_reg, expr.tac_reg, int_size));
           }
           _ => unimplemented!(),
         }
       }
-      This => expr.reg = self.cur_this,
-      ReadInt => expr.reg = self.intrinsic_call(READ_INT),
-      ReadLine => expr.reg = self.intrinsic_call(READ_LINE),
+      This => expr.tac_reg = self.cur_this,
+      ReadInt => expr.tac_reg = self.intrinsic_call(READ_INT),
+      ReadLine => expr.tac_reg = self.intrinsic_call(READ_LINE),
       NewClass { name } => {
-        expr.reg = self.new_reg();
-        self.push(Tac::DirectCall(expr.reg, format!("_{}_New", name)));
+        expr.tac_reg = self.new_reg();
+        self.push(Tac::DirectCall(expr.tac_reg, format!("_{}_New", name)));
       }
       NewArray { elem_t: _, len } => {
         self.expr(len);
         let (halt, before_cond, finish) = (self.new_label(), self.new_label(), self.new_label());
         let (zero, int_size, cmp, i, msg) = (self.int_const(0), self.int_const(INT_SIZE), self.new_reg(), self.new_reg(), self.new_reg());
-        self.push(Tac::Lt(cmp, len.reg, zero));
+        self.push(Tac::Lt(cmp, len.tac_reg, zero));
         self.push(Tac::Jne(cmp, halt));
-        self.push(Tac::Mul(i, len.reg, int_size));
+        self.push(Tac::Mul(i, len.tac_reg, int_size));
         self.push(Tac::Add(i, i, int_size)); // allocate (len + 1) * INT_SIZE
         self.push(Tac::Param(i));
-        expr.reg = self.intrinsic_call(ALLOCATE);
-        self.push(Tac::Add(i, expr.reg, i));
+        expr.tac_reg = self.intrinsic_call(ALLOCATE);
+        self.push(Tac::Add(i, expr.tac_reg, i));
         self.push(Tac::Label(before_cond));
         self.push(Tac::Sub(i, i, int_size));
-        self.push(Tac::Eq(cmp, i, expr.reg));
+        self.push(Tac::Eq(cmp, i, expr.tac_reg));
         self.push(Tac::Jne(cmp, finish));
         self.push(Tac::Store(i, 0, zero));
         self.push(Tac::Jmp(before_cond));
@@ -551,24 +548,24 @@ impl TacCodeGen {
         self.intrinsic_call(PRINT_STRING);
         self.intrinsic_call(HALT);
         self.push(Tac::Label(finish));
-        self.push(Tac::Store(i, 0, len.reg)); // array[-1] = len
-        self.push(Tac::Add(expr.reg, expr.reg, int_size));
+        self.push(Tac::Store(i, 0, len.tac_reg)); // array[-1] = len
+        self.push(Tac::Add(expr.tac_reg, expr.tac_reg, int_size));
       }
       TypeTest { expr: src, name } => {
         self.expr(src);
-        expr.reg = self.instance_of(src.reg, name);
+        expr.tac_reg = self.instance_of(src.tac_reg, name);
       }
       TypeCast { name, expr: src } => {
         self.expr(src);
-        expr.reg = src.reg;
-        let check = self.instance_of(src.reg, name);
+        expr.tac_reg = src.tac_reg;
+        let check = self.instance_of(src.tac_reg, name);
         let ok = self.new_label();
         let (msg, v_tbl) = (self.new_reg(), self.new_reg());
         self.push(Tac::Jne(check, ok));
         self.push(Tac::StrConst(msg, quote(CLASS_CAST1)));
         self.push(Tac::Param(msg));
         self.intrinsic_call(PRINT_STRING);
-        self.push(Tac::Load(v_tbl, src.reg, 0));
+        self.push(Tac::Load(v_tbl, src.tac_reg, 0));
         self.push(Tac::Load(msg, v_tbl, INT_SIZE)); // name info is in v-table[1]
         self.push(Tac::Param(msg));
         self.intrinsic_call(PRINT_STRING);
@@ -588,16 +585,16 @@ impl TacCodeGen {
       Default(default) => {
         self.expr(&mut default.arr);
         self.expr(&mut default.idx);
-        expr.reg = self.new_reg();
+        expr.tac_reg = self.new_reg();
         let (use_dft, after) = (self.new_label(), self.new_label());
-        let check = self.check_array_index(default.arr.reg, default.idx.reg);
+        let check = self.check_array_index(default.arr.tac_reg, default.idx.tac_reg);
         self.push(Tac::Je(check, use_dft));
-        let idx_res = self.array_at(default.arr.reg, default.idx.reg);
-        self.push(Tac::Assign(expr.reg, idx_res));
+        let idx_res = self.array_at(default.arr.tac_reg, default.idx.tac_reg);
+        self.push(Tac::Assign(expr.tac_reg, idx_res));
         self.push(Tac::Jmp(after));
         self.push(Tac::Label(use_dft));
         self.expr(&mut default.dft);
-        self.push(Tac::Assign(expr.reg, default.dft.reg));
+        self.push(Tac::Assign(expr.tac_reg, default.dft.tac_reg));
         self.push(Tac::Label(after));
       }
       Comprehension(_) => unimplemented!(),

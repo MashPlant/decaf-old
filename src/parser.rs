@@ -1482,17 +1482,7 @@ impl Parser {
     let mut _3 = pop!(self.values_stack, _0);
     let mut _2 = pop!(self.values_stack, _9);
     self.values_stack.pop();
-    let _0 = MethodDef {
-      loc: _3.get_loc(),
-      name: _3.value,
-      ret_t: _2,
-      param: _5,
-      static_: true,
-      body: _7,
-      scope: D::default(),
-      class: ptr::null(),
-      offset: -1,
-    };
+    let _0 = MethodDef::new(_3.get_loc(), _3.value, _2, _5, true, _7);
     SV::_8(_0)
   }
 
@@ -1503,17 +1493,7 @@ impl Parser {
     self.values_stack.pop();
     let mut _2 = pop!(self.values_stack, _0);
     let mut _1 = pop!(self.values_stack, _9);
-    let _0 = MethodDef {
-      loc: _2.get_loc(),
-      name: _2.value,
-      ret_t: _1,
-      param: _4,
-      static_: false,
-      body: _6,
-      scope: D::default(),
-      class: ptr::null(),
-      offset: -1,
-    };
+    let _0 = MethodDef::new(_2.get_loc(), _2.value, _1, _4, false, _6);
     SV::_8(_0)
   }
 
@@ -1697,16 +1677,7 @@ impl Parser {
     self.values_stack.pop();
     self.values_stack.pop();
     let _0 = Stmt::Foreach(Foreach {
-      def: VarDef {
-        loc: _4.get_loc(),
-        name: _4.value,
-        type_: _3,
-        finish_loc: _4.get_loc(),
-        src: None,
-        scope: ptr::null(),
-        index: D::default(),
-        offset: -1,
-      },
+      def: VarDef::new(_4.get_loc(), _4.value, _3, None, _4.get_loc()),
       arr: _6,
       cond: _7,
       body: _9,
@@ -1894,16 +1865,7 @@ impl Parser {
     let mut _3 = pop!(self.values_stack, _0);
     let mut _2 = pop!(self.values_stack, _0);
     let mut _1 = pop!(self.values_stack, _9);
-    let _0 = Simple::VarDef(VarDef {
-      loc: _2.get_loc(),
-      name: _2.value,
-      type_: _1,
-      finish_loc: self.get_loc(),
-      src: Some(_4),
-      scope: ptr::null(),
-      index: D::default(),
-      offset: -1,
-    });
+    let _0 = Simple::VarDef(VarDef::new(_2.get_loc(), _2.value, _1, Some(_4), self.get_loc()));
     SV::_14(_0)
   }
 
@@ -1912,16 +1874,7 @@ impl Parser {
     let mut _3 = pop!(self.values_stack, _0);
     let mut _2 = pop!(self.values_stack, _0);
     let mut _1 = pop!(self.values_stack, _0);
-    let _0 = Simple::VarDef(VarDef {
-      loc: _2.get_loc(),
-      name: _2.value,
-      type_: Type { loc: _1.get_loc(), sem: VAR },
-      finish_loc: self.get_loc(),
-      src: Some(_4),
-      scope: ptr::null(),
-      index: D::default(),
-      offset: -1,
-    });
+    let _0 = Simple::VarDef(VarDef::new(_2.get_loc(), _2.value, Type { loc: _1.get_loc(), sem: VAR }, Some(_4), self.get_loc()));
     SV::_14(_0)
   }
 
@@ -2381,16 +2334,7 @@ impl Parser {
   fn _handler112(&mut self) -> SV {
     let mut _2 = pop!(self.values_stack, _0);
     let mut _1 = pop!(self.values_stack, _9);
-    let _0 = VarDef {
-      loc: _2.get_loc(),
-      name: _2.value,
-      type_: _1,
-      finish_loc: self.get_loc(),
-      src: None,
-      scope: ptr::null(),
-      index: D::default(),
-      offset: -1,
-    };
+    let _0 = VarDef::new(_2.get_loc(), _2.value, _1, None, self.get_loc());
     SV::_7(_0)
   }
 
