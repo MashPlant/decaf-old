@@ -9,3 +9,4 @@ lazy_static = "0.2.8"
 clap = "2"
 jvm = { path = "src/jvm" }
 llvm-sys = { path = "src/llvm" }
+libc = "*"

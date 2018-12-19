@@ -120,7 +120,8 @@ impl TacCodeGen {
   }
 }
 
-fn resolve_field_order(class_def: &mut ClassDef) {
+// also used in llvm code gen
+pub fn resolve_field_order(class_def: &mut ClassDef) {
   if class_def.field_cnt >= 0 { return; } // already handled
   class_def.field_cnt = if class_def.p_ptr.is_null() { 0 } else {
     let p = class_def.p_ptr.get();

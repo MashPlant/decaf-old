@@ -1,15 +1,9 @@
-extern crate regex;
-
 #[macro_use]
 extern crate lazy_static;
-
+extern crate regex;
 extern crate jvm;
-
 extern crate clap;
-
 extern crate llvm_sys;
-
-use clap::{Arg, App, ArgMatches, ArgGroup};
 
 pub mod ast;
 pub mod types;
@@ -29,6 +23,8 @@ pub mod llvm_code_gen;
 
 use print::{ASTData, ScopeData};
 use errors::Error;
+
+use clap::{Arg, App, ArgMatches, ArgGroup};
 
 use std::mem;
 use std::fs::File;

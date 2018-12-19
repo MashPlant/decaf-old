@@ -45,6 +45,11 @@ pub struct ClassDef {
   // default field_cnt is -1, for `not resolved`
   pub field_cnt: i32,
   pub v_tbl: VTable,
+  // the POINTER type of self
+  pub llvm_t: LLVMTypeRef,
+  // the POINTER type of v table
+  pub llvm_v_tbl_t: LLVMTypeRef,
+  pub llvm_v_tbl: LLVMValueRef,
 }
 
 impl D for ClassDef {
@@ -61,6 +66,9 @@ impl D for ClassDef {
       scope: D::default(),
       field_cnt: -1,
       v_tbl: VTable { class: ptr::null(), methods: Vec::new() },
+      llvm_t: ptr::null_mut(),
+      llvm_v_tbl_t: ptr::null_mut(),
+      llvm_v_tbl: ptr::null_mut(),
     }
   }
 }
