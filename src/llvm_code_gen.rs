@@ -6,10 +6,7 @@ use super::tac_code_gen::resolve_field_order;
 
 use llvm_sys::*;
 use llvm_sys::prelude::*;
-use llvm_sys::support::*;
 use llvm_sys::core::*;
-use llvm_sys::execution_engine::*;
-use llvm_sys::target::*;
 
 use std::ffi::{CStr, CString};
 use std::ptr;
@@ -36,11 +33,13 @@ pub struct LLVMCodeGen {
   i64_t: LLVMTypeRef,
   i32_0: LLVMValueRef,
   cur_fn: LLVMValueRef,
-  // c std library functions(malloc can be built without declare)
+  // c std library functions
+  malloc: LLVMValueRef,
   printf: LLVMValueRef,
   scanf: LLVMValueRef,
   strcmp: LLVMValueRef,
   memset: LLVMValueRef,
+  memcpy: LLVMValueRef,
   string_pool: HashMap<String, LLVMValueRef>,
   break_stack: Vec<LLVMBasicBlockRef>,
 }
@@ -57,11 +56,13 @@ impl LLVMCodeGen {
       let str_t = ptr_of(i8_t);
       let i64_t = LLVMInt64TypeInContext(context);
       let i32_0 = LLVMConstInt(i32_t, 0, 0);
+      let malloc = LLVMAddFunction(module, cstr!("malloc"), LLVMFunctionType(str_t, [i64_t].as_mut_ptr(), 1, 0));
       let printf = LLVMAddFunction(module, cstr!("printf"), LLVMFunctionType(i32_t, [str_t].as_mut_ptr(), 1, 1));
       let scanf = LLVMAddFunction(module, cstr!("scanf"), LLVMFunctionType(i32_t, [str_t].as_mut_ptr(), 1, 1));
       let strcmp = LLVMAddFunction(module, cstr!("strcmp"), LLVMFunctionType(i32_t, [str_t, str_t].as_mut_ptr(), 2, 0));
       let memset = LLVMAddFunction(module, cstr!("memset"), LLVMFunctionType(str_t, [str_t, i32_t, i64_t].as_mut_ptr(), 3, 0));
-      let mut code_gen = LLVMCodeGen { context, module, builder, i32_t, i8_t, void_t, str_t, i64_t, i32_0, cur_fn: ptr::null_mut(), printf, scanf, strcmp, memset, string_pool: HashMap::new(), break_stack: Vec::new() };
+      let memcpy = LLVMAddFunction(module, cstr!("memcpy"), LLVMFunctionType(str_t, [str_t, str_t, i64_t].as_mut_ptr(), 3, 0));
+      let mut code_gen = LLVMCodeGen { context, module, builder, i32_t, i8_t, void_t, str_t, i64_t, i32_0, cur_fn: ptr::null_mut(), malloc, printf, scanf, strcmp, memset, memcpy, string_pool: HashMap::new(), break_stack: Vec::new() };
       code_gen.program(&mut program);
       LLVMDisposeBuilder(code_gen.builder);
       LLVMDumpModule(code_gen.module);
@@ -74,6 +75,10 @@ unsafe fn ptr_of(type_: LLVMTypeRef) -> LLVMTypeRef {
 }
 
 impl LLVMCodeGen {
+  unsafe fn to_i8_ptr(&self, val: LLVMValueRef) -> LLVMValueRef {
+    LLVMBuildBitCast(self.builder, val, self.str_t, T)
+  }
+
   // return POINTER to the first char of this string literal
   unsafe fn define_str(&mut self, s: &str) -> LLVMValueRef {
     // I hate borrow checker...
@@ -98,7 +103,7 @@ impl LLVMCodeGen {
   }
 
   // declare & define struct type; declare v table type & val
-  unsafe fn make_struct_type(&self, class: &mut ClassDef) {
+  unsafe fn make_struct_type(&mut self, class: &mut ClassDef) {
     if !class.llvm_t.is_null() { return; }
     if !class.p_ptr.is_null() { self.make_struct_type(class.p_ptr.get()); }
     class.llvm_t = LLVMStructCreateNamed(self.context, cstring!(class.name));
@@ -113,41 +118,38 @@ impl LLVMCodeGen {
       elem_t[0] = ptr_of(class.llvm_v_tbl_t);
     }
     for field in &mut class.field {
-      if let FieldDef::VarDef(var) = field {
-        elem_t.push(self.type_of(&var.type_));
+      match field {
+        FieldDef::VarDef(var) => elem_t.push(self.type_of(&var.type_)),
+        FieldDef::MethodDef(method) => {
+          let mut param_t = method.param.iter().map(|a| self.type_of(&a.type_)).collect::<Vec<_>>();
+          method.llvm_t = LLVMFunctionType(self.type_of(&method.ret_t), param_t.as_mut_ptr(), param_t.len() as u32, 0);
+          method.llvm_val = LLVMAddFunction(self.module, cstring!(format!("{}_{}", method.class.get().name, method.name)), method.llvm_t);
+        }
       }
     }
     LLVMStructSetBody(class.llvm_t, elem_t.as_mut_ptr(), elem_t.len() as u32, 0);
     class.llvm_v_tbl = LLVMAddGlobal(self.module, class.llvm_v_tbl_t, cstring!(format!("{}_VTable", class.name)));
+    let mut v_tbl_elem_t = vec![if class.p_ptr.is_null() { self.str_t } else { ptr_of(class.p_ptr.get().llvm_v_tbl_t) }, self.str_t];
+    let mut v_tbl_elem = vec![if class.p_ptr.is_null() { LLVMConstNull(self.str_t) } else { class.p_ptr.get().llvm_v_tbl },
+                              self.define_str(class.name)];
+    for method in &class.v_tbl.methods {
+      v_tbl_elem_t.push(ptr_of(method.get().llvm_t));
+      v_tbl_elem.push(method.get().llvm_val);
+    }
+    LLVMStructSetBody(class.llvm_v_tbl_t, v_tbl_elem_t.as_mut_ptr(), v_tbl_elem_t.len() as u32, 0);
+    LLVMSetInitializer(class.llvm_v_tbl, LLVMConstStruct(v_tbl_elem.as_mut_ptr(), v_tbl_elem.len() as u32, 0));
   }
 
   unsafe fn program(&mut self, program: &mut Program) {
-    // build struct type
     for class in &mut program.class {
       resolve_field_order(class);
       self.make_struct_type(class);
     }
-    // parsing method
+    // must visit methods after all v tables are determined
     for class in &mut program.class {
       for field in &mut class.field {
-        if let FieldDef::MethodDef(method) = field {
-          self.method(method);
-        }
+        if let FieldDef::MethodDef(method) = field { self.method(method); }
       }
-    }
-    // build v table type & val, type & val of method is set above
-    // class.llvm_v_tbl_t & class.llvm_v_tbl is declared above, but not defined
-    for class in &mut program.class {
-      // actually first element is not string, just a meaningless i8*
-      let mut v_tbl_elem_t = vec![if class.p_ptr.is_null() { self.str_t } else { ptr_of(class.p_ptr.get().llvm_v_tbl_t) }, self.str_t];
-      let mut v_tbl_elem = vec![if class.p_ptr.is_null() { LLVMConstNull(self.str_t) } else { class.p_ptr.get().llvm_v_tbl },
-                                self.define_str(class.name)];
-      for method in &class.v_tbl.methods {
-        v_tbl_elem_t.push(ptr_of(method.get().llvm_t));
-        v_tbl_elem.push(method.get().llvm_val);
-      }
-      LLVMStructSetBody(class.llvm_v_tbl_t, v_tbl_elem_t.as_mut_ptr(), v_tbl_elem_t.len() as u32, 0);
-      LLVMSetInitializer(class.llvm_v_tbl, LLVMConstStruct(v_tbl_elem.as_mut_ptr(), v_tbl_elem.len() as u32, 0));
     }
     // add main function
     let main_t = LLVMFunctionType(self.i32_t, [].as_mut_ptr(), 0, 0);
@@ -160,11 +162,6 @@ impl LLVMCodeGen {
 
   unsafe fn method(&mut self, method: &mut MethodDef) {
     let (context, builder) = (self.context, self.builder);
-    method.llvm_t = {
-      let mut param_t = method.param.iter().map(|a| self.type_of(&a.type_)).collect::<Vec<_>>();
-      LLVMFunctionType(self.type_of(&method.ret_t), param_t.as_mut_ptr(), param_t.len() as u32, 0)
-    };
-    method.llvm_val = LLVMAddFunction(self.module, cstring!(format!("{}_{}", method.class.get().name, method.name)), method.llvm_t);
     let bb = LLVMAppendBasicBlockInContext(context, method.llvm_val, cstr!("entry"));
     LLVMPositionBuilderAtEnd(builder, bb);
     for (index, param) in method.param.iter_mut().enumerate() {
@@ -173,12 +170,10 @@ impl LLVMCodeGen {
     self.cur_fn = method.llvm_val;
     self.block(&mut method.body);
     match &method.ret_t.sem {
-      SemanticType::Int => LLVMBuildRet(builder, LLVMConstInt(self.i32_t, 0, 0)),
-      SemanticType::Bool => LLVMBuildRetVoid(builder),
-      SemanticType::String => LLVMBuildRetVoid(builder),
+      SemanticType::Int => LLVMBuildRet(builder, self.i32_0),
+      SemanticType::Bool => LLVMBuildRet(builder, LLVMConstInt(self.i8_t, 0, 0)),
       SemanticType::Void => LLVMBuildRetVoid(builder),
-      SemanticType::Object(class) => LLVMBuildRetVoid(builder),
-      SemanticType::Array(elem) => LLVMBuildRetVoid(builder),
+      SemanticType::String | SemanticType::Object(_) | SemanticType::Array(_) => LLVMBuildRet(builder, LLVMConstNull(self.type_of(&method.ret_t.sem))),
       _ => unreachable!(),
     };
   }
@@ -249,7 +244,11 @@ impl LLVMCodeGen {
         LLVMPositionBuilderAtEnd(builder, after_break);
       }
       Stmt::SCopy(s_copy) => {
-        unimplemented!()
+        self.expr(&mut s_copy.src);
+        let obj_t = s_copy.src.type_.get_class().llvm_t;
+        let obj = LLVMBuildMalloc(builder, obj_t, T);
+        LLVMBuildCall(builder, self.memcpy, [self.to_i8_ptr(obj), self.to_i8_ptr(s_copy.src.llvm_val), LLVMSizeOf(obj_t)].as_mut_ptr(), 3, T);
+        LLVMBuildStore(builder, obj, s_copy.dst_sym.get().llvm_val);
       }
       Stmt::Foreach(foreach) => {
         unimplemented!()
@@ -289,8 +288,7 @@ impl LLVMCodeGen {
             }
           }
           ExprData::Indexed(indexed) => {
-            let ptr = LLVMBuildGEP(builder, indexed.arr.llvm_val,
-                                   [LLVMConstInt(self.i32_t, 0, 0), indexed.idx.llvm_val].as_mut_ptr(), 2, T);
+            let ptr = LLVMBuildGEP(builder, indexed.arr.llvm_val, [indexed.idx.llvm_val].as_mut_ptr(), 1, T);
             LLVMBuildStore(builder, assign.src.llvm_val, ptr);
           }
           _ => unreachable!(),
@@ -327,7 +325,7 @@ impl LLVMCodeGen {
       Indexed(indexed) => {
         self.expr(&mut indexed.arr);
         self.expr(&mut indexed.idx);
-        let ptr = LLVMBuildGEP(builder, indexed.arr.llvm_val, [self.i32_0, indexed.idx.llvm_val].as_mut_ptr(), 2, T);
+        let ptr = LLVMBuildGEP(builder, indexed.arr.llvm_val, [indexed.idx.llvm_val].as_mut_ptr(), 1, T);
         LLVMBuildLoad(builder, ptr, T)
       }
       IntConst(v) => LLVMConstInt(self.i32_t, *v as u64, 0),
@@ -335,8 +333,29 @@ impl LLVMCodeGen {
       StringConst(v) => self.define_str(v),
       ArrayConst(_) => unimplemented!(),
       Null => LLVMConstNull(self.str_t), // will be casted to other pointer type when using the value(assign, param, ...)
-      Call(call) => {
-        unimplemented!()
+      Call(call) => if call.is_arr_len {
+        let owner = call.owner.as_mut().unwrap();
+        self.expr(owner);
+        let arr = LLVMBuildBitCast(builder, owner.llvm_val, ptr_of(self.i32_t), T);
+        let len = LLVMBuildGEP(builder, arr, [LLVMConstNeg(LLVMSizeOf(self.i32_t))].as_mut_ptr(), 1, T);
+        LLVMBuildLoad(builder, len, T)
+      } else {
+        let method = call.method.get();
+        let class = method.class.get();
+        if method.static_ {
+          // here method.llvm_val is meaningful, just call it
+          let mut arg = call.arg.iter_mut().map(|e| { (self.expr(e), e.llvm_val).1 })
+            .collect::<Vec<_>>();
+          LLVMBuildCall(builder, method.llvm_val, arg.as_mut_ptr(), arg.len() as u32, T)
+        } else {
+          let owner = call.owner.as_mut().unwrap();
+          self.expr(owner);
+          let mut arg = vec![owner.llvm_val];
+          arg.extend(call.arg.iter_mut().map(|e| { (self.expr(e), e.llvm_val).1 }));
+          let v_tbl = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, owner.llvm_val, 0, T), T);
+          let v_fn = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, v_tbl, method.offset as u32 + 2, T), T);
+          LLVMBuildCall(builder, v_fn, arg.as_mut_ptr(), arg.len() as u32, T)
+        }
       }
       Unary(unary) => {
         self.expr(&mut unary.r);
@@ -366,11 +385,12 @@ impl LLVMCodeGen {
           Or => {
             unimplemented!();
           }
-          Eq => {
-            unimplemented!();
-          }
-          Ne => {
-            unimplemented!();
+          Eq | Ne => if binary.l.type_ == STRING {
+            let cmp = LLVMBuildCall(builder, self.strcmp, [l, r].as_mut_ptr(), 2, T);
+            if binary.op == Eq { LLVMBuildNot(builder, cmp, T) } else { cmp }
+          } else {
+            LLVMBuildICmp(builder, if binary.op == Eq { LLVMIntPredicate::LLVMIntEQ } else { LLVMIntPredicate::LLVMIntNE },
+                          l, r, T)
           }
           Repeat => {
             unimplemented!();
@@ -390,20 +410,26 @@ impl LLVMCodeGen {
       NewClass { name } => {
         let obj_t = expr.type_.get_class().llvm_t;
         let obj = LLVMBuildMalloc(builder, obj_t, T);
-        LLVMBuildCall(builder, self.memset, [LLVMBuildBitCast(builder, obj, self.str_t, T), self.i32_0, LLVMSizeOf(obj_t)].as_mut_ptr(), 3, T);
+        LLVMBuildCall(builder, self.memset, [self.to_i8_ptr(obj), self.i32_0, LLVMSizeOf(obj_t)].as_mut_ptr(), 3, T);
         let v_tbl = LLVMBuildStructGEP(builder, obj, 0, T);
         LLVMBuildStore(builder, expr.type_.get_class().llvm_v_tbl, v_tbl);
         obj
       }
-      NewArray { elem_t: _, len } => {
+      NewArray { elem_t, len } => {
         self.expr(len);
-        unimplemented!()
+        let elem_t = self.type_of(elem_t);
+        let tot_len = LLVMBuildAdd(builder, LLVMBuildMul(builder, LLVMBuildIntCast(builder, len.llvm_val, self.i64_t, T), LLVMSizeOf(elem_t), T), LLVMSizeOf(self.i32_t), T);
+        let arr_base = LLVMBuildCall(builder, self.malloc, [tot_len].as_mut_ptr(), 1, T);
+        LLVMBuildCall(builder, self.memset, [arr_base, self.i32_0, tot_len].as_mut_ptr(), 3, T);
+        LLVMBuildStore(builder, len.llvm_val, LLVMBuildBitCast(builder, arr_base, ptr_of(self.i32_t), T));
+        let arr = LLVMBuildGEP(builder, arr_base, [LLVMSizeOf(self.i32_t)].as_mut_ptr(), 1, T);
+        LLVMBuildBitCast(builder, arr, ptr_of(elem_t), T)
       }
-      TypeTest { expr: src, name } => {
+      TypeTest { expr: src, name: _ } => {
         self.expr(src);
         unimplemented!()
       }
-      TypeCast { name, expr: src } => {
+      TypeCast { name: _, expr: src } => {
         self.expr(src);
         unimplemented!()
       }
