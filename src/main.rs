@@ -51,17 +51,22 @@ fn read_input(filename: &str) -> &'static str {
 
 fn compile(input: &'static str, cmd: &ArgMatches) -> Result<(), Vec<Error>> {
   let mut printer = print::IndentPrinter::new();
+  let mut output: Box<io::Write> = if let Some(output) = cmd.value_of("OUTPUT") {
+    let out = File::create(output).unwrap();
+    Box::new(out)
+  } else { Box::new(io::stdout()) };
   let mut program = parser::Parser::new().parse(input)?;
+
   if cmd.is_present("LEX") {
     program.print_ast(&mut printer);
-    printer.flush(&mut io::stdout());
+    printer.flush(&mut output);
     return Ok(());
   }
   program = symbol_builder::SymbolBuilder::build(program)?;
   program = type_checker::TypeChecker::check(program)?;
   if cmd.is_present("SCOPE") {
     program.print_scope(&mut printer);
-    printer.flush(&mut io::stdout());
+    printer.flush(&mut output);
     return Ok(());
   }
   if cmd.is_present("JVM") {
@@ -71,7 +76,7 @@ fn compile(input: &'static str, cmd: &ArgMatches) -> Result<(), Vec<Error>> {
     let tac_program = tac_code_gen::TacCodeGen::gen(&mut program);
     let mut printer = print::IndentPrinter::new();
     tac_program.print_to(&mut printer);
-    printer.flush(&mut io::stdout());
+    printer.flush(&mut output);
     Ok(())
   } else { // llvm
     llvm_code_gen::LLVMCodeGen::gen(program);
@@ -89,6 +94,7 @@ fn main() {
     .arg(Arg::with_name("LLVM").short("L").long("llvm").help("Dump llvm bit code."))
     .group(ArgGroup::with_name("USAGE").required(true).args(&["LEX", "SCOPE", "TAC", "JVM", "LLVM"]))
     .arg(Arg::with_name("INPUT").required(true))
+    .arg(Arg::with_name("OUTPUT").short("o").long("output").value_name("FILE").takes_value(true))
     .get_matches_from(&["", "--llvm", "in.txt"])
   ;
   if let Err(errors) = compile(read_input(matches.value_of("INPUT").unwrap()), &matches) {

@@ -128,7 +128,6 @@ pub struct MethodDef {
   pub class: *const ClassDef,
   // tac & llvm: the offset in v-table
   pub offset: i32,
-  // POINTER of function type
   pub llvm_t: LLVMTypeRef,
   pub llvm_val: LLVMValueRef,
 }
