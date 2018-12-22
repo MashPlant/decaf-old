@@ -45,9 +45,7 @@ pub struct ClassDef {
   // default field_cnt is -1, for `not resolved`
   pub field_cnt: i32,
   pub v_tbl: VTable,
-  // the POINTER type of self
   pub llvm_t: LLVMTypeRef,
-  // the POINTER type of v table
   pub llvm_v_tbl_t: LLVMTypeRef,
   pub llvm_v_tbl: LLVMValueRef,
 }
@@ -130,12 +128,14 @@ pub struct MethodDef {
   pub class: *const ClassDef,
   // tac & llvm: the offset in v-table
   pub offset: i32,
+  // POINTER of function type
+  pub llvm_t: LLVMTypeRef,
   pub llvm_val: LLVMValueRef,
 }
 
 impl MethodDef {
   pub fn new(loc: Loc, name: &'static str, ret_t: Type, param: Vec<VarDef>, static_: bool, body: Block) -> MethodDef {
-    MethodDef { loc, name, ret_t, param, static_, body, scope: D::default(), class: ptr::null(), offset: -1, llvm_val: ptr::null_mut() }
+    MethodDef { loc, name, ret_t, param, static_, body, scope: D::default(), class: ptr::null(), offset: -1, llvm_t: ptr::null_mut(), llvm_val: ptr::null_mut() }
   }
 }
 
