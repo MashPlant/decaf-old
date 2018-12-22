@@ -552,7 +552,7 @@ impl TacCodeGen {
         self.push(Tac::Store(i, 0, len.tac_reg)); // array[-1] = len
         self.push(Tac::Add(expr.tac_reg, expr.tac_reg, int_size));
       }
-      TypeTest { expr: src, name } => {
+      TypeTest { expr: src, name, target_class: _ } => {
         self.expr(src);
         expr.tac_reg = self.instance_of(src.tac_reg, name);
       }

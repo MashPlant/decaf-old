@@ -26,6 +26,7 @@ pub struct LLVMCodeGen {
   context: LLVMContextRef,
   module: LLVMModuleRef,
   builder: LLVMBuilderRef,
+  i1_t: LLVMTypeRef,
   i32_t: LLVMTypeRef,
   i8_t: LLVMTypeRef,
   void_t: LLVMTypeRef,
@@ -40,6 +41,7 @@ pub struct LLVMCodeGen {
   strcmp: LLVMValueRef,
   memset: LLVMValueRef,
   memcpy: LLVMValueRef,
+  exit: LLVMValueRef,
   string_pool: HashMap<String, LLVMValueRef>,
   break_stack: Vec<LLVMBasicBlockRef>,
 }
@@ -50,6 +52,7 @@ impl LLVMCodeGen {
       let context = LLVMContextCreate();
       let module = LLVMModuleCreateWithNameInContext(cstr!("Decaf Program"), context);
       let builder = LLVMCreateBuilderInContext(context);
+      let i1_t = LLVMInt1TypeInContext(context);
       let i32_t = LLVMInt32TypeInContext(context);
       let i8_t = LLVMInt8TypeInContext(context);
       let void_t = LLVMVoidTypeInContext(context);
@@ -62,10 +65,12 @@ impl LLVMCodeGen {
       let strcmp = LLVMAddFunction(module, cstr!("strcmp"), LLVMFunctionType(i32_t, [str_t, str_t].as_mut_ptr(), 2, 0));
       let memset = LLVMAddFunction(module, cstr!("memset"), LLVMFunctionType(str_t, [str_t, i32_t, i64_t].as_mut_ptr(), 3, 0));
       let memcpy = LLVMAddFunction(module, cstr!("memcpy"), LLVMFunctionType(str_t, [str_t, str_t, i64_t].as_mut_ptr(), 3, 0));
-      let mut code_gen = LLVMCodeGen { context, module, builder, i32_t, i8_t, void_t, str_t, i64_t, i32_0, cur_fn: ptr::null_mut(), malloc, printf, scanf, strcmp, memset, memcpy, string_pool: HashMap::new(), break_stack: Vec::new() };
+      let exit = LLVMAddFunction(module, cstr!("exit"), LLVMFunctionType(void_t, [i32_t].as_mut_ptr(), 1, 0));
+      let mut code_gen = LLVMCodeGen { context, module, builder, i1_t, i32_t, i8_t, void_t, str_t, i64_t, i32_0, cur_fn: ptr::null_mut(), malloc, printf, scanf, strcmp, memset, memcpy, exit, string_pool: HashMap::new(), break_stack: Vec::new() };
       code_gen.program(&mut program);
-      LLVMDisposeBuilder(code_gen.builder);
-      LLVMDumpModule(code_gen.module);
+      LLVMDisposeBuilder(builder);
+      LLVMDumpModule(module);
+      LLVMContextDispose(context);
     }
   }
 }
@@ -80,6 +85,41 @@ impl LLVMCodeGen {
     let len = LLVMBuildGEP(self.builder, arr, [LLVMConstInt(self.i32_t, -1i64 as u64, 1)].as_mut_ptr(), 1, T);
     LLVMBuildLoad(self.builder, len, T)
   }
+
+  unsafe fn instance_of(&self, object: LLVMValueRef, target_v_tbl: LLVMValueRef) -> LLVMValueRef {
+    // ret = 0
+    // while (cur)
+    //   if cur == target
+    //     ret = 1
+    //     break
+    //   cur = cur->parent
+    let builder = self.builder;
+    let target_v_tbl = LLVMBuildPtrToInt(builder, target_v_tbl, self.i64_t, T);
+    let v_tbl = LLVMBuildAlloca(builder, self.i64_t, T);
+    let ret = LLVMBuildAlloca(builder, self.i1_t, T);
+    let (before_cond, before_body, after_body) = (LLVMAppendBasicBlockInContext(self.context, self.cur_fn, T), LLVMAppendBasicBlockInContext(self.context, self.cur_fn, T), LLVMAppendBasicBlockInContext(self.context, self.cur_fn, T));
+    let (on_eq, after_if) = (LLVMAppendBasicBlockInContext(self.context, self.cur_fn, T), LLVMAppendBasicBlockInContext(self.context, self.cur_fn, T));
+    LLVMBuildStore(builder, LLVMConstInt(self.i1_t, 0, 0), ret);
+    LLVMBuildStore(builder, LLVMBuildPtrToInt(builder, LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, object, 0, T), T), self.i64_t, T), v_tbl);
+    LLVMBuildBr(builder, before_cond);
+    LLVMPositionBuilderAtEnd(builder, before_cond);
+    let v_tbl_load = LLVMBuildLoad(builder, v_tbl, T);
+    LLVMBuildCondBr(builder, LLVMBuildICmp(builder, LLVMIntPredicate::LLVMIntEQ, v_tbl_load, LLVMConstInt(self.i64_t, 0, 0), T),
+                    before_body, after_body);
+    LLVMPositionBuilderAtEnd(builder, before_body);
+    LLVMBuildCondBr(builder, LLVMBuildICmp(builder, LLVMIntPredicate::LLVMIntEQ, v_tbl_load, target_v_tbl, T),
+                    on_eq, after_if);
+    LLVMPositionBuilderAtEnd(builder, on_eq);
+    LLVMBuildStore(builder, LLVMConstInt(self.i1_t, 1, 0), ret);
+    LLVMBuildBr(builder, after_body);
+    LLVMPositionBuilderAtEnd(builder, after_if);
+    LLVMBuildStore(builder, LLVMBuildLoad(builder, LLVMBuildGEP(builder, LLVMBuildIntToPtr(builder, v_tbl_load, ptr_of(self.i64_t), T),
+                                                                [self.i32_0].as_mut_ptr(), 1, T), T), v_tbl);
+    LLVMBuildBr(builder, before_cond);
+    LLVMPositionBuilderAtEnd(builder, after_body);
+    LLVMBuildLoad(builder, ret, T)
+  }
+
 
   unsafe fn to_i8_ptr(&self, val: LLVMValueRef) -> LLVMValueRef {
     LLVMBuildBitCast(self.builder, val, self.str_t, T)
@@ -99,7 +139,7 @@ impl LLVMCodeGen {
   unsafe fn type_of(&self, type_: &SemanticType) -> LLVMTypeRef {
     match type_ {
       SemanticType::Int => self.i32_t,
-      SemanticType::Bool => self.i8_t,
+      SemanticType::Bool => self.i1_t,
       SemanticType::Void => self.void_t,
       SemanticType::String => self.str_t,
       SemanticType::Object(class) => ptr_of(class.get().llvm_t),
@@ -179,7 +219,7 @@ impl LLVMCodeGen {
     self.block(&mut method.body);
     match &method.ret_t.sem {
       SemanticType::Int => LLVMBuildRet(builder, self.i32_0),
-      SemanticType::Bool => LLVMBuildRet(builder, LLVMConstInt(self.i8_t, 0, 0)),
+      SemanticType::Bool => LLVMBuildRet(builder, LLVMConstInt(self.i1_t, 0, 0)),
       SemanticType::Void => LLVMBuildRetVoid(builder),
       SemanticType::String | SemanticType::Object(_) | SemanticType::Array(_) => LLVMBuildRet(builder, LLVMConstNull(self.type_of(&method.ret_t.sem))),
       _ => unreachable!(),
@@ -366,7 +406,7 @@ impl LLVMCodeGen {
         LLVMBuildLoad(builder, ptr, T)
       }
       IntConst(v) => LLVMConstInt(self.i32_t, *v as u64, 0),
-      BoolConst(v) => LLVMConstInt(self.i8_t, if *v { 1 } else { 0 }, 0),
+      BoolConst(v) => LLVMConstInt(self.i1_t, if *v { 1 } else { 0 }, 0),
       StringConst(v) => self.define_str(v),
       ArrayConst(_) => unimplemented!(),
       Null => LLVMConstNull(self.str_t), // will be casted to other pointer type when using the value(assign, param, ...)
@@ -460,19 +500,42 @@ impl LLVMCodeGen {
         let arr = LLVMBuildGEP(builder, arr_base, [LLVMSizeOf(self.i32_t)].as_mut_ptr(), 1, T);
         LLVMBuildBitCast(builder, arr, ptr_of(elem_t), T)
       }
-      TypeTest { expr: src, name: _ } => {
+      TypeTest { expr: src, name: _, target_class } => {
         self.expr(src);
-        unimplemented!()
+        self.instance_of(src.llvm_val, target_class.get().llvm_v_tbl)
       }
-      TypeCast { name: _, expr: src } => {
+      TypeCast { name, expr: src } => {
         self.expr(src);
-        unimplemented!()
+        let target_t = expr.type_.get_class();
+        let (on_false, after) = (LLVMAppendBasicBlockInContext(self.context, self.cur_fn, T), LLVMAppendBasicBlockInContext(self.context, self.cur_fn, T));
+        LLVMBuildCondBr(builder, self.instance_of(src.llvm_val, target_t.llvm_v_tbl), after, on_false);
+        LLVMPositionBuilderAtEnd(builder, on_false);
+        let v_tbl = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, src.llvm_val, 0, T), T);
+        let obj_name = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, v_tbl, 1, T), T);
+        LLVMBuildCall(builder, self.printf, [self.define_str("Decaf runtime error: %s cannot be cast to %s\n"), obj_name, self.define_str(name)].as_mut_ptr(), 3, T);
+        LLVMBuildCall(builder, self.exit, [self.i32_0].as_mut_ptr(), 1, T);
+        LLVMBuildBr(builder, after);
+        LLVMPositionBuilderAtEnd(builder, after);
+        LLVMBuildBitCast(builder, src.llvm_val, ptr_of(target_t.llvm_t), T)
       }
       Range(_) => unimplemented!(),
       Default(default) => {
         self.expr(&mut default.arr);
         self.expr(&mut default.idx);
-        unimplemented!()
+        let res = LLVMBuildAlloca(builder, self.type_of(&expr.type_), T);
+        let (use_idx, use_dft, after) = (LLVMAppendBasicBlockInContext(self.context, self.cur_fn, T), LLVMAppendBasicBlockInContext(self.context, self.cur_fn, T), LLVMAppendBasicBlockInContext(self.context, self.cur_fn, T));
+        let len = self.array_length(default.arr.llvm_val);
+        LLVMBuildCondBr(builder, LLVMBuildICmp(builder, LLVMIntPredicate::LLVMIntUGE, default.idx.llvm_val, len, T), use_dft, use_idx);
+        LLVMPositionBuilderAtEnd(builder, use_dft);
+        self.expr(&mut default.dft);
+        LLVMBuildStore(builder, default.dft.llvm_val, res);
+        LLVMBuildBr(builder, after);
+        LLVMPositionBuilderAtEnd(builder, use_idx);
+        let ptr = LLVMBuildGEP(builder, default.arr.llvm_val, [default.idx.llvm_val].as_mut_ptr(), 1, T);
+        LLVMBuildStore(builder, LLVMBuildLoad(builder, ptr, T), res);
+        LLVMBuildBr(builder, after);
+        LLVMPositionBuilderAtEnd(builder, after);
+        res
       }
       Comprehension(_) => unimplemented!(),
     };

@@ -249,13 +249,14 @@ impl TypeChecker {
         self.expr(len);
         if !len.type_.error_or(&INT) { self.issue(len.loc, BadNewArrayLen {}); }
       }
-      TypeTest { expr: src, name } => {
+      TypeTest { expr: src, name, target_class } => {
         self.expr(src);
         if src.type_ != ERROR && !src.type_.is_object() {
           self.issue(expr.loc, NotObject { type_: src.type_.to_string() });
         }
-        if self.scopes.lookup_class(name).is_none() {
-          self.issue(expr.loc, NoSuchClass { name });
+        match self.scopes.lookup_class(name) {
+          Some(class) => *target_class = class.as_class(),
+          None => self.issue(expr.loc, NoSuchClass { name }),
         }
       }
       TypeCast { name, expr: src } => {
@@ -265,7 +266,7 @@ impl TypeChecker {
         }
         // doesn't need to set type to error because it originally was
         match self.scopes.lookup_class(name) {
-          Some(class) => src.type_ = class.get_type(),
+          Some(class) => expr.type_ = class.get_type(),
           None => self.issue(expr.loc, NoSuchClass { name }),
         }
       }

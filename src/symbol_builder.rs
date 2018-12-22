@@ -8,12 +8,6 @@ use super::util::*;
 use std::default::Default as D;
 use std::ptr;
 
-macro_rules! issue {
-    ($rec:expr, $loc: expr, $err: expr) => {
-        $rec.errors.push(Error::new($loc, $err));
-    };
-}
-
 pub struct SymbolBuilder {
   errors: Vec<Error>,
   scopes: ScopeStack,
@@ -50,6 +44,10 @@ impl SymbolBuilder {
 }
 
 impl SymbolBuilder {
+  fn issue<E: IError + 'static>(&mut self, loc: Loc, error: E) {
+    self.errors.push(Error::new(loc, error));
+  }
+
   fn check_override(&mut self, class_def: &mut ClassDef) {
     if class_def.checked || class_def.p_ptr.is_null() { return; }
     let parent = class_def.p_ptr.get();
@@ -62,14 +60,14 @@ impl SymbolBuilder {
         Some((parent_symbol, _)) if !parent_symbol.is_class() =>
           if (parent_symbol.is_var() && symbol.is_method()) ||
             (parent_symbol.is_method() && symbol.is_var()) {
-            issue!(self, symbol.get_loc(), ConflictDeclaration { earlier: parent_symbol.get_loc(), name });
+            self.issue(symbol.get_loc(), ConflictDeclaration { earlier: parent_symbol.get_loc(), name });
             false
           } else if parent_symbol.is_method() {
             // here symbol.is_method() must also be true
             let parent_symbol = parent_symbol.as_method();
             let symbol = symbol.as_method();
             if parent_symbol.static_ || symbol.static_ {
-              issue!(self, symbol.loc, ConflictDeclaration { earlier: parent_symbol.loc, name });
+              self.issue(symbol.loc, ConflictDeclaration { earlier: parent_symbol.loc, name });
               false
             } else if !symbol.ret_t.assignable_to(&parent_symbol.ret_t)
               || symbol.param.len() != parent_symbol.param.len()
@@ -84,13 +82,13 @@ impl SymbolBuilder {
               }
               unfit
             } {
-              issue!(self, symbol.loc, BadOverride { method: name, parent: parent.name });
+              self.issue(symbol.loc, BadOverride { method: name, parent: parent.name });
               false
             } else {
               true
             }
           } else if parent_symbol.is_var() {
-            issue!(self, symbol.get_loc(), OverrideVar { name });
+            self.issue(symbol.get_loc(), OverrideVar { name });
             false
           } else {
             true
@@ -113,7 +111,7 @@ impl SymbolBuilder {
           _ => false,
         })
       } {
-        issue!(self, loc, ConflictDeclaration { earlier: symbol.get_loc(), name, });
+        self.issue(loc, ConflictDeclaration { earlier: symbol.get_loc(), name });
         false
       } else { true }
     } else { true }
@@ -147,7 +145,7 @@ impl SymbolBuilder {
     self.scopes.open(&mut program.scope);
     for class_def in &mut program.class {
       if let Some(earlier) = self.scopes.lookup_class(class_def.name) {
-        issue!(self, class_def.loc, ConflictDeclaration { earlier: earlier.get_loc(), name: class_def.name });
+        self.issue(class_def.loc, ConflictDeclaration { earlier: earlier.get_loc(), name: class_def.name });
       } else {
         self.scopes.declare(Symbol::Class(class_def));
       }
@@ -159,14 +157,14 @@ impl SymbolBuilder {
           let parent_ref = parent_ref.as_class();
           class_def.p_ptr = parent_ref;
           if calc_order(class_def) <= calc_order(parent_ref) {
-            issue!(self, class_def.loc, CyclicInheritance{});
+            self.issue(class_def.loc, CyclicInheritance {});
             class_def.p_ptr = ptr::null_mut();
           } else if parent_ref.sealed {
-            issue!(self, class_def.loc, SealedInheritance{});
+            self.issue(class_def.loc, SealedInheritance {});
             class_def.p_ptr = ptr::null_mut();
           }
         } else {
-          issue!(self, class_def.loc, NoSuchClass { name: parent });
+          self.issue(class_def.loc, NoSuchClass { name: parent });
         }
       }
     }
@@ -184,7 +182,7 @@ impl SymbolBuilder {
 
     for class_def in &mut program.class { self.check_override(class_def); }
 
-    if !self.check_main(program.main) { issue!(self, NO_LOC, NoMainClass{}); }
+    if !self.check_main(program.main) { self.issue(NO_LOC, NoMainClass {}); }
   }
 
   fn class_def(&mut self, class_def: &mut ClassDef) {
@@ -201,7 +199,7 @@ impl SymbolBuilder {
   fn method_def(&mut self, method_def: &mut MethodDef) {
     self.type_(&mut method_def.ret_t);
     if let Some((earlier, _)) = self.scopes.lookup(method_def.name, false) {
-      issue!(self, method_def.loc, ConflictDeclaration { earlier: earlier.get_loc(), name: method_def.name });
+      self.issue(method_def.loc, ConflictDeclaration { earlier: earlier.get_loc(), name: method_def.name });
     } else {
       self.scopes.declare(Symbol::Method(method_def as *mut _));
     }
@@ -262,7 +260,7 @@ impl SymbolBuilder {
   fn var_def(&mut self, var_def: &mut VarDef) {
     self.type_(&mut var_def.type_);
     if var_def.type_.sem == VOID {
-      issue!(self, var_def.loc, VoidVar { name: var_def.name });
+      self.issue(var_def.loc, VoidVar { name: var_def.name });
       return;
     }
     if self.check_var_declaration(var_def.name, var_def.loc) {

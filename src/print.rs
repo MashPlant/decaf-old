@@ -243,7 +243,7 @@ make_ast_data!(self, p,
       ReadLine => { p.println("readline"); },
       NewClass{ name } => { p.print("newobj").println(name); },
       NewArray{ elem_t, len } => { p.print("newarray").accept(&elem_t.sem).newline().inc_indent().accept(len.as_ref()).dec_indent(); }
-      TypeTest{ expr, name } => { p.println("instanceof").inc_indent().accept(expr.as_ref()).println(name).dec_indent(); }
+      TypeTest{ expr, name, target_class: _ } => { p.println("instanceof").inc_indent().accept(expr.as_ref()).println(name).dec_indent(); }
       TypeCast{ name, expr } => { p.println("classcast").inc_indent().println(name).accept(expr.as_ref()).dec_indent(); }
       Range(range) => range.print_ast(p),
       Default(default) => default.print_ast(p),

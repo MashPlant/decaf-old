@@ -2269,7 +2269,7 @@ impl Parser {
     let mut _3 = pop!(self.values_stack, _15);
     self.values_stack.pop();
     let mut _1 = pop!(self.values_stack, _0);
-    let _0 = Expr::new(_1.get_loc(), ExprData::TypeTest { expr: Box::new(_3), name: _5.value });
+    let _0 = Expr::with_type(_1.get_loc(), BOOL, ExprData::TypeTest { expr: Box::new(_3), name: _5.value, target_class: ptr::null() });
     SV::_15(_0)
   }
 

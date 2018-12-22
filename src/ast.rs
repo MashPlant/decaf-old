@@ -380,6 +380,7 @@ pub enum ExprData {
   TypeTest {
     expr: Box<Expr>,
     name: &'static str,
+    target_class: *const ClassDef,
   },
   TypeCast {
     name: &'static str,
