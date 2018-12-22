@@ -32,11 +32,14 @@ pub struct LLVMCodeGen {
   i8_t: LLVMTypeRef,
   void_t: LLVMTypeRef,
   str_t: LLVMTypeRef,
+  i64_t: LLVMTypeRef,
+  i32_0: LLVMValueRef,
   cur_this: LLVMValueRef,
-  // c std library functions(malloc, memset can be built without declare)
+  // c std library functions(malloc can be built without declare)
   printf: LLVMValueRef,
   scanf: LLVMValueRef,
   strcmp: LLVMValueRef,
+  memset: LLVMValueRef,
 }
 
 impl LLVMCodeGen {
@@ -49,10 +52,13 @@ impl LLVMCodeGen {
       let i8_t = LLVMInt8TypeInContext(context);
       let void_t = LLVMVoidTypeInContext(context);
       let str_t = ptr_of(i8_t);
+      let i64_t = LLVMInt64TypeInContext(context);
+      let i32_0 = LLVMConstInt(i32_t, 0, 0);
       let printf = LLVMAddFunction(module, cstr!("printf"), LLVMFunctionType(i32_t, [str_t].as_mut_ptr(), 1, 1));
       let scanf = LLVMAddFunction(module, cstr!("scanf"), LLVMFunctionType(i32_t, [str_t].as_mut_ptr(), 1, 1));
       let strcmp = LLVMAddFunction(module, cstr!("strcmp"), LLVMFunctionType(i32_t, [str_t, str_t].as_mut_ptr(), 2, 0));
-      let mut code_gen = LLVMCodeGen { context, module, builder, i32_t, i8_t, void_t, str_t, cur_this: ptr::null_mut(), printf, scanf, strcmp };
+      let memset = LLVMAddFunction(module, cstr!("memset"), LLVMFunctionType(str_t, [str_t, i32_t, i64_t].as_mut_ptr(), 3, 0));
+      let mut code_gen = LLVMCodeGen { context, module, builder, i32_t, i8_t, void_t, str_t, i64_t, i32_0, cur_this: ptr::null_mut(), printf, scanf, strcmp, memset };
       code_gen.program(&mut program);
       LLVMDisposeBuilder(code_gen.builder);
       LLVMDumpModule(code_gen.module);
@@ -199,7 +205,8 @@ impl LLVMCodeGen {
             }
           }
           ExprData::Indexed(indexed) => {
-            let ptr = LLVMBuildAdd(builder, indexed.arr.llvm_val, indexed.idx.llvm_val, T);
+            let ptr = LLVMBuildGEP(builder, indexed.arr.llvm_val,
+                                   [LLVMConstInt(self.i32_t, 0, 0), indexed.idx.llvm_val].as_mut_ptr(), 2, T);
             LLVMBuildStore(builder, assign.src.llvm_val, ptr);
           }
           _ => unreachable!(),
@@ -220,10 +227,10 @@ impl LLVMCodeGen {
   unsafe fn expr(&self, expr: &mut Expr) {
     use ast::ExprData::*;
     let builder = self.builder;
-    match &mut expr.data {
+    expr.llvm_val = match &mut expr.data {
       Id(id) => {
         let var_def = id.symbol.get();
-        expr.llvm_val = match var_def.scope.get().kind {
+        match var_def.scope.get().kind {
           ScopeKind::Local(_) | ScopeKind::Parameter(_) => LLVMBuildLoad(builder, var_def.llvm_val, T),
           ScopeKind::Class(_) => {
             let owner = id.owner.as_mut().unwrap();
@@ -236,61 +243,24 @@ impl LLVMCodeGen {
       Indexed(indexed) => {
         self.expr(&mut indexed.arr);
         self.expr(&mut indexed.idx);
-//        let check = self.check_array_index(indexed.arr.tac_reg, indexed.idx.tac_reg);
-//        self.out_of_bound_to_fill.push(self.cur_method.get().len() as i32);
-//        self.push(Tac::Je(check, -1)); // jump where not determined yet
-//        if !indexed.for_assign { // not used, but still check index here
-//          expr.tac_reg = self.array_at(indexed.arr.tac_reg, indexed.idx.tac_reg);
-//        }
+        let ptr = LLVMBuildGEP(builder, indexed.arr.llvm_val, [self.i32_0, indexed.idx.llvm_val].as_mut_ptr(), 2, T);
+        LLVMBuildLoad(builder, ptr, T)
       }
-      IntConst(v) => {
-//        expr.tac_reg = self.new_reg();
-//        self.push(Tac::IntConst(expr.tac_reg, *v));
-      }
-      BoolConst(v) => {
-//        expr.tac_reg = if *v { self.int_const(1) } else { self.int_const(0) };
-      }
+      IntConst(v) => LLVMConstInt(self.i32_t, *v as u64, 0),
+      BoolConst(v) => LLVMConstInt(self.i8_t, if *v { 1 } else { 0 }, 0),
       StringConst(v) => {
-//        expr.tac_reg = self.new_reg();
-//        self.push(Tac::StrConst(expr.tac_reg, quote(v)));
+        let s = LLVMAddGlobal(self.module, LLVMArrayType(self.i8_t, v.len() as u32 + 1), cstr!("str"));
+        LLVMSetInitializer(s, LLVMConstStringInContext(self.context, cstring!(v.clone()), v.len() as u32, 0));
+        LLVMConstGEP(s, [self.i32_0, self.i32_0, ].as_mut_ptr(), 2)
       }
       ArrayConst(_) => unimplemented!(),
-      Null => {
-//        expr.tac_reg = self.int_const(0);
-      }
+      Null => LLVMConstNull(self.str_t), // will be casted to other pointer type when using the value(assign, param, ...)
       Call(call) => {
-//        if call.is_arr_len {
-//          let owner = call.owner.as_mut().unwrap();
-//          self.expr(owner);
-//          expr.tac_reg = self.array_length(owner.tac_reg);
-//        } else {
-//          let method = call.method.get();
-//          let class = method.class.get();
-//          expr.tac_reg = if method.ret_t.sem != VOID { self.new_reg() } else { -1 };
-//          if method.static_ {
-//            // fuck vm spec
-//            // 'parm' can only be consecutive for one call, there cannot be other call in this process
-//            // e.g. my old version: f(1, x[0]) : parm 1 => (if <out of bound> call _Halt) => parm x[0]
-//            // which caused error
-//            for arg in &mut call.arg { self.expr(arg); }
-//            for arg in &mut call.arg { self.push(Tac::Param(arg.tac_reg)); }
-//            self.push(Tac::DirectCall(expr.tac_reg, format!("_{}.{}", class.name, method.name)));
-//          } else {
-//            let owner = call.owner.as_mut().unwrap();
-//            self.expr(owner);
-//            for arg in &mut call.arg { self.expr(arg); }
-//            self.push(Tac::Param(owner.tac_reg));
-//            for arg in &mut call.arg { self.push(Tac::Param(arg.tac_reg)); }
-//            let slot = self.new_reg();
-//            self.push(Tac::Load(slot, owner.tac_reg, 0));
-//            self.push(Tac::Load(slot, slot, (method.offset + 2) * INT_SIZE));
-//            self.push(Tac::IndirectCall(expr.tac_reg, slot));
-//          }
-//        }
+        unimplemented!()
       }
       Unary(unary) => {
         self.expr(&mut unary.r);
-        expr.llvm_val = match unary.op {
+        match unary.op {
           Operator::Neg => LLVMBuildNeg(builder, unary.r.llvm_val, T),
           Operator::Not => LLVMBuildNot(builder, unary.r.llvm_val, T),
           _ => unimplemented!(),
@@ -301,7 +271,7 @@ impl LLVMCodeGen {
         self.expr(&mut binary.l);
         self.expr(&mut binary.r);
         let (l, r) = (binary.l.llvm_val, binary.r.llvm_val);
-        expr.llvm_val = match binary.op {
+        match binary.op {
           Add => LLVMBuildAdd(builder, l, r, T),
           Sub => LLVMBuildSub(builder, l, r, T),
           Mul => LLVMBuildMul(builder, l, r, T),
@@ -328,88 +298,38 @@ impl LLVMCodeGen {
           _ => unimplemented!(),
         }
       }
-      This => expr.llvm_val = self.cur_this,
+      This => self.cur_this,
       ReadInt => {
-//        expr.tac_reg = self.intrinsic_call(READ_INT);
+        unimplemented!()
       }
       ReadLine => {
-//        expr.tac_reg = self.intrinsic_call(READ_LINE);
+        unimplemented!()
       }
       NewClass { name } => {
-//        expr.tac_reg = self.new_reg();
-//        self.push(Tac::DirectCall(expr.tac_reg, format!("_{}_New", name)));
+        let obj_t = self.type_of(&expr.type_);
+        let obj = LLVMBuildMalloc(builder, obj_t, T);
+        LLVMBuildCall(builder, self.memset, [obj, self.i32_0, LLVMSizeOf(obj_t)].as_mut_ptr(), 3, T);
+        let v_tbl = LLVMBuildStructGEP(builder, obj, 0, T);
+        LLVMBuildStore(builder, expr.type_.get_class().llvm_v_tbl, v_tbl);
+        obj
       }
       NewArray { elem_t: _, len } => {
         self.expr(len);
-//        let (halt, before_cond, finish) = (self.new_label(), self.new_label(), self.new_label());
-//        let (zero, int_size, cmp, i, msg) = (self.int_const(0), self.int_const(INT_SIZE), self.new_reg(), self.new_reg(), self.new_reg());
-//        self.push(Tac::Lt(cmp, len.tac_reg, zero));
-//        self.push(Tac::Jne(cmp, halt));
-//        self.push(Tac::Mul(i, len.tac_reg, int_size));
-//        self.push(Tac::Add(i, i, int_size)); // allocate (len + 1) * INT_SIZE
-//        self.push(Tac::Param(i));
-//        expr.tac_reg = self.intrinsic_call(ALLOCATE);
-//        self.push(Tac::Add(i, expr.tac_reg, i));
-//        self.push(Tac::Label(before_cond));
-//        self.push(Tac::Sub(i, i, int_size));
-//        self.push(Tac::Eq(cmp, i, expr.tac_reg));
-//        self.push(Tac::Jne(cmp, finish));
-//        self.push(Tac::Store(i, 0, zero));
-//        self.push(Tac::Jmp(before_cond));
-//        self.push(Tac::Label(halt));
-//        self.push(Tac::StrConst(msg, quote(NEGATIVE_ARRAY_SIZE)));
-//        self.push(Tac::Param(msg));
-//        self.intrinsic_call(PRINT_STRING);
-//        self.intrinsic_call(HALT);
-//        self.push(Tac::Label(finish));
-//        self.push(Tac::Store(i, 0, len.tac_reg)); // array[-1] = len
-//        self.push(Tac::Add(expr.tac_reg, expr.tac_reg, int_size));
+        unimplemented!()
       }
       TypeTest { expr: src, name } => {
         self.expr(src);
-//        expr.tac_reg = self.instance_of(src.tac_reg, name);
+        unimplemented!()
       }
       TypeCast { name, expr: src } => {
         self.expr(src);
-//        expr.tac_reg = src.tac_reg;
-//        let check = self.instance_of(src.tac_reg, name);
-//        let ok = self.new_label();
-//        let (msg, v_tbl) = (self.new_reg(), self.new_reg());
-//        self.push(Tac::Jne(check, ok));
-//        self.push(Tac::StrConst(msg, quote(CLASS_CAST1)));
-//        self.push(Tac::Param(msg));
-//        self.intrinsic_call(PRINT_STRING);
-//        self.push(Tac::Load(v_tbl, src.tac_reg, 0));
-//        self.push(Tac::Load(msg, v_tbl, INT_SIZE)); // name info is in v-table[1]
-//        self.push(Tac::Param(msg));
-//        self.intrinsic_call(PRINT_STRING);
-//        self.push(Tac::StrConst(msg, quote(CLASS_CAST2)));
-//        self.push(Tac::Param(msg));
-//        self.intrinsic_call(PRINT_STRING);
-//        self.push(Tac::StrConst(msg, quote(name)));
-//        self.push(Tac::Param(msg));
-//        self.intrinsic_call(PRINT_STRING);
-//        self.push(Tac::StrConst(msg, quote(CLASS_CAST3)));
-//        self.push(Tac::Param(msg));
-//        self.intrinsic_call(PRINT_STRING);
-//        self.intrinsic_call(HALT);
-//        self.push(Tac::Label(ok));
+        unimplemented!()
       }
       Range(_) => unimplemented!(),
       Default(default) => {
         self.expr(&mut default.arr);
         self.expr(&mut default.idx);
-//        expr.tac_reg = self.new_reg();
-//        let (use_dft, after) = (self.new_label(), self.new_label());
-//        let check = self.check_array_index(default.arr.tac_reg, default.idx.tac_reg);
-//        self.push(Tac::Je(check, use_dft));
-//        let idx_res = self.array_at(default.arr.tac_reg, default.idx.tac_reg);
-//        self.push(Tac::Assign(expr.tac_reg, idx_res));
-//        self.push(Tac::Jmp(after));
-//        self.push(Tac::Label(use_dft));
-//        self.expr(&mut default.dft);
-//        self.push(Tac::Assign(expr.tac_reg, default.dft.tac_reg));
-//        self.push(Tac::Label(after));
+        unimplemented!()
       }
       Comprehension(_) => unimplemented!(),
     };
