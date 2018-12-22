@@ -75,6 +75,12 @@ unsafe fn ptr_of(type_: LLVMTypeRef) -> LLVMTypeRef {
 }
 
 impl LLVMCodeGen {
+  unsafe fn array_length(&self, arr: LLVMValueRef) -> LLVMValueRef {
+    let arr = LLVMBuildBitCast(self.builder, arr, ptr_of(self.i32_t), T);
+    let len = LLVMBuildGEP(self.builder, arr, [LLVMConstInt(self.i32_t, -1i64 as u64, 1)].as_mut_ptr(), 1, T);
+    LLVMBuildLoad(self.builder, len, T)
+  }
+
   unsafe fn to_i8_ptr(&self, val: LLVMValueRef) -> LLVMValueRef {
     LLVMBuildBitCast(self.builder, val, self.str_t, T)
   }
@@ -106,6 +112,7 @@ impl LLVMCodeGen {
   unsafe fn make_struct_type(&mut self, class: &mut ClassDef) {
     if !class.llvm_t.is_null() { return; }
     if !class.p_ptr.is_null() { self.make_struct_type(class.p_ptr.get()); }
+    // determine class field
     class.llvm_t = LLVMStructCreateNamed(self.context, cstring!(class.name));
     class.llvm_v_tbl_t = LLVMStructCreateNamed(self.context, cstring!(format!("{}_VTableT", class.name)));
     let mut elem_t;
@@ -128,6 +135,7 @@ impl LLVMCodeGen {
       }
     }
     LLVMStructSetBody(class.llvm_t, elem_t.as_mut_ptr(), elem_t.len() as u32, 0);
+    // determine v table
     class.llvm_v_tbl = LLVMAddGlobal(self.module, class.llvm_v_tbl_t, cstring!(format!("{}_VTable", class.name)));
     let mut v_tbl_elem_t = vec![if class.p_ptr.is_null() { self.str_t } else { ptr_of(class.p_ptr.get().llvm_v_tbl_t) }, self.str_t];
     let mut v_tbl_elem = vec![if class.p_ptr.is_null() { LLVMConstNull(self.str_t) } else { class.p_ptr.get().llvm_v_tbl },
@@ -238,7 +246,7 @@ impl LLVMCodeGen {
           _ => unreachable!(),
         };
       }
-      Stmt::Break(break_) => {
+      Stmt::Break(_) => {
         let after_break = LLVMAppendBasicBlockInContext(self.context, self.cur_fn, T);
         LLVMBuildBr(builder, *self.break_stack.last().unwrap());
         LLVMPositionBuilderAtEnd(builder, after_break);
@@ -251,10 +259,39 @@ impl LLVMCodeGen {
         LLVMBuildStore(builder, obj, s_copy.dst_sym.get().llvm_val);
       }
       Stmt::Foreach(foreach) => {
-        unimplemented!()
+        self.expr(&mut foreach.arr);
+        let i = LLVMBuildAlloca(builder, self.i32_t, T);
+        LLVMBuildStore(builder, self.i32_0, i); // REMEMBER TO INITIALIZE
+        let one = LLVMConstInt(self.i32_t, 1, 0);
+        let len = self.array_length(foreach.arr.llvm_val);
+        let (before_i, before_cond, before_body, after_body) = (LLVMAppendBasicBlockInContext(self.context, self.cur_fn, T), LLVMAppendBasicBlockInContext(self.context, self.cur_fn, T), LLVMAppendBasicBlockInContext(self.context, self.cur_fn, T), LLVMAppendBasicBlockInContext(self.context, self.cur_fn, T));
+        LLVMBuildBr(builder, before_i);
+        LLVMPositionBuilderAtEnd(builder, before_i);
+        let load_i = LLVMBuildLoad(builder, i, T);
+        LLVMBuildCondBr(builder, LLVMBuildICmp(builder, LLVMIntPredicate::LLVMIntSLT, load_i, len, T), before_cond, after_body);
+        LLVMPositionBuilderAtEnd(builder, before_cond);
+        foreach.def.llvm_val = LLVMBuildGEP(builder, foreach.arr.llvm_val, [load_i].as_mut_ptr(), 1, T);
+        if let Some(cond) = &mut foreach.cond {
+          self.expr(cond);
+          LLVMBuildCondBr(builder, cond.llvm_val, before_body, after_body);
+        } else {
+          LLVMBuildBr(builder, before_body);
+        }
+        LLVMPositionBuilderAtEnd(builder, before_body);
+        self.break_stack.push(after_body);
+        self.block(&mut foreach.body);
+        self.break_stack.pop();
+        LLVMBuildStore(builder, LLVMBuildAdd(builder, load_i, one, T), i);
+        LLVMBuildBr(builder, before_i);
+        LLVMPositionBuilderAtEnd(builder, after_body);
       }
-      Stmt::Guarded(guarded) => {
-        unimplemented!()
+      Stmt::Guarded(guarded) => for (e, b) in &mut guarded.guarded {
+        let (on_true, on_false) = (LLVMAppendBasicBlockInContext(self.context, self.cur_fn, T), LLVMAppendBasicBlockInContext(self.context, self.cur_fn, T));
+        self.expr(e);
+        LLVMBuildCondBr(builder, e.llvm_val, on_true, on_false);
+        LLVMPositionBuilderAtEnd(builder, on_true);
+        self.block(b);
+        LLVMPositionBuilderAtEnd(builder, on_false);
       }
       Stmt::Block(block) => self.block(block),
     }
@@ -336,12 +373,9 @@ impl LLVMCodeGen {
       Call(call) => if call.is_arr_len {
         let owner = call.owner.as_mut().unwrap();
         self.expr(owner);
-        let arr = LLVMBuildBitCast(builder, owner.llvm_val, ptr_of(self.i32_t), T);
-        let len = LLVMBuildGEP(builder, arr, [LLVMConstNeg(LLVMSizeOf(self.i32_t))].as_mut_ptr(), 1, T);
-        LLVMBuildLoad(builder, len, T)
+        self.array_length(owner.llvm_val)
       } else {
         let method = call.method.get();
-        let class = method.class.get();
         if method.static_ {
           // here method.llvm_val is meaningful, just call it
           let mut arg = call.arg.iter_mut().map(|e| { (self.expr(e), e.llvm_val).1 })
@@ -375,6 +409,7 @@ impl LLVMCodeGen {
           Sub => LLVMBuildSub(builder, l, r, T),
           Mul => LLVMBuildMul(builder, l, r, T),
           Div => LLVMBuildSDiv(builder, l, r, T),
+          Mod => LLVMBuildSRem(builder, l, r, T),
           Lt => LLVMBuildICmp(builder, LLVMIntPredicate::LLVMIntSLT, l, r, T),
           Le => LLVMBuildICmp(builder, LLVMIntPredicate::LLVMIntSLE, l, r, T),
           Gt => LLVMBuildICmp(builder, LLVMIntPredicate::LLVMIntSGT, l, r, T),
@@ -407,7 +442,7 @@ impl LLVMCodeGen {
       ReadLine => {
         unimplemented!()
       }
-      NewClass { name } => {
+      NewClass { name: _ } => {
         let obj_t = expr.type_.get_class().llvm_t;
         let obj = LLVMBuildMalloc(builder, obj_t, T);
         LLVMBuildCall(builder, self.memset, [self.to_i8_ptr(obj), self.i32_0, LLVMSizeOf(obj_t)].as_mut_ptr(), 3, T);
