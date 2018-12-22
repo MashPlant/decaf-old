@@ -353,6 +353,7 @@ pub struct Expr {
   pub type_: SemanticType,
   // virtual register id for tac code gen
   pub tac_reg: i32,
+  // it is a ssa reg, not a pointer, so accessing it doesn't need LLVMBuildLoad
   pub llvm_val: LLVMValueRef,
   pub data: ExprData,
 }

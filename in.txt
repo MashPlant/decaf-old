@@ -11,6 +11,9 @@ class Main extends A {
     void f() {
 
     }
+    int g() {
+
+    }
     static void main() {
 
     }
