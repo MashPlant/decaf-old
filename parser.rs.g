@@ -825,7 +825,7 @@ Expr
   }
   | INSTANCEOF '(' Expr ',' IDENTIFIER ')' {
     |$1: Token, $3: Expr, $5: Token| -> Expr;
-    $$ = Expr::new($1.get_loc(), ExprData::TypeTest { expr: Box::new($3), name: $5.value, });
+    $$ = Expr::new($1.get_loc(), ExprData::TypeTest { expr: Box::new($3), name: $5.value, target_class: ptr::null() });
   }
   | '(' CLASS IDENTIFIER ')' Expr {
     |$3: Token, $5: Expr| -> Expr;

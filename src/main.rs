@@ -95,8 +95,8 @@ fn main() {
     .group(ArgGroup::with_name("USAGE").required(true).args(&["LEX", "SCOPE", "TAC", "JVM", "LLVM"]))
     .arg(Arg::with_name("INPUT").required(true))
     .arg(Arg::with_name("OUTPUT").short("o").long("output").value_name("FILE").takes_value(true))
-//    .get_matches()
-    .get_matches_from(&["", "--llvm", "in.txt"])
+    .get_matches()
+//    .get_matches_from(&["", "--llvm", "in.txt"])
   ;
   if let Err(errors) = compile(read_input(matches.value_of("INPUT").unwrap()), &matches) {
     for error in errors { println!("{}", error); }

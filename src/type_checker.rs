@@ -246,6 +246,7 @@ impl TypeChecker {
       NewArray { elem_t, len } => {
         expr.type_ = SemanticType::Array(Box::new(elem_t.sem.clone()));
         self.semantic_type(&mut expr.type_, elem_t.loc);
+        elem_t.sem = if let SemanticType::Array(elem) = &expr.type_ { elem.as_ref().clone() } else { unreachable!() };
         self.expr(len);
         if !len.type_.error_or(&INT) { self.issue(len.loc, BadNewArrayLen {}); }
       }
