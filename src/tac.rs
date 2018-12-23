@@ -151,11 +151,3 @@ pub const PRINT_INT: IntrinsicCall = IntrinsicCall { name: "_PrintInt", ret: fal
 pub const PRINT_STRING: IntrinsicCall = IntrinsicCall { name: "_PrintString", ret: false };
 pub const PRINT_BOOL: IntrinsicCall = IntrinsicCall { name: "_PrintBool", ret: false };
 pub const HALT: IntrinsicCall = IntrinsicCall { name: "_Halt", ret: false };
-
-pub const ARRAY_INDEX_OUT_OF_BOUND: &'static str = "Decaf runtime error: Array subscript out of bounds\n";
-pub const NEGATIVE_ARRAY_SIZE: &'static str = "Decaf runtime error: Cannot create negative-sized array\n";
-pub const CLASS_CAST1: &'static str = "Decaf runtime error: ";
-pub const CLASS_CAST2: &'static str = " cannot be cast to ";
-pub const CLASS_CAST3: &'static str = "\n";
-pub const DIV_0: &'static str = "Decaf runtime error: Division by zero error.\n";
-pub const REPEAT_NEG: &'static str = "Decaf runtime error: The length of the created array should not be less than 0.\n";

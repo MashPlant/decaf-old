@@ -91,10 +91,11 @@ fn main() {
     .arg(Arg::with_name("SCOPE").short("s").long("scope").help("Dump scope & type check analysis result."))
     .arg(Arg::with_name("TAC").short("t").long("tac").help("Dump tac code."))
     .arg(Arg::with_name("JVM").short("j").long("jvm").help("Dump jvm bytecode to .class file."))
-    .arg(Arg::with_name("LLVM").short("L").long("llvm").help("Dump llvm bit code."))
+    .arg(Arg::with_name("LLVM").short("L").long("llvm").help("Dump llvm ir."))
     .group(ArgGroup::with_name("USAGE").required(true).args(&["LEX", "SCOPE", "TAC", "JVM", "LLVM"]))
     .arg(Arg::with_name("INPUT").required(true))
     .arg(Arg::with_name("OUTPUT").short("o").long("output").value_name("FILE").takes_value(true))
+//    .get_matches()
     .get_matches_from(&["", "--llvm", "in.txt"])
   ;
   if let Err(errors) = compile(read_input(matches.value_of("INPUT").unwrap()), &matches) {

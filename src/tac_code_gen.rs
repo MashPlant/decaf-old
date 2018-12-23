@@ -200,7 +200,7 @@ impl TacCodeGen {
             let msg = self.new_reg();
             self.push(Tac::Jmp(after));
             self.push(Tac::Label(halt));
-            self.push(Tac::StrConst(msg, quote(ARRAY_INDEX_OUT_OF_BOUND)));
+            self.push(Tac::StrConst(msg, quote(INDEX_OUT_OF_BOUND)));
             self.push(Tac::Param(msg));
             self.intrinsic_call(PRINT_STRING);
             self.intrinsic_call(HALT);
@@ -544,7 +544,7 @@ impl TacCodeGen {
         self.push(Tac::Store(i, 0, zero));
         self.push(Tac::Jmp(before_cond));
         self.push(Tac::Label(halt));
-        self.push(Tac::StrConst(msg, quote(NEGATIVE_ARRAY_SIZE)));
+        self.push(Tac::StrConst(msg, quote(NEW_ARR_NEG)));
         self.push(Tac::Param(msg));
         self.intrinsic_call(PRINT_STRING);
         self.intrinsic_call(HALT);
@@ -563,20 +563,20 @@ impl TacCodeGen {
         let ok = self.new_label();
         let (msg, v_tbl) = (self.new_reg(), self.new_reg());
         self.push(Tac::Jne(check, ok));
-        self.push(Tac::StrConst(msg, quote(CLASS_CAST1)));
+        self.push(Tac::StrConst(msg, quote(BAD_CAST1)));
         self.push(Tac::Param(msg));
         self.intrinsic_call(PRINT_STRING);
         self.push(Tac::Load(v_tbl, src.tac_reg, 0));
         self.push(Tac::Load(msg, v_tbl, INT_SIZE)); // name info is in v-table[1]
         self.push(Tac::Param(msg));
         self.intrinsic_call(PRINT_STRING);
-        self.push(Tac::StrConst(msg, quote(CLASS_CAST2)));
+        self.push(Tac::StrConst(msg, quote(BAD_CAST2)));
         self.push(Tac::Param(msg));
         self.intrinsic_call(PRINT_STRING);
         self.push(Tac::StrConst(msg, quote(name)));
         self.push(Tac::Param(msg));
         self.intrinsic_call(PRINT_STRING);
-        self.push(Tac::StrConst(msg, quote(CLASS_CAST3)));
+        self.push(Tac::StrConst(msg, quote(BAD_CAST3)));
         self.push(Tac::Param(msg));
         self.intrinsic_call(PRINT_STRING);
         self.intrinsic_call(HALT);
