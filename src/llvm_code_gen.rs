@@ -8,6 +8,7 @@ use super::tac_code_gen::resolve_field_order;
 use llvm_sys::*;
 use llvm_sys::prelude::*;
 use llvm_sys::core::*;
+use llvm_sys::transforms::pass_manager_builder::*;
 
 use std::ffi::CString;
 use std::ptr;
@@ -48,7 +49,7 @@ pub struct LLVMCodeGen {
 }
 
 impl LLVMCodeGen {
-  pub fn gen(mut program: Program) {
+  pub fn gen(mut program: Program) -> CString {
     unsafe {
       let context = LLVMContextCreate();
       let module = LLVMModuleCreateWithNameInContext(cstr!("Decaf Program"), context);
@@ -70,8 +71,19 @@ impl LLVMCodeGen {
       let mut code_gen = LLVMCodeGen { context, module, builder, i1_t, i32_t, i8_t, void_t, str_t, i64_t, i32_0, malloc, printf, scanf, strcmp, memset, memcpy, exit, string_pool: HashMap::new(), break_stack: Vec::new(), cur_method: ptr::null_mut() };
       code_gen.program(&mut program);
       LLVMDisposeBuilder(builder);
-      LLVMDumpModule(module);
+      // optimize
+      {
+        let pm = LLVMCreatePassManager();
+        let pmb = LLVMPassManagerBuilderCreate();
+        LLVMPassManagerBuilderSetOptLevel(pmb, 3);
+        LLVMPassManagerBuilderPopulateModulePassManager(pmb, pm);
+        LLVMPassManagerBuilderDispose(pmb);
+        LLVMRunPassManager(pm, module);
+        LLVMDisposePassManager(pm);
+      }
+      let output = CString::from_raw(LLVMPrintModuleToString(module));
       LLVMContextDispose(context);
+      output
     }
   }
 }
@@ -128,6 +140,11 @@ impl LLVMCodeGen {
     LLVMBuildStore(builder, len, LLVMBuildBitCast(builder, arr_base, ptr_of(self.i32_t), T));
     let arr = LLVMBuildGEP(builder, arr_base, [LLVMSizeOf(self.i32_t)].as_mut_ptr(), 1, T);
     LLVMBuildBitCast(builder, arr, ptr_of(elem_t), T)
+  }
+
+  unsafe fn exit(&self) {
+    LLVMBuildCall(self.builder, self.exit, [self.i32_0].as_mut_ptr(), 1, T);
+    LLVMBuildUnreachable(self.builder);
   }
 
   unsafe fn cur_bb_unterminated(&self) -> bool {
@@ -217,6 +234,7 @@ impl LLVMCodeGen {
     LLVMSetInitializer(class.llvm_v_tbl, LLVMConstStruct(v_tbl_elem.as_mut_ptr(), v_tbl_elem.len() as u32, 0));
   }
 
+  // return main function
   unsafe fn program(&mut self, program: &mut Program) {
     for class in &mut program.class {
       resolve_field_order(class);
@@ -443,12 +461,13 @@ impl LLVMCodeGen {
         self.expr(&mut indexed.arr);
         self.expr(&mut indexed.idx);
         let (on_err, after) = (self.new_bb(), self.new_bb());
-        // require unsigned(index) < length, just for convenience(this may cause error, but who cares?)
-        LLVMBuildCondBr(builder, LLVMBuildICmp(builder, LLVMIntPredicate::LLVMIntULT, indexed.idx.llvm_val, self.array_length(indexed.arr.llvm_val), T), after, on_err);
+        LLVMBuildCondBr(builder, LLVMBuildAnd(builder,
+                                              LLVMBuildICmp(builder, LLVMIntPredicate::LLVMIntSLE, self.i32_0, indexed.idx.llvm_val, T),
+                                              LLVMBuildICmp(builder, LLVMIntPredicate::LLVMIntSLT, indexed.idx.llvm_val, self.array_length(indexed.arr.llvm_val), T), T)
+                        , after, on_err);
         self.label(on_err);
         LLVMBuildCall(builder, self.printf, [self.define_str(INDEX_OUT_OF_BOUND)].as_mut_ptr(), 1, T);
-        LLVMBuildCall(builder, self.exit, [self.i32_0].as_mut_ptr(), 1, T);
-        LLVMBuildBr(builder, after);
+        self.exit();
         self.label(after);
         let ptr = LLVMBuildGEP(builder, indexed.arr.llvm_val, [indexed.idx.llvm_val].as_mut_ptr(), 1, T);
         if indexed.for_assign { ptr } else { LLVMBuildLoad(builder, ptr, T) }
@@ -481,11 +500,36 @@ impl LLVMCodeGen {
         }
       }
       Unary(unary) => {
+        use ast::Operator::*;
+        if unary.op == PreInc || unary.op == PreDec || unary.op == PostInc || unary.op == PostDec {
+          if let ExprData::Id(id) = &mut unary.r.data { id.for_assign = true; }
+          if let ExprData::Indexed(indexed) = &mut unary.r.data { indexed.for_assign = true; }
+        }
         self.expr(&mut unary.r);
+        let r = unary.r.llvm_val;
+        let one = LLVMConstInt(self.i32_t, 1, 0);
         match unary.op {
-          Operator::Neg => LLVMBuildNeg(builder, unary.r.llvm_val, T),
-          Operator::Not => LLVMBuildNot(builder, unary.r.llvm_val, T),
-          _ => unimplemented!(),
+          Neg => LLVMBuildNeg(builder, r, T),
+          Not => LLVMBuildNot(builder, r, T),
+          PreInc => {
+            LLVMBuildStore(builder, LLVMBuildAdd(builder, LLVMBuildLoad(builder, r, T), one, T), r);
+            LLVMBuildLoad(builder, r, T)
+          }
+          PreDec => {
+            LLVMBuildStore(builder, LLVMBuildSub(builder, LLVMBuildLoad(builder, r, T), one, T), r);
+            LLVMBuildLoad(builder, r, T)
+          }
+          PostInc => {
+            let r_load = LLVMBuildLoad(builder, r, T);
+            LLVMBuildStore(builder, LLVMBuildAdd(builder, r_load, one, T), r);
+            r_load
+          }
+          PostDec => {
+            let r_load = LLVMBuildLoad(builder, r, T);
+            LLVMBuildStore(builder, LLVMBuildSub(builder, r_load, one, T), r);
+            r_load
+          }
+          _ => unreachable!(),
         }
       }
       Binary(binary) => {
@@ -504,8 +548,7 @@ impl LLVMCodeGen {
             LLVMBuildCondBr(builder, LLVMBuildICmp(builder, LLVMIntPredicate::LLVMIntEQ, r, self.i32_0, T), on_err, after);
             self.label(on_err);
             LLVMBuildCall(builder, self.printf, [self.define_str(DIV_0)].as_mut_ptr(), 1, T);
-            LLVMBuildCall(builder, self.exit, [self.i32_0].as_mut_ptr(), 1, T);
-            LLVMBuildBr(builder, after);
+            self.exit();
             self.label(after);
             if binary.op == Div {
               LLVMBuildSDiv(builder, l, r, T)
@@ -513,6 +556,11 @@ impl LLVMCodeGen {
               LLVMBuildSRem(builder, l, r, T)
             }
           }
+          BAnd => LLVMBuildAnd(builder, l, r, T),
+          BOr => LLVMBuildOr(builder, l, r, T),
+          BXor => LLVMBuildXor(builder, l, r, T),
+          Shl => LLVMBuildShl(builder, l, r, T),
+          Shr => LLVMBuildLShr(builder, l, r, T),
           Lt => LLVMBuildICmp(builder, LLVMIntPredicate::LLVMIntSLT, l, r, T),
           Le => LLVMBuildICmp(builder, LLVMIntPredicate::LLVMIntSLE, l, r, T),
           Gt => LLVMBuildICmp(builder, LLVMIntPredicate::LLVMIntSGT, l, r, T),
@@ -553,8 +601,7 @@ impl LLVMCodeGen {
             LLVMBuildCondBr(builder, LLVMBuildICmp(builder, LLVMIntPredicate::LLVMIntSLT, len, self.i32_0, T), on_err, after);
             self.label(on_err);
             LLVMBuildCall(builder, self.printf, [self.define_str(REPEAT_NEG)].as_mut_ptr(), 1, T);
-            LLVMBuildCall(builder, self.exit, [self.i32_0].as_mut_ptr(), 1, T);
-            LLVMBuildBr(builder, after);
+            self.exit();
             self.label(after);
             let arr = self.alloc_array(len, elem_t);
             let i = LLVMBuildAlloca(builder, self.i32_t, T);
@@ -609,8 +656,7 @@ impl LLVMCodeGen {
         LLVMBuildCondBr(builder, cmp, on_err, after);
         self.label(on_err);
         LLVMBuildCall(builder, self.printf, [self.define_str(NEW_ARR_NEG)].as_mut_ptr(), 1, T);
-        LLVMBuildCall(builder, self.exit, [self.i32_0].as_mut_ptr(), 1, T);
-        LLVMBuildBr(builder, after);
+        self.exit();
         self.label(after);
         let arr = self.alloc_array(len, elem_t);
         LLVMBuildCall(builder, self.memset, [LLVMBuildBitCast(builder, arr, self.str_t, T), self.i32_0, LLVMBuildMul(builder, LLVMBuildIntCast(builder, len, self.i64_t, T), LLVMSizeOf(elem_t), T)].as_mut_ptr(), 3, T);
@@ -630,8 +676,7 @@ impl LLVMCodeGen {
         let v_tbl = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, src.llvm_val, 0, T), T);
         let obj_name = LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, v_tbl, 1, T), T);
         LLVMBuildCall(builder, self.printf, [self.define_str(BAD_CAST), obj_name, self.define_str(name)].as_mut_ptr(), 3, T);
-        LLVMBuildCall(builder, self.exit, [self.i32_0].as_mut_ptr(), 1, T);
-        LLVMBuildBr(builder, after);
+        self.exit();
         self.label(after);
         LLVMBuildBitCast(builder, src.llvm_val, ptr_of(target_t.llvm_t), T)
       }
@@ -641,8 +686,10 @@ impl LLVMCodeGen {
         self.expr(&mut default.idx);
         let res = LLVMBuildAlloca(builder, self.type_of(&expr.type_), T);
         let (use_idx, use_dft, after) = (self.new_bb(), self.new_bb(), self.new_bb());
-        let len = self.array_length(default.arr.llvm_val);
-        LLVMBuildCondBr(builder, LLVMBuildICmp(builder, LLVMIntPredicate::LLVMIntUGE, default.idx.llvm_val, len, T), use_dft, use_idx);
+        LLVMBuildCondBr(builder, LLVMBuildAnd(builder,
+                                              LLVMBuildICmp(builder, LLVMIntPredicate::LLVMIntSLE, self.i32_0, default.idx.llvm_val, T),
+                                              LLVMBuildICmp(builder, LLVMIntPredicate::LLVMIntSLT, default.idx.llvm_val, self.array_length(default.arr.llvm_val), T), T)
+                        , use_idx, use_dft);
         self.label(use_dft);
         self.expr(&mut default.dft);
         LLVMBuildStore(builder, default.dft.llvm_val, res);

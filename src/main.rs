@@ -79,7 +79,8 @@ fn compile(input: &'static str, cmd: &ArgMatches) -> Result<(), Vec<Error>> {
     printer.flush(&mut output);
     Ok(())
   } else { // llvm
-    llvm_code_gen::LLVMCodeGen::gen(program);
+    let ir = llvm_code_gen::LLVMCodeGen::gen(program);
+    let _ = output.write(ir.to_string_lossy().as_bytes());
     Ok(())
   }
 }
@@ -96,7 +97,6 @@ fn main() {
     .arg(Arg::with_name("INPUT").required(true))
     .arg(Arg::with_name("OUTPUT").short("o").long("output").value_name("FILE").takes_value(true))
     .get_matches()
-//    .get_matches_from(&["", "--llvm", "in.txt"])
   ;
   if let Err(errors) = compile(read_input(matches.value_of("INPUT").unwrap()), &matches) {
     for error in errors { println!("{}", error); }
